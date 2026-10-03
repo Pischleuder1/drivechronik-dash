@@ -36,6 +36,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -107,6 +108,17 @@ private val DashMuted = Color(0xFF9A9DA2)
 private val DashRed = Color(0xFFE82127)
 private val DashBlue = Color(0xFF3E8BFF)
 private val DashGreen = Color(0xFF3ECF6E)
+
+
+/*
+ * Nachtfarben des Tachometers.
+ * Layout und Statusfarben bleiben unverändert.
+ */
+private val DashNightRing = Color(0xFF174A78)
+private val DashNightTickMajor = Color(0xFF4F9DFF)
+private val DashNightTickMedium = Color(0xFF3275B5)
+private val DashNightTickMinor = Color(0xFF20537F)
+
 
 data class DashboardUiState(
     val speed: Float = 100f,
@@ -460,7 +472,7 @@ private fun DashboardHeader() {
     ) {
 
         Text(
-            text = "DRIVECHRONIK DASH",
+            text = "DRIVECHRONIK DASH  ·  v${BuildConfig.VERSION_NAME}",
             color = DashText,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
@@ -1749,6 +1761,56 @@ private fun Speedometer(
     modifier: Modifier = Modifier
 ) {
 
+
+    val isNightMode =
+        isSystemInDarkTheme()
+
+    val gaugeOuterRingColor =
+        if (isNightMode)
+            DashNightRing.copy(alpha = 0.82f)
+        else
+            Color.White.copy(alpha = 0.08f)
+
+    val gaugeInnerRingColor =
+        if (isNightMode)
+            DashNightRing.copy(alpha = 0.55f)
+        else
+            Color.White.copy(alpha = 0.07f)
+
+    val gaugeMajorTickColor =
+        if (isNightMode)
+            DashNightTickMajor
+        else
+            Color.White.copy(alpha = 0.88f)
+
+    val gaugeMediumTickColor =
+        if (isNightMode)
+            DashNightTickMedium
+        else
+            Color.White.copy(alpha = 0.52f)
+
+    val gaugeMinorTickColor =
+        if (isNightMode)
+            DashNightTickMinor
+        else
+            Color.White.copy(alpha = 0.28f)
+
+    val gaugeTextColor =
+        if (isNightMode)
+            android.graphics.Color.argb(
+                220,
+                174,
+                188,
+                205
+            )
+        else
+            android.graphics.Color.argb(
+                190,
+                225,
+                229,
+                233
+            )
+
     BoxWithConstraints(
         modifier = modifier,
         contentAlignment = Alignment.Center
@@ -1789,9 +1851,7 @@ private fun Speedometer(
                  */
                 drawCircle(
                     color =
-                        Color.White.copy(
-                            alpha = 0.08f
-                        ),
+                        gaugeOuterRingColor,
                     radius =
                         outerRadius,
                     center =
@@ -1809,9 +1869,7 @@ private fun Speedometer(
 
                 drawCircle(
                     color =
-                        Color.White.copy(
-                            alpha = 0.07f
-                        ),
+                        gaugeInnerRingColor,
                     radius =
                         outerRadius * 0.93f,
                     center =
@@ -1896,19 +1954,13 @@ private fun Speedometer(
                         color =
                             when {
                                 isMajor ->
-                                    Color.White.copy(
-                                        alpha = 0.88f
-                                    )
+                                    gaugeMajorTickColor
 
                                 isMedium ->
-                                    Color.White.copy(
-                                        alpha = 0.52f
-                                    )
+                                    gaugeMediumTickColor
 
                                 else ->
-                                    Color.White.copy(
-                                        alpha = 0.28f
-                                    )
+                                    gaugeMinorTickColor
                             },
 
                         start = start,
@@ -1934,13 +1986,7 @@ private fun Speedometer(
                     Paint().apply {
 
                         color =
-                            android.graphics.Color
-                                .argb(
-                                    190,
-                                    225,
-                                    229,
-                                    233
-                                )
+                            gaugeTextColor
 
                         textAlign =
                             Paint.Align.CENTER
