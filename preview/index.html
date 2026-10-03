@@ -1,0 +1,1442 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>DriveChronik Dash</title>
+
+<style>
+:root {
+  color-scheme: dark;
+  --bg:#030405;
+  --panel:#0a0c0f;
+  --line:#20242a;
+  --text:#f5f5f5;
+  --muted:#7d848b;
+  --red:#e62b2b;
+  --blue:#3478f6;
+  --green:#28b45b;
+}
+
+* { box-sizing:border-box; }
+
+html,body {
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+}
+
+.app {
+  width:100vw;
+  height:100vh;
+  display:grid;
+  grid-template-rows:38px 1fr;
+  padding:8px 16px 10px;
+}
+
+header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid var(--line);
+}
+
+.brand {
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.16em;
+}
+
+.connection {
+  color:var(--muted);
+  font-size:11px;
+}
+
+main {
+  display:grid;
+  grid-template-columns:1.45fr .8fr;
+  min-height:0;
+}
+
+/* LINKER TACHO-KPI */
+
+.tacho-kpi {
+  position:relative;
+  border-right:1px solid var(--line);
+  display:grid;
+  grid-template-rows:1fr 108px;
+  min-height:0;
+}
+
+.tacho-area {
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.speedometer {
+  position:relative;
+  width:min(41vw,64vh);
+  aspect-ratio:1;
+  border-radius:50%;
+
+  background:
+    radial-gradient(circle at center,#070a0d 0 59%,transparent 60%),
+    conic-gradient(
+      from 225deg,
+      #444a52 0deg,
+      #444a52 270deg,
+      transparent 270deg
+    );
+}
+
+.speedometer::after {
+  content:"";
+  position:absolute;
+  inset:8%;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.08);
+}
+
+.tick {
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:2px;
+  height:9px;
+  background:#666d74;
+
+  transform-origin:50% calc(50% + var(--radius));
+  transform:
+    translate(-50%,calc(-50% - var(--radius)))
+    rotate(var(--angle));
+}
+
+.tick.major {
+  width:3px;
+  height:15px;
+  background:#c7cbd0;
+}
+
+.speed-label {
+  position:absolute;
+  left:50%;
+  top:50%;
+  color:#80878e;
+  font-size:12px;
+
+  transform:
+    translate(-50%,-50%)
+    rotate(var(--angle))
+    translateY(calc(var(--labelRadius) * -1))
+    rotate(calc(var(--angle) * -1));
+}
+
+.needle {
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:5px;
+  height:39%;
+
+  background:linear-gradient(to top,#db2020,#ff5d5d);
+  border-radius:6px;
+
+  transform-origin:50% 93%;
+  transform:translate(-50%,-93%) rotate(-135deg);
+
+  transition:transform .3s ease;
+  z-index:7;
+}
+
+.needle-center {
+  position:absolute;
+  left:50%;
+  top:50%;
+
+  width:28px;
+  height:28px;
+
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+
+  background:#df2929;
+  border:6px solid #151719;
+
+  z-index:10;
+}
+
+.digital-speed {
+  position:absolute;
+  left:50%;
+  top:67%;
+  transform:translate(-50%,-50%);
+  text-align:center;
+}
+
+.speed-number {
+  font-size:78px;
+  line-height:.9;
+  font-weight:300;
+  letter-spacing:-.05em;
+}
+
+.speed-unit {
+  margin-top:8px;
+  color:var(--muted);
+  font-size:14px;
+}
+
+.gear {
+  margin-left:10px;
+  color:#fff;
+  font-size:21px;
+  font-weight:600;
+}
+
+/* TEMPOLIMIT IM TACHO-KPI */
+
+.limit-box {
+  position:absolute;
+  top:18px;
+  right:22px;
+
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+
+  z-index:20;
+}
+
+.limit-label {
+  margin-bottom:7px;
+  color:var(--muted);
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.11em;
+  text-transform:uppercase;
+}
+
+.limit-sign {
+  width:104px;
+  height:104px;
+
+  border-radius:50%;
+  border:9px solid #df2020;
+
+  background:#fff;
+  color:#080808;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  font-size:43px;
+  font-weight:700;
+}
+
+/* RESTENERGIE */
+
+.energy-panel {
+  border-top:1px solid var(--line);
+  padding:12px 20px 10px;
+}
+
+.energy-head {
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+}
+
+.energy-title {
+  color:var(--muted);
+  font-size:16px;
+  font-weight:700;
+  letter-spacing:.12em;
+}
+
+.energy-value {
+  font-size:25px;
+  font-weight:500;
+  font-variant-numeric:tabular-nums;
+}
+
+.energy-value small {
+  color:var(--muted);
+  font-size:12px;
+}
+
+.energy-track {
+  position:relative;
+
+  height:17px;
+  margin-top:11px;
+
+  overflow:hidden;
+  border-radius:999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #e32b2b 0%,
+      #db3439 12%,
+      #a84875 26%,
+      #6360bc 39%,
+      #3478f6 50%,
+      #318bc9 61%,
+      #2c9d95 72%,
+      #2aad70 84%,
+      #28b45b 100%
+    );
+}
+
+.energy-empty {
+  position:absolute;
+  right:0;
+  top:0;
+  height:100%;
+
+  width:29%;
+
+  background:rgba(4,5,6,.82);
+}
+
+.energy-marker {
+  position:absolute;
+  top:-4px;
+
+  width:3px;
+  height:25px;
+
+  left:71%;
+
+  background:#fff;
+}
+
+.energy-scale {
+  display:flex;
+  justify-content:space-between;
+
+  margin-top:7px;
+
+  color:var(--muted);
+  font-size:16px;
+}
+
+
+.kpi-wide {
+  grid-column:1 / 3;
+}
+
+.kpi-inline-unit {
+  margin-left:5px;
+  color:var(--muted);
+  font-size:.48em;
+  font-weight:500;
+}
+
+/* RECHTE KPIs */
+
+.right {
+  padding:12px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:1fr 1fr;
+  gap:10px;
+}
+
+.kpi {
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:15px;
+
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+.kpi-title {
+  color:var(--muted);
+  font-size:16px;
+  font-weight:700;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+
+.kpi-value {
+  margin-top:9px;
+  font-size:42px;
+  line-height:1;
+  font-weight:500;
+  font-variant-numeric:tabular-nums;
+}
+
+.kpi-unit {
+  margin-top:5px;
+  color:var(--muted);
+  font-size:12px;
+}
+</style>
+
+<style id="smartphone-landscape">
+
+/*
+   Smartphone Landscape
+   Zielbereich etwa:
+   780–1000 px Breite
+   350–480 px Höhe
+*/
+
+@media (orientation: landscape) and (max-height: 500px) {
+
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+  }
+
+  .app {
+    width: 100vw;
+    height: 100svh;
+
+    grid-template-rows:
+      30px
+      minmax(0, 1fr);
+
+    padding:
+      max(4px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right))
+      max(5px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+
+  header {
+    min-height: 30px;
+  }
+
+  .brand {
+    font-size: 12px;
+    letter-spacing: .13em;
+  }
+
+  .connection {
+    font-size: 12px;
+  }
+
+  main {
+    grid-template-columns:
+      minmax(0, 1.48fr)
+      minmax(280px, .82fr);
+  }
+
+  /* kompletter linker KPI */
+
+  .tacho-kpi {
+    grid-template-rows:
+      minmax(0, 1fr)
+      72px;
+  }
+
+  .tacho-area {
+    overflow: hidden;
+  }
+
+  /* Tacho */
+
+  .speedometer {
+    width: min(43vw, 62vh);
+    max-width: 300px;
+    min-width: 225px;
+  }
+
+  .tick {
+    height: 7px;
+  }
+
+  .tick.major {
+    height: 12px;
+  }
+
+  .speed-label {
+    font-size: 12px;
+  }
+
+  .needle {
+    width: 4px;
+  }
+
+  .needle-center {
+    width: 20px;
+    height: 20px;
+    border-width: 4px;
+  }
+
+  .speed-number {
+    font-size: clamp(49px, 7.5vh, 67px);
+  }
+
+  .speed-unit {
+    margin-top: 5px;
+    font-size: 13px;
+  }
+
+  .gear {
+    margin-left: 6px;
+    font-size: 19px;
+  }
+
+  /* Tempolimit oben rechts,
+     innerhalb Tacho-KPI aber
+     außerhalb des Rundinstruments */
+
+  .limit-box {
+    top: 10px;
+    right: 12px;
+  }
+
+  .limit-sign {
+    width: 82px;
+    height: 82px;
+
+    border-width: 7px;
+
+    font-size: 37px;
+  }
+
+  /* Restenergie */
+
+  .energy-panel {
+    padding:
+      7px
+      14px
+      6px;
+  }
+
+  .energy-title {
+    font-size: 16px;
+  }
+
+  .energy-value {
+    font-size: 21px;
+  }
+
+  .energy-value small {
+    font-size: 12px;
+  }
+
+  .energy-track {
+    height: 11px;
+    margin-top: 6px;
+  }
+
+  .energy-marker {
+    top: -3px;
+    height: 17px;
+    width: 2px;
+  }
+
+  .energy-scale {
+    margin-top: 4px;
+    font-size: 16px;
+  }
+
+  /* rechte KPIs */
+
+  .right {
+    padding: 7px;
+
+    grid-template-columns:
+      1fr
+      1fr;
+
+    grid-template-rows:
+      1fr
+      1fr;
+
+    gap: 6px;
+  }
+
+  .kpi {
+    border-radius: 12px;
+    padding: 9px 11px;
+  }
+
+  .kpi-title {
+    font-size: 16px;
+    letter-spacing: .09em;
+  }
+
+  .kpi-value {
+    margin-top: 5px;
+
+    font-size:
+      clamp(27px, 6.5vh, 37px);
+  }
+
+  .kpi-unit {
+    margin-top: 3px;
+    font-size: 12px;
+  }
+}
+
+
+/*
+   Noch kleinere Landscape-Geräte
+*/
+
+@media (orientation: landscape) and (max-height: 390px) {
+
+  .app {
+    grid-template-rows:
+      26px
+      minmax(0, 1fr);
+  }
+
+  main {
+    grid-template-columns:
+      1.42fr
+      .88fr;
+  }
+
+  .tacho-kpi {
+    grid-template-rows:
+      minmax(0, 1fr)
+      62px;
+  }
+
+  .speedometer {
+    width: min(40vw, 58vh);
+    min-width: 195px;
+  }
+
+  .speed-number {
+    font-size: 47px;
+  }
+
+  .limit-sign {
+    width: 70px;
+    height: 70px;
+    border-width: 6px;
+    font-size: 32px;
+  }
+
+  .limit-box {
+    top: 6px;
+    right: 8px;
+  }
+
+  .energy-panel {
+    padding:
+      5px
+      12px
+      4px;
+  }
+
+  .energy-track {
+    height: 9px;
+    margin-top: 4px;
+  }
+
+  .energy-scale {
+    margin-top: 2px;
+  }
+
+  .right {
+    padding: 5px;
+    gap: 5px;
+  }
+
+  .kpi {
+    padding: 7px 9px;
+  }
+
+  .kpi-value {
+    font-size: 28px;
+  }
+}
+
+</style>
+
+
+<style id="two-kpi-layout">
+.right {
+  grid-template-columns: 1fr 1fr !important;
+  grid-template-rows: 1fr !important;
+}
+
+.kpi-wide {
+  grid-column: auto !important;
+}
+</style>
+
+
+<style id="tacho-refinement">
+
+/* =========================================================
+   DRIVECHRONIK DASH
+   Tacho Feinschliff
+   ========================================================= */
+
+/* Rundinstrument */
+
+.speedometer {
+  width: min(43vw, 67vh);
+
+  background:
+    radial-gradient(
+      circle at 50% 47%,
+      rgba(18,22,26,.95) 0%,
+      rgba(8,10,13,.98) 52%,
+      #030405 72%
+    );
+
+  border: 1px solid rgba(255,255,255,.07);
+
+  box-shadow:
+    inset 0 0 45px rgba(0,0,0,.75),
+    inset 0 0 2px rgba(255,255,255,.15),
+    0 8px 30px rgba(0,0,0,.32);
+}
+
+
+/* dezenter Außenring */
+
+.speedometer::before {
+  content: "";
+  position: absolute;
+  inset: 3.5%;
+
+  border-radius: 50%;
+
+  border:
+    2px solid
+    rgba(255,255,255,.075);
+
+  box-shadow:
+    inset 0 0 18px rgba(255,255,255,.025);
+
+  pointer-events: none;
+}
+
+
+/* innerer Ring */
+
+.speedometer::after {
+  inset: 14%;
+
+  border:
+    1px solid
+    rgba(255,255,255,.045);
+}
+
+
+/* kleine Teilstriche */
+
+.tick {
+  width: 1px;
+  height: 7px;
+
+  background:
+    rgba(255,255,255,.24);
+}
+
+
+/* mittlere Teilstriche */
+
+.tick.medium {
+  width: 2px;
+  height: 11px;
+
+  background:
+    rgba(255,255,255,.43);
+}
+
+
+/* Hauptmarkierungen */
+
+.tick.major {
+  width: 3px;
+  height: 17px;
+
+  border-radius: 2px;
+
+  background:
+    rgba(255,255,255,.82);
+}
+
+
+/* Skalenwerte */
+
+.speed-label {
+  color: rgba(220,224,228,.72);
+
+  font-size: 13px;
+  font-weight: 500;
+
+  font-variant-numeric:
+    tabular-nums;
+}
+
+
+/* rote Tachonadel */
+
+.needle {
+  width: 4px;
+  height: 43%;
+
+  border-radius:
+    100% 100% 2px 2px;
+
+  background:
+    linear-gradient(
+      to top,
+      #b51414 0%,
+      #e42626 55%,
+      #ff6565 100%
+    );
+
+  box-shadow:
+    0 0 4px rgba(255,40,40,.55),
+    0 0 12px rgba(230,30,30,.20);
+
+  transform-origin:
+    50% 92%;
+}
+
+
+/* kleine Verlängerung hinter dem Mittelpunkt */
+
+.needle::after {
+  content: "";
+
+  position: absolute;
+
+  left: 50%;
+  bottom: -17px;
+
+  width: 4px;
+  height: 25px;
+
+  transform:
+    translateX(-50%);
+
+  border-radius: 3px;
+
+  background:
+    #a91616;
+}
+
+
+/* Mittelpunkt */
+
+.needle-center {
+  width: 25px;
+  height: 25px;
+
+  background:
+    radial-gradient(
+      circle,
+      #f34a4a 0%,
+      #d72222 38%,
+      #8d1111 70%,
+      #181a1d 73%
+    );
+
+  border:
+    4px solid #15181b;
+
+  box-shadow:
+    0 0 0 1px
+    rgba(255,255,255,.10),
+    0 3px 8px
+    rgba(0,0,0,.65);
+}
+
+
+/* Digitalwert etwas höher und klarer */
+
+.digital-speed {
+  top: 66%;
+}
+
+.speed-number {
+  font-size:
+    clamp(58px, 7vw, 88px);
+
+  font-weight: 250;
+
+  letter-spacing:
+    -.055em;
+}
+
+.speed-unit {
+  margin-top: 7px;
+
+  font-size: 14px;
+
+  letter-spacing: .02em;
+}
+
+
+/* Gang etwas dezenter */
+
+.gear {
+  font-size: 19px;
+
+  margin-left: 9px;
+}
+
+
+/* Tempolimit oben rechts im gesamten Tacho-KPI */
+
+.limit-box {
+  top: 17px;
+  right: 20px;
+}
+
+.limit-sign {
+  width: 112px;
+  height: 112px;
+
+  border-width: 9px;
+
+  font-size: 46px;
+
+  box-shadow:
+    0 5px 16px rgba(0,0,0,.32);
+}
+
+
+/* =========================================================
+   SMARTPHONE QUERFORMAT
+   ========================================================= */
+
+@media (orientation: landscape) and (max-height: 500px) {
+
+  .speedometer {
+    width: min(42vw, 66vh);
+    max-width: 290px;
+    min-width: 215px;
+  }
+
+  .speed-label {
+    font-size: 12px;
+  }
+
+  .tick {
+    height: 6px;
+  }
+
+  .tick.medium {
+    height: 9px;
+  }
+
+  .tick.major {
+    height: 14px;
+  }
+
+  .needle {
+    width: 3px;
+    height: 42%;
+  }
+
+  .needle::after {
+    width: 3px;
+    height: 20px;
+    bottom: -14px;
+  }
+
+  .needle-center {
+    width: 21px;
+    height: 21px;
+    border-width: 3px;
+  }
+
+  .speed-number {
+    font-size:
+      clamp(50px, 15vh, 68px);
+  }
+
+  .speed-unit {
+    font-size: 13px;
+  }
+
+  .gear {
+    font-size: 18px;
+  }
+
+  .limit-box {
+    top: 9px;
+    right: 11px;
+  }
+
+  .limit-sign {
+    width: 90px;
+    height: 90px;
+
+    border-width: 7px;
+
+    font-size: 38px;
+  }
+}
+
+
+/* sehr flache Smartphones */
+
+@media (orientation: landscape) and (max-height: 390px) {
+
+  .speedometer {
+    width: min(39vw, 62vh);
+    min-width: 190px;
+  }
+
+  .speed-number {
+    font-size: 48px;
+  }
+
+  .speed-label {
+    font-size: 11px;
+  }
+
+  .limit-sign {
+    width: 80px;
+    height: 80px;
+
+    border-width: 6px;
+
+    font-size: 34px;
+  }
+
+  .limit-box {
+    top: 6px;
+    right: 8px;
+  }
+}
+
+</style>
+
+
+<style id="speed-scale-fix">
+
+/* ---------------------------------------------------------
+   TACHOSKALA
+   --------------------------------------------------------- */
+
+.tick {
+  position: absolute;
+
+  margin: 0;
+
+  transform-origin: center center;
+
+  border-radius: 2px;
+
+  z-index: 3;
+}
+
+
+/* 5-km/h Teilstrich */
+
+.tick.minor {
+  width: 1px;
+  height: 7px;
+
+  background:
+    rgba(210,215,220,.34);
+}
+
+
+/* 10-km/h Teilstrich */
+
+.tick.medium {
+  width: 2px;
+  height: 11px;
+
+  background:
+    rgba(225,230,235,.58);
+}
+
+
+/* 25-km/h Hauptstrich */
+
+.tick.major {
+  width: 3px;
+  height: 17px;
+
+  background:
+    rgba(245,247,249,.92);
+
+  box-shadow:
+    0 0 3px rgba(255,255,255,.08);
+}
+
+
+/* Skalenbeschriftung 0 / 50 / 100 / 150 / 200 */
+
+.speed-label {
+  position: absolute;
+
+  margin: 0;
+
+  color:
+    rgba(225,229,233,.76);
+
+  font-size: 13px;
+  font-weight: 500;
+
+  line-height: 1;
+
+  font-variant-numeric:
+    tabular-nums;
+
+  z-index: 4;
+}
+
+
+/* Smartphone Landscape */
+
+@media (orientation: landscape) and (max-height: 500px) {
+
+  .tick.minor {
+    height: 6px;
+  }
+
+  .tick.medium {
+    height: 9px;
+  }
+
+  .tick.major {
+    height: 14px;
+  }
+
+  .speed-label {
+    font-size: 12px;
+  }
+}
+
+
+/* sehr flaches Display */
+
+@media (orientation: landscape) and (max-height: 390px) {
+
+  .tick.minor {
+    height: 5px;
+  }
+
+  .tick.medium {
+    height: 8px;
+  }
+
+  .tick.major {
+    height: 12px;
+  }
+
+  .speed-label {
+    font-size: 11px;
+  }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="app">
+
+<header>
+  <div class="brand">DRIVECHRONIK DASH</div>
+  <div class="connection">● Tesla BLE</div>
+</header>
+
+<main>
+
+<section class="tacho-kpi">
+
+  <div class="tacho-area">
+
+    <div class="limit-box">
+      <div class="limit-sign">100</div>
+    </div>
+
+    <div class="speedometer" id="speedometer">
+
+      <div class="needle" id="needle"></div>
+      <div class="needle-center"></div>
+
+      <div class="digital-speed">
+        <div class="speed-number" id="speed">96</div>
+
+        <div class="speed-unit">
+          km/h
+          <span class="gear">D</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="energy-panel">
+
+    <div class="energy-head">
+
+      <div class="energy-title">
+        RESTENERGIE
+      </div>
+
+      <div class="energy-value">
+        <span id="energyKwh">42.6</span>
+        <small>kWh</small>
+      </div>
+
+    </div>
+
+    <div class="energy-track">
+
+      <div
+        class="energy-empty"
+        id="energyEmpty">
+      </div>
+
+      <div
+        class="energy-marker"
+        id="energyMarker">
+      </div>
+
+    </div>
+
+    <div class="energy-scale">
+      <span>0%</span>
+      <span>25%</span>
+      <span>50%</span>
+      <span>75%</span>
+      <span>100%</span>
+    </div>
+
+  </div>
+
+</section>
+
+
+<section class="right">
+
+  <div class="kpi">
+    <div class="kpi-title">Leistung</div>
+    <div class="kpi-value">
+      <span id="power">15.1</span>
+      <span class="kpi-inline-unit">kW</span>
+    </div>
+  </div>
+
+  <div class="kpi">
+    <div class="kpi-title">Reichweite</div>
+    <div class="kpi-value">
+      318
+      <span class="kpi-inline-unit">km</span>
+    </div>
+  </div>
+
+</section>
+
+</main>
+
+</div>
+
+
+<script>
+const MAX_SPEED = 200;
+
+/*
+  In der Simulation zunächst 60 kWh
+  nutzbare Batterie angenommen.
+  Später ersetzen wir das durch den
+  tatsächlichen Tesla-Wert.
+*/
+const MAX_ENERGY_KWH = 60.0;
+
+const speedometer =
+  document.getElementById("speedometer");
+
+
+for (let speed = 0; speed <= MAX_SPEED; speed += 5) {
+
+  /*
+     0 km/h   = -135°
+     100 km/h =    0°
+     200 km/h = +135°
+  */
+  const angle =
+    -135 + (speed / MAX_SPEED) * 270;
+
+  const rad =
+    angle * Math.PI / 180;
+
+  /*
+     Position auf dem äußeren Kreis.
+     Winkel 0° zeigt nach oben.
+  */
+  const radius =
+    speed % 25 === 0
+      ? 42.0
+      : speed % 10 === 0
+        ? 42.7
+        : 43.2;
+
+  const x =
+    50 + Math.sin(rad) * radius;
+
+  const y =
+    50 - Math.cos(rad) * radius;
+
+  const tick =
+    document.createElement("div");
+
+  if (speed % 25 === 0) {
+    tick.className = "tick major";
+  }
+  else if (speed % 10 === 0) {
+    tick.className = "tick medium";
+  }
+  else {
+    tick.className = "tick minor";
+  }
+
+  tick.style.left = x + "%";
+  tick.style.top = y + "%";
+
+  tick.style.transform =
+    `translate(-50%, -50%) rotate(${angle}deg)`;
+
+  speedometer.appendChild(tick);
+
+
+  /*
+     Zahlen nur alle 50 km/h
+  */
+  if (speed % 50 === 0) {
+
+    const labelRadius = 35.5;
+
+    const lx =
+      50 + Math.sin(rad) * labelRadius;
+
+    const ly =
+      50 - Math.cos(rad) * labelRadius;
+
+    const label =
+      document.createElement("div");
+
+    label.className =
+      "speed-label";
+
+    label.textContent =
+      speed;
+
+    label.style.left =
+      lx + "%";
+
+    label.style.top =
+      ly + "%";
+
+    label.style.transform =
+      "translate(-50%, -50%)";
+
+    speedometer.appendChild(label);
+  }
+}
+
+
+
+function updateSpeed(speed) {
+
+  const s =
+    Math.max(
+      0,
+      Math.min(MAX_SPEED,speed)
+    );
+
+  const angle =
+    -135 + (s/MAX_SPEED)*270;
+
+  document
+    .getElementById("needle")
+    .style.transform =
+      `translate(-50%,-93%) rotate(${angle}deg)`;
+
+  document
+    .getElementById("speed")
+    .textContent =
+      Math.round(speed);
+}
+
+
+function updateEnergy(kwh) {
+
+  const percentage =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        kwh / MAX_ENERGY_KWH * 100
+      )
+    );
+
+  document
+    .getElementById("energyKwh")
+    .textContent =
+      kwh.toFixed(1);
+
+  document
+    .getElementById("energyMarker")
+    .style.left =
+      percentage + "%";
+
+  document
+    .getElementById("energyEmpty")
+    .style.width =
+      (100-percentage) + "%";
+}
+
+
+let t=0;
+
+setInterval(()=>{
+
+  t += .12;
+
+  const speed =
+    96 + Math.sin(t)*10;
+
+  const power =
+    15.1 +
+    Math.sin(t*1.65)*6;
+
+  const remainingKwh =
+    42.6 +
+    Math.sin(t*.3)*1.3;
+
+
+  updateSpeed(speed);
+
+  updateEnergy(
+    remainingKwh
+  );
+
+  document
+    .getElementById("power")
+    .textContent =
+      power.toFixed(1);
+
+},400);
+</script>
+
+</body>
+</html>
