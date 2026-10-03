@@ -314,4 +314,60 @@ class TeslaDashboardTelemetryTest {
             result.driveAgeMillis
         )
     }
+
+    @Test
+    fun freshDriveGearIsDisplayed() {
+
+        val telemetry =
+            TeslaDashboardTelemetry(
+                gear = "D",
+                driveAgeMillis = 2_999L
+            )
+
+        assertEquals(
+            "D",
+            TeslaDashboardTelemetryMapper
+                .displayGear(
+                    telemetry
+                )
+        )
+    }
+
+
+    @Test
+    fun staleDriveGearIsNotDisplayed() {
+
+        val telemetry =
+            TeslaDashboardTelemetry(
+                gear = "D",
+                driveAgeMillis = 3_001L
+            )
+
+        assertNull(
+            TeslaDashboardTelemetryMapper
+                .displayGear(
+                    telemetry
+                )
+        )
+    }
+
+
+    @Test
+    fun verboseGearNameIsNormalized() {
+
+        val telemetry =
+            TeslaDashboardTelemetry(
+                gear = "reverse",
+                driveAgeMillis = 500L
+            )
+
+        assertEquals(
+            "R",
+            TeslaDashboardTelemetryMapper
+                .displayGear(
+                    telemetry
+                )
+        )
+    }
+
 }

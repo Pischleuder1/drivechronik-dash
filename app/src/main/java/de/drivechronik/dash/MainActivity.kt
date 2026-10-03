@@ -27,6 +27,7 @@ import de.drivechronik.dash.ble.TeslaLiveProtocolConfig
 import de.drivechronik.dash.ble.TeslaProtocolSessionStatus
 import com.tesla.generated.universalmessage.UniversalMessage
 import de.drivechronik.dash.ble.TeslaVehicleDataRouter
+import de.drivechronik.dash.ble.TeslaDashboardTelemetryMapper
 import de.drivechronik.dash.data.TeslaDashboardRepository
 import android.graphics.Typeface
 import android.os.Bundle
@@ -68,6 +69,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -127,7 +129,8 @@ data class DashboardUiState(
     val remainingKwh: Float = 43.7f,
     val usableCapacityKwh: Float = 60f,
     val rangeKm: Int = 308,
-    val leftIndicator: Boolean = false,
+        val gear: String = "D",
+val leftIndicator: Boolean = false,
     val rightIndicator: Boolean = false,
     val lowBeam: Boolean = true,
     val highBeam: Boolean = false,
@@ -200,6 +203,78 @@ private fun DriveChronikDashboard() {
         mutableIntStateOf(0)
     }
 
+    /*
+     * Reale Tesla-Daten beobachten.
+     *
+     * Die Simulation bleibt bis zum ersten echten
+     * DriveState unverändert aktiv.
+     */
+    val liveSnapshot by
+        TeslaDashboardRepository
+            .snapshot
+            .collectAsState()
+
+    var telemetryNowNanos by
+        remember {
+            mutableStateOf(
+                System.nanoTime()
+            )
+        }
+
+    /*
+     * Auch wenn kein neues BLE-Paket kommt,
+     * muss das Alter der Daten weiterlaufen.
+     */
+    LaunchedEffect(Unit) {
+
+        while (true) {
+
+            telemetryNowNanos =
+                System.nanoTime()
+
+            delay(500L)
+        }
+    }
+
+    val liveTelemetry =
+        TeslaDashboardTelemetryMapper
+            .map(
+                snapshot =
+                    liveSnapshot,
+
+                nowNanos =
+                    telemetryNowNanos
+            )
+
+    /*
+     * Solange noch nie reale Drive-Daten
+     * angekommen sind, bleibt die UI-Simulation
+     * bei D.
+     *
+     * Sobald echte Daten existieren:
+     * - frisch <= 3 s -> echte Fahrstufe
+     * - älter       -> —
+     *
+     * Dadurch fällt das Dashboard nach einem
+     * Verbindungsabbruch NICHT zurück auf D.
+     */
+    val displayGear =
+        if (
+            liveSnapshot
+                .driveUpdatedAtNanos ==
+            null
+        ) {
+            "D"
+        }
+        else {
+            TeslaDashboardTelemetryMapper
+                .displayGear(
+                    liveTelemetry
+                )
+                ?: "—"
+        }
+
+
     LaunchedEffect(Unit) {
 
         val limits =
@@ -270,7 +345,9 @@ private fun DriveChronikDashboard() {
             usableCapacityKwh = 60f,
             rangeKm = rangeKm,
 
-            // Blinkersimulation
+                        gear = displayGear,
+
+// Blinkersimulation
             leftIndicator =
                 (tick % 120 in 10..34) &&
                 (tick % 4 < 2),
@@ -340,7 +417,8 @@ private fun DashboardContent(
 
                     Speedometer(
                         speed = state.speed,
-                        modifier =
+                                                gear = state.gear,
+modifier =
                             Modifier
                                 .fillMaxSize()
                                 .padding(
@@ -1758,6 +1836,7 @@ private fun TeslaBleHeaderStatus() {
 @Composable
 private fun Speedometer(
     speed: Float,
+    gear: String = "D",
     modifier: Modifier = Modifier
 ) {
 
@@ -2197,7 +2276,7 @@ private fun Speedometer(
                     )
 
                     Text(
-                        text = "D",
+                        text = gear,
                         color = DashText,
                         fontSize = 18.sp,
                         fontWeight =

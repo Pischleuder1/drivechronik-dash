@@ -1,5 +1,7 @@
 package de.drivechronik.dash.ble
 
+import java.util.Locale
+
 
 data class TeslaDashboardTelemetry(
 
@@ -133,6 +135,80 @@ object TeslaDashboardTelemetryMapper {
                     nowNanos
                 )
         )
+    }
+
+
+    /*
+     * Drive-Daten sollen im Fahrerdisplay nicht
+     * unbegrenzt weiter angezeigt werden.
+     */
+    fun isDriveFresh(
+        telemetry: TeslaDashboardTelemetry,
+        maxAgeMillis: Long = 3_000L
+    ): Boolean {
+
+        val age =
+            telemetry.driveAgeMillis
+                ?: return false
+
+        return age <= maxAgeMillis
+    }
+
+
+    /*
+     * Tesla liefert shiftState als String.
+     *
+     * Für das Dashboard werden ausschließlich
+     * P / R / N / D dargestellt.
+     *
+     * Bei veralteten oder unbekannten Daten:
+     * null -> UI zeigt "—".
+     */
+    fun displayGear(
+        telemetry: TeslaDashboardTelemetry,
+        maxAgeMillis: Long = 3_000L
+    ): String? {
+
+        if (
+            !isDriveFresh(
+                telemetry,
+                maxAgeMillis
+            )
+        ) {
+            return null
+        }
+
+        val raw =
+            telemetry.gear
+                ?.trim()
+                ?.uppercase(Locale.ROOT)
+                ?: return null
+
+        return when (raw) {
+
+            "P",
+            "PARK",
+            "SHIFT_STATE_PARK" ->
+                "P"
+
+            "R",
+            "REVERSE",
+            "SHIFT_STATE_REVERSE" ->
+                "R"
+
+            "N",
+            "NEUTRAL",
+            "SHIFT_STATE_NEUTRAL" ->
+                "N"
+
+            "D",
+            "DRIVE",
+            "SHIFT_STATE_DRIVE" ->
+                "D"
+
+            else ->
+                null
+        }
     }
 
 
