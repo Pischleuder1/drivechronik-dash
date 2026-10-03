@@ -1,6 +1,18 @@
 package de.drivechronik.dash
 
 import android.graphics.Paint
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import de.drivechronik.dash.ble.TeslaBleScanState
+import de.drivechronik.dash.ble.TeslaBleScanStatus
+import de.drivechronik.dash.ble.TeslaBleScanner
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.WindowManager
@@ -431,28 +443,193 @@ private fun DashboardHeader() {
                 Modifier.weight(1f)
         )
 
+        TeslaBleHeaderStatus()
+    }
+}
+
+
+private fun hasBlePermissions(
+    context: Context
+): Boolean {
+
+    return (
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.BLUETOOTH_SCAN
+        ) ==
+            PackageManager.PERMISSION_GRANTED
+        &&
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.BLUETOOTH_CONNECT
+        ) ==
+            PackageManager.PERMISSION_GRANTED
+    )
+}
+
+
+@Composable
+private fun TeslaBleHeaderStatus() {
+
+    val context =
+        LocalContext.current
+
+    var permissionGranted by
+        remember {
+            mutableStateOf(
+                hasBlePermissions(
+                    context
+                )
+            )
+        }
+
+    var scanState by
+        remember {
+            mutableStateOf(
+                TeslaBleScanState()
+            )
+        }
+
+    val scanner =
+        remember {
+            TeslaBleScanner(
+                context.applicationContext
+            ) {
+                scanState = it
+            }
+        }
+
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts
+                .RequestMultiplePermissions()
+        ) {
+
+            permissionGranted =
+                hasBlePermissions(
+                    context
+                )
+        }
+
+    /*
+     * Bei erstem Start Berechtigungen
+     * für "Geräte in der Nähe" anfordern.
+     */
+    LaunchedEffect(Unit) {
+
+        if (!permissionGranted) {
+
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission
+                        .BLUETOOTH_SCAN,
+
+                    Manifest.permission
+                        .BLUETOOTH_CONNECT
+                )
+            )
+        }
+    }
+
+    /*
+     * Nach erteilter Berechtigung einmal
+     * 12 Sekunden lokal nach Tesla suchen.
+     */
+    LaunchedEffect(
+        permissionGranted
+    ) {
+
+        if (permissionGranted) {
+
+            scanner.startScan(
+                durationMs =
+                    12_000L
+            )
+        }
+    }
+
+    DisposableEffect(scanner) {
+
+        onDispose {
+            scanner.stopScan()
+        }
+    }
+
+    val text =
+        when (
+            scanState.status
+        ) {
+
+            TeslaBleScanStatus.IDLE ->
+                "Tesla BLE"
+
+            TeslaBleScanStatus.SCANNING ->
+                "BLE Scan · ${scanState.devicesSeen}"
+
+            TeslaBleScanStatus.FOUND ->
+                scanState.name
+                    ?: "Tesla gefunden"
+
+            TeslaBleScanStatus.NOT_FOUND ->
+                "Tesla nicht gefunden"
+
+            TeslaBleScanStatus.PERMISSION_MISSING ->
+                "BLE Freigabe"
+
+            TeslaBleScanStatus.BLUETOOTH_OFF ->
+                "Bluetooth aus"
+
+            TeslaBleScanStatus.ERROR ->
+                "BLE Fehler"
+        }
+
+    val dotColor =
+        when (
+            scanState.status
+        ) {
+
+            TeslaBleScanStatus.FOUND ->
+                Color(0xFF45D177)
+
+            TeslaBleScanStatus.SCANNING ->
+                Color(0xFF4A90FF)
+
+            TeslaBleScanStatus.ERROR,
+            TeslaBleScanStatus.BLUETOOTH_OFF ->
+                Color(0xFFE82127)
+
+            else ->
+                DashMuted
+        }
+
+    Row(
+        verticalAlignment =
+            Alignment.CenterVertically
+    ) {
+
         Box(
             modifier =
                 Modifier
                     .size(7.dp)
                     .background(
-                        DashMuted,
+                        dotColor,
                         CircleShape
                     )
         )
 
         Spacer(
             modifier =
-                Modifier.width(5.dp)
+                Modifier.width(6.dp)
         )
 
         Text(
-            text = "Tesla BLE",
+            text = text,
             color = DashMuted,
             fontSize = 11.sp
         )
     }
 }
+
 
 @Composable
 private fun Speedometer(
