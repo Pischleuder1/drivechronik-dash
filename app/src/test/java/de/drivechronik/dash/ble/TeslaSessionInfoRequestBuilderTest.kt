@@ -76,6 +76,11 @@ class TeslaSessionInfoRequestBuilderTest {
                 .uuid
                 .toByteArray()
         )
+
+        assertEquals(
+            2,
+            message.flags
+        )
     }
 
 

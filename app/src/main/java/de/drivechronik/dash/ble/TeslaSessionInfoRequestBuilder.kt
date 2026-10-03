@@ -85,6 +85,13 @@ object TeslaSessionInfoRequestBuilder {
                     uuid
                 )
             )
+            .setFlags(
+                1 shl
+                    UniversalMessage
+                        .Flags
+                        .FLAG_ENCRYPT_RESPONSE
+                        .number
+            )
             .build()
     }
 
