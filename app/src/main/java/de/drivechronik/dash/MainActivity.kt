@@ -1555,6 +1555,71 @@ private fun TeslaBleHeaderStatus() {
             },
 
 
+            onResetSetup = {
+
+                /*
+                 * Nur die lokale Tesla-BLE-Einrichtung
+                 * dieses Gerätes zurücksetzen.
+                 */
+                sessionController
+                    ?.clear()
+
+
+                keyAuthorizationMessage =
+                    null
+
+
+                val resetConfig =
+                    TeslaLiveProtocolConfig(
+                        enabled = false,
+                        keyEnrollmentConfirmed = false,
+                        vin = ""
+                    )
+
+
+                liveProtocolSettings
+                    .save(
+                        resetConfig
+                    )
+
+
+                liveProtocolConfig =
+                    resetConfig
+
+
+                try {
+
+                    TeslaKeyStore
+                        .deleteKey()
+
+
+                    keyPresent =
+                        TeslaKeyStore
+                            .hasKey()
+
+
+                    keyError =
+                        if (!keyPresent)
+                            null
+                        else
+                            "Lokaler Schlüssel konnte nicht gelöscht werden"
+                }
+                catch (e: Exception) {
+
+                    keyPresent =
+                        runCatching {
+                            TeslaKeyStore.hasKey()
+                        }
+                            .getOrDefault(false)
+
+
+                    keyError =
+                        e.message
+                            ?: "Lokale Einrichtung konnte nicht vollständig zurückgesetzt werden"
+                }
+            },
+
+
             onDismiss = {
 
                 showTeslaSetup =
@@ -2641,6 +2706,9 @@ private fun TeslaBleSetupDialog(
     onDeleteKey:
         () -> Unit,
 
+    onResetSetup:
+        () -> Unit,
+
     onDismiss:
         () -> Unit,
 
@@ -2648,6 +2716,37 @@ private fun TeslaBleSetupDialog(
         (TeslaLiveProtocolConfig) -> Unit
 
 ) {
+
+    val setupContext =
+        LocalContext.current
+
+
+    val isDebuggable =
+        (
+            setupContext
+                .applicationInfo
+                .flags and
+                android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE
+        ) != 0
+
+
+    /*
+     * Reine UI-Vorschau.
+     *
+     * Verändert weder Tesla-Autorisierung
+     * noch SharedPreferences oder BLE.
+     */
+    var previewStep4 by
+        remember {
+            mutableStateOf(false)
+        }
+
+
+    var previewLiveEnabled by
+        remember {
+            mutableStateOf(false)
+        }
+
 
     var vin by
         remember(
@@ -2687,6 +2786,13 @@ private fun TeslaBleSetupDialog(
 
 
     var confirmKeyDeletion by
+        remember {
+            mutableStateOf(false)
+        }
+
+
+
+    var confirmResetSetup by
         remember {
             mutableStateOf(false)
         }
@@ -2746,6 +2852,22 @@ private fun TeslaBleSetupDialog(
         activeStep == 4 &&
             liveEnabled &&
             livePossible
+
+
+    /*
+     * Nur die Darstellung kann in der
+     * Debug-Version auf Schritt 4 springen.
+     *
+     * activeStep bleibt unverändert echt.
+     */
+    val displayStep =
+        if (
+            isDebuggable &&
+            previewStep4
+        )
+            4
+        else
+            activeStep
 
 
     val cardColor =
@@ -2874,7 +2996,7 @@ private fun TeslaBleSetupDialog(
                     for (step in 1..4) {
 
                         val done =
-                            step < activeStep ||
+                            step < displayStep ||
                                 (
                                     step == 4 &&
                                     setupComplete
@@ -2882,7 +3004,7 @@ private fun TeslaBleSetupDialog(
 
 
                         val active =
-                            step == activeStep &&
+                            step == displayStep &&
                                 !setupComplete
 
 
@@ -2974,11 +3096,24 @@ private fun TeslaBleSetupDialog(
                                 label,
 
                             modifier =
-                                Modifier.weight(1f),
+                                Modifier
+                                    .weight(1f)
+                                    .clickable(
+                                        enabled =
+                                            isDebuggable &&
+                                            label == "Livedaten"
+                                    ) {
+
+                                        previewStep4 =
+                                            !previewStep4
+
+                                        previewLiveEnabled =
+                                            false
+                                    },
 
                             color =
                                 if (
-                                    activeStep ==
+                                    displayStep ==
                                     index + 1
                                 )
                                     Color.White
@@ -3032,7 +3167,7 @@ private fun TeslaBleSetupDialog(
                             )
                     ) {
 
-                        when (activeStep) {
+                        when (displayStep) {
 
                             /*
                              * ====================================
@@ -3503,7 +3638,7 @@ private fun TeslaBleSetupDialog(
 
                                         Text(
                                             text =
-                                                "3. Schlüssel bei Tesla autorisieren",
+                                                "3. Schlüssel in deinem Fahrzeug autorisieren",
 
                                             color =
                                                 Color.White,
@@ -3618,7 +3753,7 @@ private fun TeslaBleSetupDialog(
 
                                         Text(
                                             text =
-                                                "Schlüssel autorisieren",
+                                                "Autorisierung starten",
 
                                             fontSize =
                                                 11.sp,
@@ -3638,9 +3773,25 @@ private fun TeslaBleSetupDialog(
                              */
                             4 -> {
 
+                                val shownLiveEnabled =
+                                    if (previewStep4)
+                                        previewLiveEnabled
+                                    else
+                                        liveEnabled
+
+
+                                val shownLivePossible =
+                                    if (previewStep4)
+                                        true
+                                    else
+                                        livePossible
+
+
                                 Text(
                                     text =
-                                        if (setupComplete)
+                                        if (previewStep4)
+                                            "4. Tesla-Livedaten aktivieren · Vorschau"
+                                        else if (setupComplete)
                                             "Einrichtung abgeschlossen"
                                         else
                                             "4. Tesla-Livedaten aktivieren",
@@ -3683,10 +3834,10 @@ private fun TeslaBleSetupDialog(
                                     Checkbox(
 
                                         checked =
-                                            liveEnabled,
+                                            shownLiveEnabled,
 
                                         enabled =
-                                            livePossible,
+                                            shownLivePossible,
 
                                         colors =
                                             CheckboxDefaults
@@ -3707,8 +3858,16 @@ private fun TeslaBleSetupDialog(
 
                                         onCheckedChange = { checked ->
 
-                                            liveEnabled =
-                                                checked
+                                            if (previewStep4) {
+
+                                                previewLiveEnabled =
+                                                    checked
+                                            }
+                                            else {
+
+                                                liveEnabled =
+                                                    checked
+                                            }
                                         }
                                     )
 
@@ -3731,14 +3890,14 @@ private fun TeslaBleSetupDialog(
 
                                 Text(
                                     text =
-                                        if (liveEnabled)
+                                        if (shownLiveEnabled)
                                             "Livedaten aktiviert – " +
                                                 "mit Speichern übernehmen."
                                         else
                                             "Livedaten sind noch deaktiviert.",
 
                                     color =
-                                        if (liveEnabled)
+                                        if (shownLiveEnabled)
                                             successColor
                                         else
                                             mutedColor,
@@ -3756,13 +3915,52 @@ private fun TeslaBleSetupDialog(
         dismissButton = {
 
             Button(
-                onClick =
-                    onDismiss,
+                onClick = {
+
+                    if (confirmResetSetup) {
+
+                        onResetSetup()
+
+
+                        vin =
+                            ""
+
+                        enrollmentConfirmed =
+                            false
+
+                        liveEnabled =
+                            false
+
+                        previewStep4 =
+                            false
+
+                        previewLiveEnabled =
+                            false
+
+                        confirmVinDeletion =
+                            false
+
+                        confirmKeyDeletion =
+                            false
+
+                        confirmResetSetup =
+                            false
+                    }
+                    else {
+
+                        confirmResetSetup =
+                            true
+                    }
+                },
 
                 modifier =
-                    Modifier.width(
-                        170.dp
-                    ),
+                    Modifier
+                        .width(
+                            230.dp
+                        )
+                        .height(
+                            48.dp
+                        ),
 
                 colors =
                     ButtonDefaults
@@ -3778,7 +3976,13 @@ private fun TeslaBleSetupDialog(
 
                 Text(
                     text =
-                        "Abbrechen",
+                        if (confirmResetSetup)
+                            "Wirklich zurücksetzen"
+                        else
+                            "Einrichtung zurücksetzen",
+
+                    fontSize =
+                        11.sp,
 
                     fontWeight =
                         FontWeight.Bold
@@ -3786,12 +3990,21 @@ private fun TeslaBleSetupDialog(
             }
         },
 
+
         confirmButton = {
 
             Button(
                 onClick = {
 
-                    if (activeStep == 4) {
+                    if (previewStep4) {
+
+                        previewStep4 =
+                            false
+
+                        previewLiveEnabled =
+                            false
+                    }
+                    else if (activeStep == 4) {
 
                         onSave(
                             TeslaLiveProtocolConfig(
@@ -3832,7 +4045,9 @@ private fun TeslaBleSetupDialog(
 
                 Text(
                     text =
-                        if (activeStep == 4)
+                        if (previewStep4)
+                            "Vorschau schließen"
+                        else if (activeStep == 4)
                             "Speichern"
                         else
                             "Schließen",
