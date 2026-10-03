@@ -17,6 +17,8 @@ import de.drivechronik.dash.ble.TeslaBleGattClient
 import de.drivechronik.dash.ble.TeslaRoutableMessageCodec
 import de.drivechronik.dash.ble.TeslaGattState
 import de.drivechronik.dash.ble.TeslaGattStatus
+import de.drivechronik.dash.ble.TeslaVehicleDataRouter
+import de.drivechronik.dash.data.TeslaDashboardRepository
 import android.graphics.Typeface
 import android.os.Bundle
 import android.util.Log
@@ -561,6 +563,84 @@ private fun TeslaBleHeaderStatus() {
                                 "payload=$payloadBytes " +
                                 "uuid=$uuid"
                         )
+
+
+                        /*
+                         * Erster echter Datenpfad:
+                         *
+                         * Nur unverschlüsselte
+                         * CarServer-Antworten werden
+                         * hier direkt ausgewertet.
+                         *
+                         * AES-GCM-Antworten brauchen
+                         * zuerst den Session-Controller
+                         * und werden deshalb hier
+                         * ausdrücklich übersprungen.
+                         */
+                        val encryptedResponse =
+                            message.hasSignatureData() &&
+                                message
+                                    .signatureData
+                                    .hasAESGCMResponseData()
+
+
+                        if (!encryptedResponse) {
+
+                            val payload =
+                                message
+                                    .protobufMessageAsBytes
+                                    .toByteArray()
+
+
+                            if (payload.isNotEmpty()) {
+
+                                try {
+
+                                    val update =
+                                        TeslaVehicleDataRouter
+                                            .decode(
+                                                payload
+                                            )
+
+
+                                    if (
+                                        update.hasVehicleData
+                                    ) {
+
+                                        val snapshot =
+                                            TeslaDashboardRepository
+                                                .apply(
+                                                    update
+                                                )
+
+
+                                        Log.d(
+                                            "DriveChronikDATA",
+                                            "VehicleData " +
+                                                "drive=${snapshot.drive != null} " +
+                                                "charge=${snapshot.charge != null} " +
+                                                "location=${snapshot.location != null}"
+                                        )
+                                    }
+                                }
+                                catch (
+                                    e:
+                                        com.google.protobuf
+                                            .InvalidProtocolBufferException
+                                ) {
+
+                                    /*
+                                     * Nicht jeder Payload aus
+                                     * DOMAIN_INFOTAINMENT ist
+                                     * CarServer.VehicleData.
+                                     */
+                                    Log.d(
+                                        "DriveChronikDATA",
+                                        "RX payload is not CarServer Response"
+                                    )
+                                }
+                            }
+                        }
                     }
                     catch (e: Exception) {
 
