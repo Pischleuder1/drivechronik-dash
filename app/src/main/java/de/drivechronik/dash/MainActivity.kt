@@ -1,5 +1,7 @@
 package de.drivechronik.dash
 
+import de.drivechronik.dash.diagnostics.TelemetryDiagnosticsLogger
+
 import android.graphics.Paint
 import android.Manifest
 import android.content.Context
@@ -185,6 +187,11 @@ class MainActivity : ComponentActivity() {
                             intent.getBooleanExtra(
                                 "demoPreview",
                                 false
+                            ),
+                        telemetryDiagnostics =
+                            intent.getBooleanExtra(
+                                "telemetryDiagnostics",
+                                false
                             )
                     )
                 }
@@ -242,7 +249,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun DriveChronikDashboard(
     navigationPreview: Boolean = false,
-    demoPreview: Boolean = false
+    demoPreview: Boolean = false,
+    telemetryDiagnostics: Boolean = false
 ) {
 
     /*
@@ -317,6 +325,80 @@ private fun DriveChronikDashboard(
                 nowNanos =
                     telemetryNowNanos
             )
+
+
+    /*
+     * Lokales Diagnoseprotokoll.
+     *
+     * Nur aktiv, wenn die App ausdrücklich mit
+     * telemetryDiagnostics=true gestartet wurde.
+     *
+     * Keine Cloud.
+     * Kein Netzwerk.
+     * Keine VIN.
+     * Keine Schlüssel-/Auth-Daten.
+     */
+    val diagnosticsContext =
+        LocalContext
+            .current
+            .applicationContext
+
+
+    val diagnosticsLogger =
+        remember(
+            telemetryDiagnostics,
+            diagnosticsContext
+        ) {
+
+            if (
+                telemetryDiagnostics
+            ) {
+
+                TelemetryDiagnosticsLogger(
+                    diagnosticsContext
+                )
+            }
+            else {
+                null
+            }
+        }
+
+
+    LaunchedEffect(
+        telemetryDiagnostics,
+        diagnosticsLogger
+    ) {
+
+        if (
+            !telemetryDiagnostics
+        ) {
+            return@LaunchedEffect
+        }
+
+
+        val logger =
+            diagnosticsLogger
+                ?: return@LaunchedEffect
+
+
+        while (true) {
+
+            logger.log(
+                snapshot =
+                    TeslaDashboardRepository
+                        .snapshot
+                        .value,
+
+                nowNanos =
+                    System.nanoTime()
+            )
+
+
+            delay(
+                1_000L
+            )
+        }
+    }
 
 
     val driveFresh =
