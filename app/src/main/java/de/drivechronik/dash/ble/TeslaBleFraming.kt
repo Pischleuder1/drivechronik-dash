@@ -3,7 +3,7 @@ package de.drivechronik.dash.ble
 object TeslaBleFrameCodec {
 
     const val HEADER_SIZE = 2
-    const val MAX_MESSAGE_SIZE = 0xffff
+    const val MAX_MESSAGE_SIZE = 1024
 
     fun encode(
         message: ByteArray
