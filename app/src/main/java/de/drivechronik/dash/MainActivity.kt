@@ -14,10 +14,12 @@ import de.drivechronik.dash.ble.TeslaBleScanState
 import de.drivechronik.dash.ble.TeslaBleScanStatus
 import de.drivechronik.dash.ble.TeslaBleScanner
 import de.drivechronik.dash.ble.TeslaBleGattClient
+import de.drivechronik.dash.ble.TeslaRoutableMessageCodec
 import de.drivechronik.dash.ble.TeslaGattState
 import de.drivechronik.dash.ble.TeslaGattStatus
 import android.graphics.Typeface
 import android.os.Bundle
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -517,12 +519,58 @@ private fun TeslaBleHeaderStatus() {
                 onState = {
                     gattState = it
                 },
-                onData = {
-                    /*
-                     * Noch keine Protobuf-Auswertung.
-                     * Hier landen später die
-                     * Tesla-RoutableMessage-Frames.
-                     */
+                onData = { bytes ->
+
+                    try {
+
+                        val message =
+                            TeslaRoutableMessageCodec
+                                .decode(bytes)
+
+                        val uuid =
+                            message
+                                .getUuid()
+                                .toByteArray()
+                                .joinToString("") {
+                                    "%02x".format(
+                                        it.toInt() and 0xff
+                                    )
+                                }
+
+                        val toDomain =
+                            message
+                                .getToDestination()
+                                .getDomain()
+
+                        val fromDomain =
+                            message
+                                .getFromDestination()
+                                .getDomain()
+
+                        val payloadBytes =
+                            message
+                                .getProtobufMessageAsBytes()
+                                .size()
+
+                        Log.d(
+                            "DriveChronikPROTO",
+                            "RX RoutableMessage " +
+                                "bytes=${bytes.size} " +
+                                "to=$toDomain " +
+                                "from=$fromDomain " +
+                                "payload=$payloadBytes " +
+                                "uuid=$uuid"
+                        )
+                    }
+                    catch (e: Exception) {
+
+                        Log.e(
+                            "DriveChronikPROTO",
+                            "RoutableMessage decode failed: " +
+                                "${e.message}",
+                            e
+                        )
+                    }
                 }
             )
         }
