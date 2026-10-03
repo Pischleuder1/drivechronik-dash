@@ -257,6 +257,23 @@ private fun DriveChronikDashboard(
 ) {
 
     /*
+     * LIVE ist der Standard.
+     *
+     * demoPreview bleibt für ADB/UI-Tests erhalten.
+     * Über das Service-Menü kann Demo zusätzlich
+     * zur Laufzeit ein- und ausgeschaltet werden.
+     */
+    var demoEnabled by
+        remember(
+            demoPreview
+        ) {
+            mutableStateOf(
+                demoPreview
+            )
+        }
+
+
+    /*
      * Demo-Werte existieren weiterhin ausschließlich
      * für die explizit gestartete UI-Vorschau.
      *
@@ -461,7 +478,7 @@ private fun DriveChronikDashboard(
     /*
      * Gang:
      *
-     * Demo nur in demoPreview.
+     * Demo nur in demoEnabled.
      *
      * Im Normalbetrieb:
      * frisch -> echter Tesla-Wert
@@ -470,7 +487,7 @@ private fun DriveChronikDashboard(
      * Niemals zurück auf einen Demo-Gang.
      */
     val displayGear =
-        if (demoPreview) {
+        if (demoEnabled) {
 
             "D"
         }
@@ -486,13 +503,13 @@ private fun DriveChronikDashboard(
 
     /*
      * Demo-Simulation läuft NUR noch dann,
-     * wenn demoPreview=true gestartet wurde.
+     * wenn demoEnabled=true gestartet wurde.
      */
     LaunchedEffect(
-        demoPreview
+        demoEnabled
     ) {
 
-        if (!demoPreview) {
+        if (!demoEnabled) {
             return@LaunchedEffect
         }
 
@@ -587,7 +604,7 @@ private fun DriveChronikDashboard(
      * Tesla-Routendaten angezeigt.
      */
     val activeNavigation =
-        if (navigationPreview) {
+        if (navigationPreview || demoEnabled) {
 
             TeslaNavigationTelemetry(
                 destination =
@@ -651,7 +668,7 @@ private fun DriveChronikDashboard(
                 DashboardUiState(
 
                     speed =
-                        if (demoPreview) {
+                        if (demoEnabled) {
                             demoSpeed
                         }
                         else {
@@ -667,7 +684,7 @@ private fun DriveChronikDashboard(
                      * SpeedLimitSign blendet sich bei <= 0 aus.
                      */
                     speedLimit =
-                        if (demoPreview) {
+                        if (demoEnabled) {
                             demoSpeedLimit
                         }
                         else {
@@ -681,7 +698,7 @@ private fun DriveChronikDashboard(
                      * erst am realen Fahrzeug verifiziert.
                      */
                     powerKw =
-                        if (demoPreview) {
+                        if (demoEnabled) {
                             demoPowerKw
                         }
                         else {
@@ -690,7 +707,7 @@ private fun DriveChronikDashboard(
 
 
                     remainingKwh =
-                        if (demoPreview) {
+                        if (demoEnabled) {
                             demoRemainingKwh
                         }
                         else {
@@ -703,7 +720,7 @@ private fun DriveChronikDashboard(
 
 
                     rangeKm =
-                        if (demoPreview) {
+                        if (demoEnabled) {
                             demoRangeKm
                         }
                         else {
@@ -725,7 +742,7 @@ private fun DriveChronikDashboard(
                      * verifiziert und angeschlossen sind.
                      */
                     leftIndicator =
-                        demoPreview &&
+                        demoEnabled &&
                             (
                                 demoTick %
                                     120 in
@@ -739,7 +756,7 @@ private fun DriveChronikDashboard(
 
 
                     rightIndicator =
-                        demoPreview &&
+                        demoEnabled &&
                             (
                                 demoTick %
                                     120 in
@@ -753,7 +770,7 @@ private fun DriveChronikDashboard(
 
 
                     lowBeam =
-                        demoPreview &&
+                        demoEnabled &&
                             (
                                 demoTick %
                                     120 !in
@@ -762,7 +779,7 @@ private fun DriveChronikDashboard(
 
 
                     highBeam =
-                        demoPreview &&
+                        demoEnabled &&
                             (
                                 demoTick %
                                     120 in
@@ -772,10 +789,18 @@ private fun DriveChronikDashboard(
         )
 
         DiagnosticsControlOverlay(
-            enabled =
+            demoEnabled =
+                demoEnabled,
+
+            onDemoEnabledChange = {
+                demoEnabled =
+                    it
+            },
+
+            diagnosticsEnabled =
                 diagnosticsEnabled,
 
-            onEnabledChange = {
+            onDiagnosticsEnabledChange = {
                 diagnosticsEnabled =
                     it
             },
@@ -981,8 +1006,10 @@ VehicleStatusBar(
 
 @Composable
 private fun DiagnosticsControlOverlay(
-    enabled: Boolean,
-    onEnabledChange: (Boolean) -> Unit,
+    demoEnabled: Boolean,
+    onDemoEnabledChange: (Boolean) -> Unit,
+    diagnosticsEnabled: Boolean,
+    onDiagnosticsEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
 
@@ -995,11 +1022,8 @@ private fun DiagnosticsControlOverlay(
 
 
     /*
-     * Unsichtbare Berührungsfläche über dem
-     * linken Dashboard-Titel.
-     *
-     * Erst nach 5 Sekunden durchgehendem Drücken
-     * erscheint das Diagnosemenü.
+     * Unsichtbare Fläche über dem Titel.
+     * 5 Sekunden gedrückt halten öffnet das Service-Menü.
      */
     Box(
         modifier =
@@ -1016,7 +1040,6 @@ private fun DiagnosticsControlOverlay(
                                 withTimeoutOrNull(
                                     5_000L
                                 ) {
-
                                     tryAwaitRelease()
                                 }
 
@@ -1035,30 +1058,65 @@ private fun DiagnosticsControlOverlay(
     ) {
 
         /*
-         * Nur wenn Diagnose wirklich läuft,
-         * erscheint rechts neben dem Titel
-         * eine kleine Statusanzeige.
+         * Statuspunkte:
+         *
+         * Blau = Demo
+         * Rot  = Diagnoseaufzeichnung
+         *
+         * Dadurch bleibt die Versionsnummer frei.
          */
-        if (enabled) {
+        Row(
+            modifier =
+                Modifier
+                    .align(
+                        Alignment.BottomEnd
+                    )
+                    .padding(
+                        end = 2.dp,
+                        bottom = 2.dp
+                    ),
 
-            Box(
-                modifier =
-                    Modifier
-                        .align(
-                            Alignment.BottomEnd
-                        )
-                        .padding(
-                            end = 2.dp,
-                            bottom = 2.dp
-                        )
-                        .size(7.dp)
-                        .background(
-                            color =
-                                DashRed,
-                            shape =
-                                CircleShape
-                        )
-            )
+            horizontalArrangement =
+                Arrangement.spacedBy(
+                    4.dp
+                ),
+
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+
+            if (demoEnabled) {
+
+                Box(
+                    modifier =
+                        Modifier
+                            .size(7.dp)
+                            .background(
+                                color =
+                                    DashBlue,
+
+                                shape =
+                                    CircleShape
+                            )
+                )
+            }
+
+
+            if (diagnosticsEnabled) {
+
+                Box(
+                    modifier =
+                        Modifier
+                            .size(7.dp)
+                            .background(
+                                color =
+                                    DashRed,
+
+                                shape =
+                                    CircleShape
+                            )
+                )
+            }
         }
     }
 
@@ -1066,6 +1124,18 @@ private fun DiagnosticsControlOverlay(
     if (showDialog) {
 
         AlertDialog(
+
+            modifier =
+                Modifier
+                    .fillMaxWidth(
+                        0.88f
+                    ),
+
+            properties =
+                DialogProperties(
+                    usePlatformDefaultWidth =
+                        false
+                ),
 
             onDismissRequest = {
                 showDialog =
@@ -1076,7 +1146,7 @@ private fun DiagnosticsControlOverlay(
 
                 Text(
                     text =
-                        "Diagnosemodus",
+                        "DriveChronik Service",
 
                     color =
                         DashText,
@@ -1091,25 +1161,192 @@ private fun DiagnosticsControlOverlay(
                 Column(
                     verticalArrangement =
                         Arrangement.spacedBy(
-                            8.dp
+                            10.dp
                         )
                 ) {
 
                     Text(
                         text =
-                            if (enabled)
-                                "Die lokale Telemetrie-Aufzeichnung ist aktiv."
+                            "BETRIEBSMODUS",
+
+                        color =
+                            DashMuted,
+
+                        fontSize =
+                            11.sp,
+
+                        fontWeight =
+                            FontWeight.Bold,
+
+                        letterSpacing =
+                            1.sp
+                    )
+
+
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        horizontalArrangement =
+                            Arrangement.spacedBy(
+                                8.dp
+                            )
+                    ) {
+
+                        Button(
+                            onClick = {
+                                onDemoEnabledChange(
+                                    false
+                                )
+                            },
+
+                            modifier =
+                                Modifier.weight(1f),
+
+                            colors =
+                                ButtonDefaults
+                                    .buttonColors(
+                                        containerColor =
+                                            if (!demoEnabled)
+                                                DashBlue
+                                            else
+                                                DashPanel,
+
+                                        contentColor =
+                                            Color.White
+                                    )
+                        ) {
+
+                            Text(
+                                text =
+                                    if (!demoEnabled)
+                                        "✓ LIVE"
+                                    else
+                                        "LIVE"
+                            )
+                        }
+
+
+                        Button(
+                            onClick = {
+                                onDemoEnabledChange(
+                                    true
+                                )
+                            },
+
+                            modifier =
+                                Modifier.weight(1f),
+
+                            colors =
+                                ButtonDefaults
+                                    .buttonColors(
+                                        containerColor =
+                                            if (demoEnabled)
+                                                DashBlue
+                                            else
+                                                DashPanel,
+
+                                        contentColor =
+                                            Color.White
+                                    )
+                        ) {
+
+                            Text(
+                                text =
+                                    if (demoEnabled)
+                                        "✓ DEMO"
+                                    else
+                                        "DEMO"
+                            )
+                        }
+                    }
+
+
+                    Text(
+                        text =
+                            if (demoEnabled)
+                                "Demo aktiv: simulierte Fahr-, Licht- und Navigationswerte."
                             else
-                                "Die lokale Telemetrie-Aufzeichnung ist ausgeschaltet.",
+                                "Live aktiv: ausschließlich echte Tesla-Daten, keine Demo-Fallbacks.",
 
                         color =
-                            DashText
+                            DashMuted,
+
+                        fontSize =
+                            12.sp
+                    )
+
+
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(
+                                    DashLine
+                                )
                     )
 
 
                     Text(
                         text =
-                            "Gespeichert werden ausschließlich Fahrzeug-Rohdaten für die Diagnose. Keine VIN, keine Schlüssel und keine Authentifizierungsdaten.",
+                            "DIAGNOSEAUFZEICHNUNG",
+
+                        color =
+                            DashMuted,
+
+                        fontSize =
+                            11.sp,
+
+                        fontWeight =
+                            FontWeight.Bold,
+
+                        letterSpacing =
+                            1.sp
+                    )
+
+
+                    Button(
+                        onClick = {
+
+                            onDiagnosticsEnabledChange(
+                                !diagnosticsEnabled
+                            )
+                        },
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        colors =
+                            ButtonDefaults
+                                .buttonColors(
+                                    containerColor =
+                                        if (diagnosticsEnabled)
+                                            DashRed
+                                        else
+                                            DashBlue,
+
+                                    contentColor =
+                                        Color.White
+                                )
+                    ) {
+
+                        Text(
+                            text =
+                                if (diagnosticsEnabled)
+                                    "Diagnose beenden"
+                                else
+                                    "Diagnose starten"
+                        )
+                    }
+
+
+                    Text(
+                        text =
+                            if (diagnosticsEnabled)
+                                "Diagnose läuft. Rohdaten werden lokal auf dem Pixel gespeichert."
+                            else
+                                "Keine Diagnoseaufzeichnung aktiv.",
 
                         color =
                             DashMuted,
@@ -1121,13 +1358,13 @@ private fun DiagnosticsControlOverlay(
 
                     Text(
                         text =
-                            "Speicherbegrenzung: 24 Stunden bzw. maximal 20 MB.",
+                            "Diagnose enthält keine VIN, Schlüssel oder Authentifizierungsdaten.",
 
                         color =
                             DashMuted,
 
                         fontSize =
-                            12.sp
+                            11.sp
                     )
                 }
             },
@@ -1136,11 +1373,6 @@ private fun DiagnosticsControlOverlay(
 
                 Button(
                     onClick = {
-
-                        onEnabledChange(
-                            !enabled
-                        )
-
                         showDialog =
                             false
                     },
@@ -1149,10 +1381,7 @@ private fun DiagnosticsControlOverlay(
                         ButtonDefaults
                             .buttonColors(
                                 containerColor =
-                                    if (enabled)
-                                        DashRed
-                                    else
-                                        DashGreen,
+                                    DashBlue,
 
                                 contentColor =
                                     Color.White
@@ -1161,36 +1390,7 @@ private fun DiagnosticsControlOverlay(
 
                     Text(
                         text =
-                            if (enabled)
-                                "Diagnose beenden"
-                            else
-                                "Diagnose starten"
-                    )
-                }
-            },
-
-            dismissButton = {
-
-                Button(
-                    onClick = {
-                        showDialog =
-                            false
-                    },
-
-                    colors =
-                        ButtonDefaults
-                            .buttonColors(
-                                containerColor =
-                                    DashPanel,
-
-                                contentColor =
-                                    DashText
-                            )
-                ) {
-
-                    Text(
-                        text =
-                            "Abbrechen"
+                            "Schließen"
                     )
                 }
             },
@@ -1200,6 +1400,7 @@ private fun DiagnosticsControlOverlay(
         )
     }
 }
+
 
 
 @Composable
