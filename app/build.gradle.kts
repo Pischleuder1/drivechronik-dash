@@ -1,10 +1,33 @@
 import com.google.protobuf.gradle.*
+import java.io.File
+import java.util.Properties
 plugins {
     id("com.google.protobuf") version "0.10.0"
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.kotlin.serialization)
 }
+
+
+val releaseSigningFile =
+    File(
+        System.getProperty("user.home"),
+        ".config/drivechronik-dash/release-signing.properties"
+    )
+
+val releaseSigningProperties =
+    Properties().apply {
+
+        if (releaseSigningFile.isFile) {
+
+            releaseSigningFile
+                .inputStream()
+                .use { input ->
+                    load(input)
+                }
+        }
+    }
+
 
 android {
     namespace = "de.drivechronik.dash"
@@ -14,11 +37,38 @@ android {
         minSdk = 31
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.1.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            if (releaseSigningFile.exists()) {
+                storeFile =
+                    file(
+                        releaseSigningProperties
+                            .getProperty("storeFile")
+                    )
+
+                storePassword =
+                    releaseSigningProperties
+                        .getProperty("storePassword")
+
+                keyAlias =
+                    releaseSigningProperties
+                        .getProperty("keyAlias")
+
+                keyPassword =
+                    releaseSigningProperties
+                        .getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
+            signingConfig =
+                signingConfigs.getByName("release")
+
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
