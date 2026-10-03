@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import de.drivechronik.dash.ble.TeslaBleScanState
@@ -40,6 +41,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -100,6 +102,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import de.drivechronik.dash.theme.DriveChronikDashTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -338,6 +341,24 @@ private fun DriveChronikDashboard(
      * Keine VIN.
      * Keine Schlüssel-/Auth-Daten.
      */
+    /*
+     * Diagnosemodus kann entweder über den bisherigen
+     * Intent-Parameter oder direkt im Dashboard aktiviert
+     * werden.
+     *
+     * Bei einem normalen vollständigen App-Neustart ist
+     * Diagnose standardmäßig wieder AUS.
+     */
+    var diagnosticsEnabled by
+        remember(
+            telemetryDiagnostics
+        ) {
+            mutableStateOf(
+                telemetryDiagnostics
+            )
+        }
+
+
     val diagnosticsContext =
         LocalContext
             .current
@@ -346,12 +367,12 @@ private fun DriveChronikDashboard(
 
     val diagnosticsLogger =
         remember(
-            telemetryDiagnostics,
+            diagnosticsEnabled,
             diagnosticsContext
         ) {
 
             if (
-                telemetryDiagnostics
+                diagnosticsEnabled
             ) {
 
                 TelemetryDiagnosticsLogger(
@@ -365,12 +386,12 @@ private fun DriveChronikDashboard(
 
 
     LaunchedEffect(
-        telemetryDiagnostics,
+        diagnosticsEnabled,
         diagnosticsLogger
     ) {
 
         if (
-            !telemetryDiagnostics
+            !diagnosticsEnabled
         ) {
             return@LaunchedEffect
         }
@@ -620,130 +641,157 @@ private fun DriveChronikDashboard(
      * Es gibt KEINEN automatischen Rückfall
      * auf Demodaten.
      */
-    DashboardContent(
-        state =
-            DashboardUiState(
+    Box(
+        modifier =
+            Modifier.fillMaxSize()
+    ) {
 
-                speed =
-                    if (demoPreview) {
-                        demoSpeed
-                    }
-                    else {
-                        liveSpeedKmh
-                            ?: 0f
-                    },
+        DashboardContent(
+            state =
+                DashboardUiState(
 
-
-                /*
-                 * 0 bedeutet:
-                 * keine verifizierte Tempolimitquelle.
-                 *
-                 * SpeedLimitSign blendet sich bei <= 0 aus.
-                 */
-                speedLimit =
-                    if (demoPreview) {
-                        demoSpeedLimit
-                    }
-                    else {
-                        0
-                    },
+                    speed =
+                        if (demoPreview) {
+                            demoSpeed
+                        }
+                        else {
+                            liveSpeedKmh
+                                ?: 0f
+                        },
 
 
-                /*
-                 * power ist im lokalen Proto vorhanden,
-                 * aber Einheit / Vorzeichenlogik wird
-                 * erst am realen Fahrzeug verifiziert.
-                 */
-                powerKw =
-                    if (demoPreview) {
-                        demoPowerKw
-                    }
-                    else {
-                        0f
-                    },
+                    /*
+                     * 0 bedeutet:
+                     * keine verifizierte Tempolimitquelle.
+                     *
+                     * SpeedLimitSign blendet sich bei <= 0 aus.
+                     */
+                    speedLimit =
+                        if (demoPreview) {
+                            demoSpeedLimit
+                        }
+                        else {
+                            0
+                        },
 
 
-                remainingKwh =
-                    if (demoPreview) {
-                        demoRemainingKwh
-                    }
-                    else {
-                        0f
-                    },
+                    /*
+                     * power ist im lokalen Proto vorhanden,
+                     * aber Einheit / Vorzeichenlogik wird
+                     * erst am realen Fahrzeug verifiziert.
+                     */
+                    powerKw =
+                        if (demoPreview) {
+                            demoPowerKw
+                        }
+                        else {
+                            0f
+                        },
 
 
-                usableCapacityKwh =
-                    60f,
+                    remainingKwh =
+                        if (demoPreview) {
+                            demoRemainingKwh
+                        }
+                        else {
+                            0f
+                        },
 
 
-                rangeKm =
-                    if (demoPreview) {
-                        demoRangeKm
-                    }
-                    else {
-                        0
-                    },
+                    usableCapacityKwh =
+                        60f,
 
 
-                gear =
-                    displayGear,
+                    rangeKm =
+                        if (demoPreview) {
+                            demoRangeKm
+                        }
+                        else {
+                            0
+                        },
 
 
-                navigation =
-                    activeNavigation,
+                    gear =
+                        displayGear,
 
 
-                /*
-                 * Blinker/Licht bleiben im Normalbetrieb
-                 * bewusst inaktiv, bis die Live-Signale
-                 * verifiziert und angeschlossen sind.
-                 */
-                leftIndicator =
-                    demoPreview &&
-                        (
-                            demoTick %
-                                120 in
-                                10..34
-                            ) &&
-                        (
-                            demoTick %
-                                4 <
-                                2
-                            ),
+                    navigation =
+                        activeNavigation,
 
 
-                rightIndicator =
-                    demoPreview &&
-                        (
-                            demoTick %
-                                120 in
-                                72..96
-                            ) &&
-                        (
-                            demoTick %
-                                4 <
-                                2
-                            ),
+                    /*
+                     * Blinker/Licht bleiben im Normalbetrieb
+                     * bewusst inaktiv, bis die Live-Signale
+                     * verifiziert und angeschlossen sind.
+                     */
+                    leftIndicator =
+                        demoPreview &&
+                            (
+                                demoTick %
+                                    120 in
+                                    10..34
+                                ) &&
+                            (
+                                demoTick %
+                                    4 <
+                                    2
+                                ),
 
 
-                lowBeam =
-                    demoPreview &&
-                        (
-                            demoTick %
-                                120 !in
-                                48..62
-                            ),
+                    rightIndicator =
+                        demoPreview &&
+                            (
+                                demoTick %
+                                    120 in
+                                    72..96
+                                ) &&
+                            (
+                                demoTick %
+                                    4 <
+                                    2
+                                ),
 
 
-                highBeam =
-                    demoPreview &&
-                        (
-                            demoTick %
-                                120 in
-                                48..62
-                            )
-            )
-    )
+                    lowBeam =
+                        demoPreview &&
+                            (
+                                demoTick %
+                                    120 !in
+                                    48..62
+                                ),
+
+
+                    highBeam =
+                        demoPreview &&
+                            (
+                                demoTick %
+                                    120 in
+                                    48..62
+                                )
+                )
+        )
+
+        DiagnosticsControlOverlay(
+            enabled =
+                diagnosticsEnabled,
+
+            onEnabledChange = {
+                diagnosticsEnabled =
+                    it
+            },
+
+            modifier =
+                Modifier
+                    .align(
+                        Alignment.TopStart
+                    )
+                    .padding(
+                        start = 8.dp,
+                        top = 5.dp
+                    )
+        )
+    }
+
 }
 
 @Composable
@@ -930,6 +978,229 @@ VehicleStatusBar(
         }
     }
 }
+
+@Composable
+private fun DiagnosticsControlOverlay(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+
+    var showDialog by
+        remember {
+            mutableStateOf(
+                false
+            )
+        }
+
+
+    /*
+     * Unsichtbare Berührungsfläche über dem
+     * linken Dashboard-Titel.
+     *
+     * Erst nach 5 Sekunden durchgehendem Drücken
+     * erscheint das Diagnosemenü.
+     */
+    Box(
+        modifier =
+            modifier
+                .width(300.dp)
+                .height(30.dp)
+                .pointerInput(Unit) {
+
+                    detectTapGestures(
+
+                        onPress = {
+
+                            val releasedBeforeTimeout =
+                                withTimeoutOrNull(
+                                    5_000L
+                                ) {
+
+                                    tryAwaitRelease()
+                                }
+
+
+                            if (
+                                releasedBeforeTimeout ==
+                                    null
+                            ) {
+
+                                showDialog =
+                                    true
+                            }
+                        }
+                    )
+                }
+    ) {
+
+        /*
+         * Nur wenn Diagnose wirklich läuft,
+         * erscheint rechts neben dem Titel
+         * eine kleine Statusanzeige.
+         */
+        if (enabled) {
+
+            Box(
+                modifier =
+                    Modifier
+                        .align(
+                            Alignment.BottomEnd
+                        )
+                        .padding(
+                            end = 2.dp,
+                            bottom = 2.dp
+                        )
+                        .size(7.dp)
+                        .background(
+                            color =
+                                DashRed,
+                            shape =
+                                CircleShape
+                        )
+            )
+        }
+    }
+
+
+    if (showDialog) {
+
+        AlertDialog(
+
+            onDismissRequest = {
+                showDialog =
+                    false
+            },
+
+            title = {
+
+                Text(
+                    text =
+                        "Diagnosemodus",
+
+                    color =
+                        DashText,
+
+                    fontWeight =
+                        FontWeight.Bold
+                )
+            },
+
+            text = {
+
+                Column(
+                    verticalArrangement =
+                        Arrangement.spacedBy(
+                            8.dp
+                        )
+                ) {
+
+                    Text(
+                        text =
+                            if (enabled)
+                                "Die lokale Telemetrie-Aufzeichnung ist aktiv."
+                            else
+                                "Die lokale Telemetrie-Aufzeichnung ist ausgeschaltet.",
+
+                        color =
+                            DashText
+                    )
+
+
+                    Text(
+                        text =
+                            "Gespeichert werden ausschließlich Fahrzeug-Rohdaten für die Diagnose. Keine VIN, keine Schlüssel und keine Authentifizierungsdaten.",
+
+                        color =
+                            DashMuted,
+
+                        fontSize =
+                            12.sp
+                    )
+
+
+                    Text(
+                        text =
+                            "Speicherbegrenzung: 24 Stunden bzw. maximal 20 MB.",
+
+                        color =
+                            DashMuted,
+
+                        fontSize =
+                            12.sp
+                    )
+                }
+            },
+
+            confirmButton = {
+
+                Button(
+                    onClick = {
+
+                        onEnabledChange(
+                            !enabled
+                        )
+
+                        showDialog =
+                            false
+                    },
+
+                    colors =
+                        ButtonDefaults
+                            .buttonColors(
+                                containerColor =
+                                    if (enabled)
+                                        DashRed
+                                    else
+                                        DashGreen,
+
+                                contentColor =
+                                    Color.White
+                            )
+                ) {
+
+                    Text(
+                        text =
+                            if (enabled)
+                                "Diagnose beenden"
+                            else
+                                "Diagnose starten"
+                    )
+                }
+            },
+
+            dismissButton = {
+
+                Button(
+                    onClick = {
+                        showDialog =
+                            false
+                    },
+
+                    colors =
+                        ButtonDefaults
+                            .buttonColors(
+                                containerColor =
+                                    DashPanel,
+
+                                contentColor =
+                                    DashText
+                            )
+                ) {
+
+                    Text(
+                        text =
+                            "Abbrechen"
+                    )
+                }
+            },
+
+            containerColor =
+                DashPanel
+        )
+    }
+}
+
 
 @Composable
 private fun DashboardHeader() {
