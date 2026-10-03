@@ -88,4 +88,32 @@ object TeslaKeyStore {
             KEY_ALIAS
         )
     }
+
+    fun deleteKey(): Boolean {
+
+        val keyStore =
+            KeyStore.getInstance(
+                ANDROID_KEYSTORE
+            ).apply {
+                load(null)
+            }
+
+
+        if (
+            keyStore.containsAlias(
+                KEY_ALIAS
+            )
+        ) {
+
+            keyStore.deleteEntry(
+                KEY_ALIAS
+            )
+        }
+
+
+        return !keyStore.containsAlias(
+            KEY_ALIAS
+        )
+    }
+
 }

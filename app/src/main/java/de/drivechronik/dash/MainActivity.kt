@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import de.drivechronik.dash.ble.TeslaBleScanState
 import de.drivechronik.dash.ble.TeslaBleScanStatus
@@ -20,6 +21,7 @@ import de.drivechronik.dash.ble.TeslaGattStatus
 import de.drivechronik.dash.ble.TeslaBleSessionController
 import de.drivechronik.dash.ble.TeslaKeyStore
 import de.drivechronik.dash.ble.TeslaLiveProtocolSettings
+import de.drivechronik.dash.ble.TeslaLiveProtocolConfig
 import de.drivechronik.dash.ble.TeslaProtocolSessionStatus
 import com.tesla.generated.universalmessage.UniversalMessage
 import de.drivechronik.dash.ble.TeslaVehicleDataRouter
@@ -32,6 +34,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -51,6 +54,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +69,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -488,34 +500,94 @@ private fun TeslaBleHeaderStatus() {
 
 
     /*
-     * Live-Tesla-Protokoll ist standardmäßig
-     * vollständig deaktiviert.
+     * Lokale Tesla-Konfiguration.
+     *
+     * Sie bleibt standardmäßig deaktiviert.
      */
-    val liveProtocolConfig =
+    val liveProtocolSettings =
         remember {
 
             TeslaLiveProtocolSettings(
                 context.applicationContext
-            ).load()
+            )
+        }
+
+
+    var liveProtocolConfig by
+        remember {
+
+            mutableStateOf(
+                liveProtocolSettings.load()
+            )
         }
 
 
     /*
-     * Kein gültiger VIN + keine bestätigte
-     * Schlüssel-Einschreibung:
+     * Der KeyStore wird nur geprüft.
+     * Hier wird noch kein Schlüssel erzeugt.
+     */
+    var keyPresent by
+        remember {
+
+            mutableStateOf(
+                runCatching {
+                    TeslaKeyStore.hasKey()
+                }
+                    .getOrDefault(false)
+            )
+        }
+
+
+    val keyFingerprint =
+        remember(
+            keyPresent
+        ) {
+
+            if (keyPresent) {
+                teslaKeyFingerprint()
+            }
+            else {
+                null
+            }
+        }
+
+
+    var keyError by
+        remember {
+
+            mutableStateOf<String?>(
+                null
+            )
+        }
+
+
+    var showTeslaSetup by
+        remember {
+
+            mutableStateOf(false)
+        }
+
+
+    /*
+     * Ohne
      *
-     * => kein Controller
-     * => kein SessionInfo Request
-     * => keinerlei Tesla-Protokoll-TX
+     * - gültige VIN
+     * - bestätigte Key-Einschreibung
+     * - Live-Freigabe
+     * - vorhandenen lokalen Key
+     *
+     * existiert KEIN Session-Controller.
      */
     val sessionController =
         remember(
-            liveProtocolConfig
+            liveProtocolConfig,
+            keyPresent
         ) {
 
             if (
                 liveProtocolConfig
-                    .canStartSession
+                    .canStartSession &&
+                keyPresent
             ) {
 
                 TeslaBleSessionController(
@@ -537,6 +609,18 @@ private fun TeslaBleHeaderStatus() {
                 null
             }
         }
+
+
+    /*
+     * Der GATT-Client wird nur einmal erzeugt.
+     * Sein Callback muss trotzdem immer den
+     * AKTUELLEN Session-Controller sehen.
+     */
+    val currentSessionController =
+        rememberUpdatedState(
+            sessionController
+        )
+
 
     var permissionGranted by
         remember {
@@ -643,7 +727,8 @@ private fun TeslaBleHeaderStatus() {
                         if (hasSessionInfo) {
 
                             val controller =
-                                sessionController
+                                currentSessionController
+                                    .value
 
 
                             if (
@@ -963,7 +1048,7 @@ private fun TeslaBleHeaderStatus() {
         onDispose {
 
             scanner.stopScan()
-            sessionController?.clear()
+            currentSessionController.value?.clear()
             gattClient.close()
         }
     }
@@ -1060,7 +1145,206 @@ private fun TeslaBleHeaderStatus() {
                 DashMuted
         }
 
+    if (showTeslaSetup) {
+
+        TeslaBleSetupDialog(
+            currentConfig =
+                liveProtocolConfig,
+
+            keyPresent =
+                keyPresent,
+
+            keyFingerprint =
+                keyFingerprint,
+
+            keyError =
+                keyError,
+
+            onPrepareKey = {
+
+                try {
+
+                    TeslaKeyStore
+                        .getOrCreateKeyPair()
+
+                    keyPresent =
+                        TeslaKeyStore
+                            .hasKey()
+
+                    keyError =
+                        null
+                }
+                catch (e: Exception) {
+
+                    keyPresent =
+                        false
+
+                    keyError =
+                        e.message
+                            ?: "Schlüssel konnte nicht erzeugt werden"
+                }
+            },
+
+            onDeleteVin = {
+
+                sessionController
+                    ?.clear()
+
+
+                val clearedConfig =
+                    liveProtocolConfig.copy(
+                        enabled = false,
+                        keyEnrollmentConfirmed = false,
+                        vin = ""
+                    )
+
+
+                liveProtocolSettings
+                    .save(
+                        clearedConfig
+                    )
+
+
+                liveProtocolConfig =
+                    clearedConfig
+            },
+
+
+            onDeleteKey = {
+
+                sessionController
+                    ?.clear()
+
+
+                /*
+                 * Sicherheitszustand zuerst speichern:
+                 * Kein Live-BLE und keine behauptete
+                 * Tesla-Autorisierung mehr.
+                 */
+                val safeConfig =
+                    liveProtocolConfig.copy(
+                        enabled = false,
+                        keyEnrollmentConfirmed = false
+                    )
+
+
+                liveProtocolSettings
+                    .save(
+                        safeConfig
+                    )
+
+
+                liveProtocolConfig =
+                    safeConfig
+
+
+                try {
+
+                    val deleted =
+                        TeslaKeyStore
+                            .deleteKey()
+
+
+                    keyPresent =
+                        TeslaKeyStore
+                            .hasKey()
+
+
+                    keyError =
+                        if (
+                            deleted &&
+                            !keyPresent
+                        )
+                            null
+                        else
+                            "Lokaler Schlüssel konnte nicht gelöscht werden"
+                }
+                catch (e: Exception) {
+
+                    keyPresent =
+                        runCatching {
+                            TeslaKeyStore.hasKey()
+                        }
+                            .getOrDefault(false)
+
+
+                    keyError =
+                        e.message
+                            ?: "Lokaler Schlüssel konnte nicht gelöscht werden"
+                }
+            },
+
+
+            onDismiss = {
+
+                showTeslaSetup =
+                    false
+            },
+
+            onSave = { requested ->
+
+                /*
+                 * Falls Key/VIN/Bestätigung nicht
+                 * vollständig sind, kann Live-BLE
+                 * nicht versehentlich aktiv bleiben.
+                 */
+                val safeConfig =
+                    requested.copy(
+                        keyEnrollmentConfirmed =
+                            requested
+                                .keyEnrollmentConfirmed &&
+                                keyPresent,
+
+                        enabled =
+                            requested.enabled &&
+                                requested
+                                    .keyEnrollmentConfirmed &&
+                                keyPresent &&
+                                requested
+                                    .normalizedVin
+                                    .length == 17
+                    )
+
+
+                /*
+                 * Alte Session bewusst beenden,
+                 * bevor eine neue Konfiguration
+                 * aktiv wird.
+                 */
+                sessionController
+                    ?.clear()
+
+
+                liveProtocolSettings
+                    .save(
+                        safeConfig
+                    )
+
+
+                liveProtocolConfig =
+                    safeConfig
+
+
+                showTeslaSetup =
+                    false
+            }
+        )
+    }
+
+
     Row(
+        modifier =
+            Modifier
+                .clickable {
+
+                    showTeslaSetup =
+                        true
+                }
+                .padding(
+                    horizontal = 4.dp,
+                    vertical = 2.dp
+                ),
+
         verticalAlignment =
             Alignment.CenterVertically
     ) {
@@ -1968,4 +2252,812 @@ private fun DashboardPreview() {
                 )
         )
     }
+}
+
+
+
+private fun teslaKeyFingerprint():
+    String? {
+
+    return try {
+
+        if (
+            !TeslaKeyStore.hasKey()
+        ) {
+            return null
+        }
+
+
+        val publicKey =
+            TeslaKeyStore
+                .encodedPublicKey()
+
+
+        val digest =
+            java.security
+                .MessageDigest
+                .getInstance(
+                    "SHA-256"
+                )
+                .digest(
+                    publicKey
+                )
+
+
+        digest.joinToString(
+            ":"
+        ) {
+
+            "%02X".format(
+                it.toInt() and 0xff
+            )
+        }
+    }
+    catch (_: Exception) {
+
+        null
+    }
+}
+
+
+@Composable
+private fun TeslaBleSetupDialog(
+
+    currentConfig:
+        TeslaLiveProtocolConfig,
+
+    keyPresent:
+        Boolean,
+
+    keyFingerprint:
+        String?,
+
+    keyError:
+        String?,
+
+    onPrepareKey:
+        () -> Unit,
+
+    onDeleteVin:
+        () -> Unit,
+
+    onDeleteKey:
+        () -> Unit,
+
+    onDismiss:
+        () -> Unit,
+
+    onSave:
+        (TeslaLiveProtocolConfig) -> Unit
+
+) {
+
+    var vin by
+        remember(currentConfig) {
+            mutableStateOf(
+                currentConfig.vin
+            )
+        }
+
+
+    var enrollmentConfirmed by
+        remember(currentConfig) {
+            mutableStateOf(
+                currentConfig
+                    .keyEnrollmentConfirmed
+            )
+        }
+
+
+    var liveEnabled by
+        remember(currentConfig) {
+            mutableStateOf(
+                currentConfig.enabled
+            )
+        }
+
+
+    var confirmVinDeletion by
+        remember {
+            mutableStateOf(false)
+        }
+
+
+    var confirmKeyDeletion by
+        remember {
+            mutableStateOf(false)
+        }
+
+
+    val normalizedVin =
+        vin
+            .trim()
+            .uppercase(
+                java.util.Locale.ROOT
+            )
+
+
+    val vinValid =
+        normalizedVin.length == 17
+
+
+    val vinSaved =
+        vinValid &&
+            normalizedVin ==
+            currentConfig.normalizedVin
+
+
+    val livePossible =
+        keyPresent &&
+            enrollmentConfirmed &&
+            vinValid
+
+
+    val statusText =
+        when {
+
+            !keyPresent ->
+                "Lokaler Schlüssel fehlt"
+
+            !vinValid ->
+                "VIN unvollständig"
+
+            !enrollmentConfirmed ->
+                "Schlüssel noch nicht autorisiert"
+
+            liveEnabled ->
+                "Live-BLE aktiviert"
+
+            else ->
+                "Bereit, aber deaktiviert"
+        }
+
+
+    AlertDialog(
+
+        modifier =
+            Modifier.fillMaxWidth(0.90f),
+
+        properties =
+            DialogProperties(
+                usePlatformDefaultWidth =
+                    false
+            ),
+
+        onDismissRequest =
+            onDismiss,
+
+        containerColor =
+            Color(0xFF3A3F46),
+
+        titleContentColor =
+            Color.White,
+
+        textContentColor =
+            Color(0xFFF0F1F3),
+
+        title = {
+
+            Text(
+                text =
+                    "Tesla BLE Setup",
+
+                color =
+                    Color.White,
+
+                fontSize =
+                    22.sp,
+
+                fontWeight =
+                    FontWeight.Bold
+            )
+        },
+
+        text = {
+
+            Row(
+
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        30.dp
+                    )
+            ) {
+
+                /*
+                 * =====================================
+                 * LINKE SPALTE
+                 * VIN + lokaler Schlüssel
+                 * =====================================
+                 */
+                Column(
+
+                    modifier =
+                        Modifier.weight(1.25f),
+
+                    verticalArrangement =
+                        Arrangement.spacedBy(
+                            4.dp
+                        )
+                ) {
+
+                    Text(
+                        text =
+                            "Alles bleibt lokal auf diesem Gerät.",
+
+                        color =
+                            Color(0xFFE3E5E8),
+
+                        fontSize =
+                            11.sp
+                    )
+
+
+                    OutlinedTextField(
+
+                        value =
+                            vin,
+
+                        onValueChange = { value ->
+
+                            vin =
+                                value
+                                    .filter {
+                                        it.isLetterOrDigit()
+                                    }
+                                    .take(17)
+                                    .uppercase(
+                                        java.util.Locale.ROOT
+                                    )
+
+                            confirmVinDeletion =
+                                false
+                        },
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        singleLine =
+                            true,
+
+                        label = {
+
+                            Text(
+                                "VIN"
+                            )
+                        },
+
+                        supportingText = {
+
+                            Text(
+                                text =
+                                    when {
+
+                                        vinSaved ->
+                                            "VIN gespeichert"
+
+                                        vinValid ->
+                                            "VIN vollständig – noch nicht gespeichert"
+
+                                        else ->
+                                            "${normalizedVin.length}/17 Zeichen"
+                                    },
+
+                                color =
+                                    if (vinSaved)
+                                        Color(0xFF45D177)
+                                    else
+                                        Color(0xFFE0E2E5),
+
+                                fontSize =
+                                    10.sp
+                            )
+                        },
+
+                        colors =
+                            OutlinedTextFieldDefaults
+                                .colors(
+
+                                    focusedTextColor =
+                                        Color.White,
+
+                                    unfocusedTextColor =
+                                        Color.White,
+
+                                    cursorColor =
+                                        DashRed,
+
+                                    focusedBorderColor =
+                                        Color(0xFFB2B7BE),
+
+                                    unfocusedBorderColor =
+                                        Color(0xFF858B94),
+
+                                    focusedLabelColor =
+                                        Color.White,
+
+                                    unfocusedLabelColor =
+                                        Color(0xFFE0E2E5),
+
+                                    focusedContainerColor =
+                                        Color(0xFF4A5058),
+
+                                    unfocusedContainerColor =
+                                        Color(0xFF4A5058)
+                                )
+                    )
+
+
+                    if (
+                        currentConfig
+                            .normalizedVin
+                            .isNotEmpty()
+                    ) {
+
+                        TextButton(
+
+                            onClick = {
+
+                                if (
+                                    confirmVinDeletion
+                                ) {
+
+                                    onDeleteVin()
+
+                                    vin =
+                                        ""
+
+                                    enrollmentConfirmed =
+                                        false
+
+                                    liveEnabled =
+                                        false
+
+                                    confirmVinDeletion =
+                                        false
+                                }
+                                else {
+
+                                    confirmVinDeletion =
+                                        true
+                                }
+                            }
+                        ) {
+
+                            Text(
+                                text =
+                                    if (
+                                        confirmVinDeletion
+                                    )
+                                        "VIN wirklich löschen"
+                                    else
+                                        "VIN löschen",
+
+                                color =
+                                    Color(0xFFFFB4AB),
+
+                                fontSize =
+                                    11.sp,
+
+                                fontWeight =
+                                    FontWeight.Bold
+                            )
+                        }
+                    }
+
+
+                    if (keyPresent) {
+                        Row(
+
+                            modifier =
+                                Modifier.fillMaxWidth(),
+
+                            horizontalArrangement =
+                                Arrangement.SpaceBetween,
+
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+
+                            Text(
+                                text =
+                                    "Lokaler Schlüssel vorhanden",
+
+                                color =
+                                    Color(0xFF45D177),
+
+                                fontSize =
+                                    12.sp,
+
+                                fontWeight =
+                                    FontWeight.Bold
+                            )
+
+
+                            TextButton(
+
+                                onClick = {
+
+                                    if (
+                                        confirmKeyDeletion
+                                    ) {
+
+                                        onDeleteKey()
+
+                                        enrollmentConfirmed =
+                                            false
+
+                                        liveEnabled =
+                                            false
+
+                                        confirmKeyDeletion =
+                                            false
+                                    }
+                                    else {
+
+                                        confirmKeyDeletion =
+                                            true
+                                    }
+                                }
+                            ) {
+
+                                Text(
+                                    text =
+                                        if (
+                                            confirmKeyDeletion
+                                        )
+                                            "Löschen bestätigen"
+                                        else
+                                            "Schlüssel löschen",
+
+                                    color =
+                                        Color(0xFFFF6B6B),
+
+                                    fontSize =
+                                        10.sp,
+
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+                            }
+                        }
+
+
+                        Text(
+                            text =
+                                if (keyFingerprint != null) {
+
+                                    val fp =
+                                        keyFingerprint
+
+                                    val shortFp =
+                                        if (fp.length > 40)
+                                            fp.take(20) +
+                                                " … " +
+                                                fp.takeLast(20)
+                                        else
+                                            fp
+
+                                    "SHA-256: $shortFp"
+                                }
+                                else {
+
+                                    "SHA-256: nicht verfügbar"
+                                },
+
+                            color =
+                                Color(0xFFE6E8EB),
+
+                            fontSize =
+                                9.sp,
+
+                            maxLines =
+                                1
+                        )
+}
+                    else {
+
+                        Text(
+                            text =
+                                "Kein lokaler Tesla-Schlüssel vorhanden.",
+
+                            color =
+                                Color.White,
+
+                            fontSize =
+                                11.sp
+                        )
+
+
+                        TextButton(
+                            onClick =
+                                onPrepareKey
+                        ) {
+
+                            Text(
+                                text =
+                                    "Lokalen Schlüssel erzeugen",
+
+                                color =
+                                    Color.White,
+
+                                fontSize =
+                                    11.sp,
+
+                                fontWeight =
+                                    FontWeight.Bold
+                            )
+                        }
+                    }
+
+
+                    if (keyError != null) {
+
+                        Text(
+                            text =
+                                keyError,
+
+                            color =
+                                DashRed,
+
+                            fontSize =
+                                10.sp
+                        )
+                    }
+                }
+
+
+                /*
+                 * =====================================
+                 * RECHTE SPALTE
+                 * Freigaben + Status
+                 * =====================================
+                 */
+                Column(
+
+                    modifier =
+                        Modifier.weight(0.85f),
+
+                    verticalArrangement =
+                        Arrangement.spacedBy(
+                            6.dp
+                        )
+                ) {
+
+                    Text(
+                        text =
+                            "Freigaben",
+
+                        color =
+                            Color.White,
+
+                        fontSize =
+                            15.sp,
+
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+
+                    Row(
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+
+                        Checkbox(
+
+                            checked =
+                                enrollmentConfirmed,
+
+                            enabled =
+                                keyPresent,
+
+                            colors =
+                                CheckboxDefaults
+                                    .colors(
+
+                                        checkedColor =
+                                            DashRed,
+
+                                        uncheckedColor =
+                                            Color.White,
+
+                                        checkmarkColor =
+                                            Color.White,
+
+                                        disabledUncheckedColor =
+                                            Color(0xFF8F949C)
+                                    ),
+
+                            onCheckedChange = { checked ->
+
+                                enrollmentConfirmed =
+                                    checked
+
+                                if (!checked) {
+
+                                    liveEnabled =
+                                        false
+                                }
+                            }
+                        )
+
+
+                        Text(
+                            text =
+                                "Schlüssel von Tesla autorisieren lassen",
+
+                            modifier =
+                                Modifier.weight(1f),
+
+                            color =
+                                Color.White,
+
+                            fontSize =
+                                12.sp,
+
+                            fontWeight =
+                                FontWeight.Medium
+                        )
+                    }
+
+
+                    Row(
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+
+                        Checkbox(
+
+                            checked =
+                                liveEnabled,
+
+                            enabled =
+                                livePossible,
+
+                            colors =
+                                CheckboxDefaults
+                                    .colors(
+
+                                        checkedColor =
+                                            DashRed,
+
+                                        uncheckedColor =
+                                            Color.White,
+
+                                        checkmarkColor =
+                                            Color.White,
+
+                                        disabledUncheckedColor =
+                                            Color(0xFF8F949C)
+                                    ),
+
+                            onCheckedChange = { checked ->
+
+                                liveEnabled =
+                                    checked
+                            }
+                        )
+
+
+                        Text(
+                            text =
+                                "Tesla-Livedaten über Bluetooth aktivieren",
+
+                            modifier =
+                                Modifier.weight(1f),
+
+                            color =
+                                Color.White,
+
+                            fontSize =
+                                12.sp,
+
+                            fontWeight =
+                                FontWeight.Bold
+                        )
+                    }
+
+
+                    Text(
+                        text =
+                            "Status: $statusText",
+
+                        color =
+                            if (
+                                liveEnabled &&
+                                livePossible
+                            )
+                                Color(0xFF45D177)
+                            else
+                                Color.White,
+
+                        fontSize =
+                            12.sp,
+
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                }
+            }
+        },
+
+        confirmButton = {
+
+            Button(
+
+                onClick = {
+
+                    onSave(
+                        TeslaLiveProtocolConfig(
+
+                            enabled =
+                                liveEnabled,
+
+                            keyEnrollmentConfirmed =
+                                enrollmentConfirmed,
+
+                            vin =
+                                normalizedVin
+                        )
+                    )
+                },
+
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor =
+                            Color(0xFF45D177),
+
+                        contentColor =
+                            Color.White
+                    )
+            ) {
+
+                Text(
+                    text =
+                        "Speichern",
+
+                    fontWeight =
+                        FontWeight.Bold
+                )
+            }
+        },
+
+        dismissButton = {
+
+            Button(
+
+                onClick =
+                    onDismiss,
+
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor =
+                            DashRed,
+
+                        contentColor =
+                            Color.White
+                    )
+            ) {
+
+                Text(
+                    text =
+                        "Abbrechen",
+
+                    fontWeight =
+                        FontWeight.Bold
+                )
+            }
+        }
+    )
 }
