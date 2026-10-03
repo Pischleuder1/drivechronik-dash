@@ -3146,58 +3146,69 @@ private fun EnergyRing(
 
 
             /*
-             * Komplette Energieskala immer anzeigen.
+             * Farbiger Energieanteil:
+             * nur die aktuell vorhandene Restenergie anzeigen.
              *
-             * Der Farbkranz ist fest von 0...100 % sichtbar.
-             * Nur der weiße Marker zeigt den aktuellen Ladezustand.
+             * Die Farbzonen behalten ihre festen SOC-Bereiche.
+             * Die dunkle 0...100-%-Grundspur bleibt vollständig sichtbar.
              */
             zones.forEach {
                 zone ->
 
-                val zoneStart =
-                    startAngle +
-                        zone.from /
-                        100f *
-                        fullEnergySweep
+                val visibleEnd =
+                    minOf(
+                        percent,
+                        zone.to
+                    )
 
+                if (
+                    visibleEnd >
+                        zone.from
+                ) {
 
-                val zoneSweep =
-                    (
-                        zone.to -
-                            zone.from
-                    ) /
-                        100f *
-                        fullEnergySweep
+                    val zoneStart =
+                        startAngle +
+                            zone.from /
+                            100f *
+                            fullEnergySweep
 
+                    val zoneSweep =
+                        (
+                            visibleEnd -
+                                zone.from
+                        ) /
+                            100f *
+                            fullEnergySweep
 
-                drawArc(
-                    color =
-                        zone.color,
+                    drawArc(
+                        color =
+                            zone.color,
 
-                    startAngle =
-                        zoneStart,
+                        startAngle =
+                            zoneStart,
 
-                    sweepAngle =
-                        zoneSweep,
+                        sweepAngle =
+                            zoneSweep,
 
-                    useCenter =
-                        false,
+                        useCenter =
+                            false,
 
-                    topLeft =
-                        arcTopLeft,
+                        topLeft =
+                            arcTopLeft,
 
-                    size =
-                        arcSize,
+                        size =
+                            arcSize,
 
-                    style =
-                        androidx.compose.ui.graphics.drawscope.Stroke(
-                            width =
-                                strokeWidth,
+                        style =
+                            androidx.compose.ui.graphics.drawscope.Stroke(
+                                width =
+                                    strokeWidth,
 
-                            cap =
-                                androidx.compose.ui.graphics.StrokeCap.Butt
-                        )
-                )
+                                cap =
+                                    androidx.compose.ui.graphics.StrokeCap.Butt
+                            )
+                    )
+                }
             }
 
 
