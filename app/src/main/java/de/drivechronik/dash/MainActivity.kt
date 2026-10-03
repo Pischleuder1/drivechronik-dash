@@ -180,50 +180,112 @@ class MainActivity : ComponentActivity() {
                             intent.getBooleanExtra(
                                 "navigationPreview",
                                 false
+                            ),
+                        demoPreview =
+                            intent.getBooleanExtra(
+                                "demoPreview",
+                                false
                             )
                     )
                 }
             }
         }
     }
+
+
+    override fun onResume() {
+        super.onResume()
+        applyImmersiveMode()
+    }
+
+
+    override fun onWindowFocusChanged(
+        hasFocus: Boolean
+    ) {
+        super.onWindowFocusChanged(
+            hasFocus
+        )
+
+        if (hasFocus) {
+            applyImmersiveMode()
+        }
+    }
+
+
+    private fun applyImmersiveMode() {
+
+        WindowCompat.setDecorFitsSystemWindows(
+            window,
+            false
+        )
+
+        WindowCompat
+            .getInsetsController(
+                window,
+                window.decorView
+            )
+            .apply {
+
+                hide(
+                    WindowInsetsCompat
+                        .Type
+                        .systemBars()
+                )
+
+                systemBarsBehavior =
+                    WindowInsetsControllerCompat
+                        .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+    }
 }
 
 @Composable
 private fun DriveChronikDashboard(
-    navigationPreview: Boolean = false
+    navigationPreview: Boolean = false,
+    demoPreview: Boolean = false
 ) {
 
-    var speed by remember {
+    /*
+     * Demo-Werte existieren weiterhin ausschließlich
+     * für die explizit gestartete UI-Vorschau.
+     *
+     * Im normalen Fahrzeugbetrieb werden sie niemals
+     * als Fallback verwendet.
+     */
+    var demoSpeed by remember {
         mutableFloatStateOf(96f)
     }
 
-    var powerKw by remember {
+    var demoPowerKw by remember {
         mutableFloatStateOf(15.3f)
     }
 
-    var remainingKwh by remember {
+    var demoRemainingKwh by remember {
         mutableFloatStateOf(43.8f)
     }
 
-    var speedLimit by remember {
+    var demoSpeedLimit by remember {
         mutableIntStateOf(100)
     }
 
-    var tick by remember {
+    var demoTick by remember {
         mutableIntStateOf(0)
     }
 
+
     /*
-     * Reale Tesla-Daten beobachten.
-     *
-     * Die Simulation bleibt bis zum ersten echten
-     * DriveState unverändert aktiv.
+     * Reale Tesla-Daten.
      */
     val liveSnapshot by
         TeslaDashboardRepository
             .snapshot
             .collectAsState()
 
+
+    /*
+     * Die Datenalterung muss auch dann weiterlaufen,
+     * wenn gerade kein neues BLE-Paket eintrifft.
+     */
     var telemetryNowNanos by
         remember {
             mutableStateOf(
@@ -231,10 +293,7 @@ private fun DriveChronikDashboard(
             )
         }
 
-    /*
-     * Auch wenn kein neues BLE-Paket kommt,
-     * muss das Alter der Daten weiterlaufen.
-     */
+
     LaunchedEffect(Unit) {
 
         while (true) {
@@ -242,9 +301,12 @@ private fun DriveChronikDashboard(
             telemetryNowNanos =
                 System.nanoTime()
 
-            delay(500L)
+            delay(
+                500L
+            )
         }
     }
+
 
     val liveTelemetry =
         TeslaDashboardTelemetryMapper
@@ -256,27 +318,61 @@ private fun DriveChronikDashboard(
                     telemetryNowNanos
             )
 
+
+    val driveFresh =
+        TeslaDashboardTelemetryMapper
+            .isDriveFresh(
+                liveTelemetry
+            )
+
+
     /*
-     * Solange noch nie reale Drive-Daten
-     * angekommen sind, bleibt die UI-Simulation
-     * bei D.
+     * Tesla dokumentiert drive_state.speed als mph.
      *
-     * Sobald echte Daten existieren:
-     * - frisch <= 3 s -> echte Fahrstufe
-     * - älter       -> —
+     * Deshalb verwenden wir bewusst das Integer-Feld
+     * "speed" aus TeslaDriveStateData und NICHT
+     * speedFloat.
      *
-     * Dadurch fällt das Dashboard nach einem
-     * Verbindungsabbruch NICHT zurück auf D.
+     * mph -> km/h:
+     * 1 mph = 1.609344 km/h
+     */
+    val liveSpeedKmh =
+        if (driveFresh) {
+
+            liveSnapshot
+                .drive
+                ?.speed
+                ?.takeIf {
+                    it >= 0L
+                }
+                ?.toFloat()
+                ?.times(
+                    1.609344f
+                )
+        }
+        else {
+            null
+        }
+
+
+    /*
+     * Gang:
+     *
+     * Demo nur in demoPreview.
+     *
+     * Im Normalbetrieb:
+     * frisch -> echter Tesla-Wert
+     * alt / unbekannt -> —
+     *
+     * Niemals zurück auf einen Demo-Gang.
      */
     val displayGear =
-        if (
-            liveSnapshot
-                .driveUpdatedAtNanos ==
-            null
-        ) {
+        if (demoPreview) {
+
             "D"
         }
         else {
+
             TeslaDashboardTelemetryMapper
                 .displayGear(
                     liveTelemetry
@@ -285,7 +381,18 @@ private fun DriveChronikDashboard(
         }
 
 
-    LaunchedEffect(Unit) {
+    /*
+     * Demo-Simulation läuft NUR noch dann,
+     * wenn demoPreview=true gestartet wurde.
+     */
+    LaunchedEffect(
+        demoPreview
+    ) {
+
+        if (!demoPreview) {
+            return@LaunchedEffect
+        }
+
 
         val limits =
             listOf(
@@ -295,70 +402,90 @@ private fun DriveChronikDashboard(
                 120
             )
 
-        var limitIndex = 2
+        var limitIndex =
+            2
+
 
         while (true) {
 
-            delay(400)
+            delay(
+                400L
+            )
 
-            tick++
+            demoTick++
 
-            /*
-             * Ruhige Simulation für die UI.
-             * Später werden diese Werte vollständig
-             * durch Tesla-BLE-Daten ersetzt.
-             */
 
-            speed =
+            demoSpeed =
                 96f +
-                sin(tick * 0.055f) * 11f
+                    sin(
+                        demoTick *
+                            0.055f
+                    ) *
+                    11f
 
-            powerKw =
+
+            demoPowerKw =
                 10f +
-                sin(tick * 0.10f) * 18f
+                    sin(
+                        demoTick *
+                            0.10f
+                    ) *
+                    18f
 
-            /*
-             * Restenergie sehr langsam reduzieren.
-             */
-            remainingKwh =
-                (remainingKwh - 0.0008f)
-                    .coerceAtLeast(0f)
 
-            /*
-             * Nur gelegentlich das Tempolimit ändern.
-             */
-            if (tick % 100 == 0) {
+            demoRemainingKwh =
+                (
+                    demoRemainingKwh -
+                        0.0008f
+                    )
+                    .coerceAtLeast(
+                        0f
+                    )
+
+
+            if (
+                demoTick %
+                    100 ==
+                    0
+            ) {
 
                 limitIndex =
-                    (limitIndex + 1) %
-                    limits.size
+                    (
+                        limitIndex +
+                            1
+                        ) %
+                        limits.size
 
-                speedLimit =
-                    limits[limitIndex]
+                demoSpeedLimit =
+                    limits[
+                        limitIndex
+                    ]
             }
         }
     }
 
-    val rangeKm =
-        (
-            remainingKwh *
-            1000f /
-            142f
-        ).roundToInt()
 
+    val demoRangeKm =
+        (
+            demoRemainingKwh *
+                1000f /
+                142f
+            )
+            .roundToInt()
+
+
+    /*
+     * Navigation:
+     *
+     * navigationPreview ist ausschließlich
+     * die gezielte UI-Vorschau.
+     *
+     * Ansonsten werden nur echte und frische
+     * Tesla-Routendaten angezeigt.
+     */
     val activeNavigation =
         if (navigationPreview) {
 
-            /*
-             * Reine UI-Vorschau.
-             *
-             * Wird ausschließlich über den Intent-Parameter
-             * navigationPreview=true aktiviert.
-             *
-             * Keine Speicherung.
-             * Kein BLE.
-             * Keine Änderung des Tesla-Status.
-             */
             TeslaNavigationTelemetry(
                 destination =
                     "Hannover",
@@ -385,35 +512,155 @@ private fun DriveChronikDashboard(
         }
 
 
+    /*
+     * ========================================================
+     * SICHTBARE DASHBOARD-WERTE
+     * ========================================================
+     *
+     * Normalbetrieb:
+     *
+     * Geschwindigkeit:
+     *   echte Tesla-Daten oder 0
+     *
+     * Gang:
+     *   echter Tesla-Wert oder —
+     *
+     * Navigation:
+     *   echte Tesla-Route oder ausgeblendet
+     *
+     * Leistung / Reichweite / Restenergie /
+     * Tempolimit / Blinker / Licht:
+     *
+     *   bleiben neutral, solange deren Live-Daten
+     *   noch nicht verifiziert sind.
+     *
+     * Entscheidend:
+     * Es gibt KEINEN automatischen Rückfall
+     * auf Demodaten.
+     */
     DashboardContent(
-        state = DashboardUiState(
-            speed = speed,
-            speedLimit = speedLimit,
-            powerKw = powerKw,
-            remainingKwh = remainingKwh,
-            usableCapacityKwh = 60f,
-            rangeKm = rangeKm,
+        state =
+            DashboardUiState(
 
-                        gear = displayGear,
+                speed =
+                    if (demoPreview) {
+                        demoSpeed
+                    }
+                    else {
+                        liveSpeedKmh
+                            ?: 0f
+                    },
 
-            navigation = activeNavigation,
 
-// Blinkersimulation
-            leftIndicator =
-                (tick % 120 in 10..34) &&
-                (tick % 4 < 2),
+                /*
+                 * 0 bedeutet:
+                 * keine verifizierte Tempolimitquelle.
+                 *
+                 * SpeedLimitSign blendet sich bei <= 0 aus.
+                 */
+                speedLimit =
+                    if (demoPreview) {
+                        demoSpeedLimit
+                    }
+                    else {
+                        0
+                    },
 
-            rightIndicator =
-                (tick % 120 in 72..96) &&
-                (tick % 4 < 2),
 
-            // Lichtsimulation
-            lowBeam =
-                tick % 120 !in 48..62,
+                /*
+                 * power ist im lokalen Proto vorhanden,
+                 * aber Einheit / Vorzeichenlogik wird
+                 * erst am realen Fahrzeug verifiziert.
+                 */
+                powerKw =
+                    if (demoPreview) {
+                        demoPowerKw
+                    }
+                    else {
+                        0f
+                    },
 
-            highBeam =
-                tick % 120 in 48..62
-        )
+
+                remainingKwh =
+                    if (demoPreview) {
+                        demoRemainingKwh
+                    }
+                    else {
+                        0f
+                    },
+
+
+                usableCapacityKwh =
+                    60f,
+
+
+                rangeKm =
+                    if (demoPreview) {
+                        demoRangeKm
+                    }
+                    else {
+                        0
+                    },
+
+
+                gear =
+                    displayGear,
+
+
+                navigation =
+                    activeNavigation,
+
+
+                /*
+                 * Blinker/Licht bleiben im Normalbetrieb
+                 * bewusst inaktiv, bis die Live-Signale
+                 * verifiziert und angeschlossen sind.
+                 */
+                leftIndicator =
+                    demoPreview &&
+                        (
+                            demoTick %
+                                120 in
+                                10..34
+                            ) &&
+                        (
+                            demoTick %
+                                4 <
+                                2
+                            ),
+
+
+                rightIndicator =
+                    demoPreview &&
+                        (
+                            demoTick %
+                                120 in
+                                72..96
+                            ) &&
+                        (
+                            demoTick %
+                                4 <
+                                2
+                            ),
+
+
+                lowBeam =
+                    demoPreview &&
+                        (
+                            demoTick %
+                                120 !in
+                                48..62
+                            ),
+
+
+                highBeam =
+                    demoPreview &&
+                        (
+                            demoTick %
+                                120 in
+                                48..62
+                            )
+            )
     )
 }
 
@@ -2567,6 +2814,15 @@ private fun SpeedLimitSign(
     limit: Int,
     modifier: Modifier = Modifier
 ) {
+
+    /*
+     * Kein verifiziertes Tempolimit:
+     * kein Schild anzeigen.
+     */
+    if (limit <= 0) {
+        return
+    }
+
 
     Box(
         modifier =
