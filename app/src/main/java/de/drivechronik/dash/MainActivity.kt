@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import de.drivechronik.dash.ble.TeslaBleScanState
 import de.drivechronik.dash.ble.TeslaBleScanStatus
 import de.drivechronik.dash.ble.TeslaBleScanner
+import de.drivechronik.dash.ble.TeslaBleVehicleIdentity
 import de.drivechronik.dash.ble.TeslaBleGattClient
 import de.drivechronik.dash.ble.TeslaRoutableMessageCodec
 import de.drivechronik.dash.ble.TeslaGattState
@@ -648,7 +649,35 @@ private fun TeslaBleHeaderStatus() {
     val scanner =
         remember {
             TeslaBleScanner(
-                context.applicationContext
+
+                context =
+                    context.applicationContext,
+
+                expectedLocalNameProvider = {
+
+                    val config =
+                        TeslaLiveProtocolSettings(
+                            context.applicationContext
+                        ).load()
+
+
+                    val vin =
+                        config.normalizedVin
+
+
+                    if (vin.length == 17) {
+
+                        TeslaBleVehicleIdentity
+                            .advertisementLocalName(
+                                vin
+                            )
+                    }
+                    else {
+
+                        null
+                    }
+                }
+
             ) {
                 scanState = it
             }

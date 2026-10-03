@@ -52,9 +52,17 @@ data class TeslaBleScanState(
 )
 
 class TeslaBleScanner(
+
     private val context: Context,
+
+    private val expectedLocalNameProvider:
+        () -> String? = {
+            null
+        },
+
     private val onState:
         (TeslaBleScanState) -> Unit
+
 ) {
 
     private val handler =
@@ -330,9 +338,54 @@ class TeslaBleScanner(
                 }
                 ?: false
 
+
+        val expectedLocalName =
+            runCatching {
+                expectedLocalNameProvider()
+            }
+                .getOrNull()
+                ?.takeIf {
+                    it.isNotBlank()
+                }
+
+
+        /*
+         * Ohne gespeicherte VIN:
+         * normale Tesla-Erkennung.
+         *
+         * Mit gespeicherter VIN:
+         * nur exakt dieses Fahrzeug.
+         */
+        val matchesExpectedVehicle =
+            if (expectedLocalName != null) {
+
+                name ==
+                    expectedLocalName
+            }
+            else {
+
+                matchesName ||
+                    matchesService
+            }
+
+
         if (
-            matchesName ||
-            matchesService
+            expectedLocalName != null &&
+            (matchesName || matchesService) &&
+            !matchesExpectedVehicle
+        ) {
+
+            Log.d(
+                "DriveChronikBLE",
+                "Tesla candidate ignored: " +
+                    "name=${name ?: "<ohne Name>"} " +
+                    "expected=$expectedLocalName"
+            )
+        }
+
+
+        if (
+            matchesExpectedVehicle
         ) {
 
             foundTesla = true
