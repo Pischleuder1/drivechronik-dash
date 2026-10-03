@@ -17,6 +17,11 @@ import de.drivechronik.dash.ble.TeslaBleGattClient
 import de.drivechronik.dash.ble.TeslaRoutableMessageCodec
 import de.drivechronik.dash.ble.TeslaGattState
 import de.drivechronik.dash.ble.TeslaGattStatus
+import de.drivechronik.dash.ble.TeslaBleSessionController
+import de.drivechronik.dash.ble.TeslaKeyStore
+import de.drivechronik.dash.ble.TeslaLiveProtocolSettings
+import de.drivechronik.dash.ble.TeslaProtocolSessionStatus
+import com.tesla.generated.universalmessage.UniversalMessage
 import de.drivechronik.dash.ble.TeslaVehicleDataRouter
 import de.drivechronik.dash.data.TeslaDashboardRepository
 import android.graphics.Typeface
@@ -481,6 +486,58 @@ private fun TeslaBleHeaderStatus() {
     val context =
         LocalContext.current
 
+
+    /*
+     * Live-Tesla-Protokoll ist standardmäßig
+     * vollständig deaktiviert.
+     */
+    val liveProtocolConfig =
+        remember {
+
+            TeslaLiveProtocolSettings(
+                context.applicationContext
+            ).load()
+        }
+
+
+    /*
+     * Kein gültiger VIN + keine bestätigte
+     * Schlüssel-Einschreibung:
+     *
+     * => kein Controller
+     * => kein SessionInfo Request
+     * => keinerlei Tesla-Protokoll-TX
+     */
+    val sessionController =
+        remember(
+            liveProtocolConfig
+        ) {
+
+            if (
+                liveProtocolConfig
+                    .canStartSession
+            ) {
+
+                TeslaBleSessionController(
+                    vin =
+                        liveProtocolConfig
+                            .normalizedVin,
+
+                    domain =
+                        UniversalMessage
+                            .Domain
+                            .DOMAIN_INFOTAINMENT,
+
+                    keyPair =
+                        TeslaKeyStore
+                            .getOrCreateKeyPair()
+                )
+            }
+            else {
+                null
+            }
+        }
+
     var permissionGranted by
         remember {
             mutableStateOf(
@@ -577,6 +634,64 @@ private fun TeslaBleHeaderStatus() {
                          * und werden deshalb hier
                          * ausdrücklich übersprungen.
                          */
+                        val hasSessionInfo =
+                            message
+                                .getSessionInfo()
+                                .size() > 0
+
+
+                        if (hasSessionInfo) {
+
+                            val controller =
+                                sessionController
+
+
+                            if (
+                                controller != null &&
+                                controller.status() ==
+                                TeslaProtocolSessionStatus
+                                    .HANDSHAKE_PENDING
+                            ) {
+
+                                try {
+
+                                    val state =
+                                        controller
+                                            .acceptHandshakeResponse(
+                                                message
+                                            )
+
+
+                                    Log.d(
+                                        "DriveChronikSESSION",
+                                        "Session READY " +
+                                            "counter=${state.currentCounter()}"
+                                    )
+                                }
+                                catch (e: Exception) {
+
+                                    controller.clear()
+
+
+                                    Log.e(
+                                        "DriveChronikSESSION",
+                                        "SessionInfo rejected: " +
+                                            "${e.message}",
+                                        e
+                                    )
+                                }
+                            }
+                            else {
+
+                                Log.d(
+                                    "DriveChronikSESSION",
+                                    "SessionInfo ignored: " +
+                                        "no pending live session"
+                                )
+                            }
+                        }
+
+
                         val encryptedResponse =
                             message.hasSignatureData() &&
                                 message
@@ -584,7 +699,10 @@ private fun TeslaBleHeaderStatus() {
                                     .hasAESGCMResponseData()
 
 
-                        if (!encryptedResponse) {
+                        if (
+                            !hasSessionInfo &&
+                            !encryptedResponse
+                        ) {
 
                             val payload =
                                 message
@@ -654,6 +772,125 @@ private fun TeslaBleHeaderStatus() {
                 }
             )
         }
+
+    /*
+     * Erst NACH vollständig aktivem
+     * Tesla-BLE-Transport darf der
+     * SessionInfo-Handshake starten.
+     *
+     * Solange sessionController == null,
+     * passiert hier absolut nichts.
+     */
+    LaunchedEffect(
+        gattState.status,
+        sessionController
+    ) {
+
+        val controller =
+            sessionController
+
+
+        if (
+            gattState.status ==
+                TeslaGattStatus.READY &&
+            controller != null &&
+            controller.status() ==
+                TeslaProtocolSessionStatus.IDLE
+        ) {
+
+            try {
+
+                val handshake =
+                    controller
+                        .beginHandshake()
+
+
+                val payload =
+                    TeslaRoutableMessageCodec
+                        .encode(
+                            handshake.message
+                        )
+
+
+                val accepted =
+                    gattClient
+                        .sendRoutableMessage(
+                            payload
+                        )
+
+
+                if (accepted) {
+
+                    Log.d(
+                        "DriveChronikSESSION",
+                        "SessionInfo TX queued " +
+                            "bytes=${payload.size}"
+                    )
+
+
+                    /*
+                     * Lokaler Timeout.
+                     * Eine erfolgreiche Antwort setzt
+                     * den Controller vorher auf READY.
+                     */
+                    kotlinx.coroutines
+                        .delay(
+                            11_000L
+                        )
+
+
+                    if (
+                        controller.status() ==
+                        TeslaProtocolSessionStatus
+                            .HANDSHAKE_PENDING
+                    ) {
+
+                        controller.clear()
+
+
+                        Log.w(
+                            "DriveChronikSESSION",
+                            "SessionInfo timeout"
+                        )
+                    }
+                }
+                else {
+
+                    controller.clear()
+
+
+                    Log.e(
+                        "DriveChronikSESSION",
+                        "SessionInfo TX rejected by GATT"
+                    )
+                }
+            }
+            catch (e: Exception) {
+
+                controller.clear()
+
+
+                Log.e(
+                    "DriveChronikSESSION",
+                    "SessionInfo startup failed: " +
+                        "${e.message}",
+                    e
+                )
+            }
+        }
+
+
+        if (
+            gattState.status ==
+                TeslaGattStatus.DISCONNECTED ||
+            gattState.status ==
+                TeslaGattStatus.ERROR
+        ) {
+
+            controller?.clear()
+        }
+    }
+
 
     val permissionLauncher =
         rememberLauncherForActivityResult(
@@ -726,6 +963,7 @@ private fun TeslaBleHeaderStatus() {
         onDispose {
 
             scanner.stopScan()
+            sessionController?.clear()
             gattClient.close()
         }
     }
