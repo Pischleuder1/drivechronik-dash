@@ -21,6 +21,20 @@ data class TeslaDashboardTelemetry(
 
     val gear: String? = null,
 
+    /*
+     * Navigationsdaten stammen direkt aus
+     * Teslas aktivem DriveState.
+     */
+    val activeRouteDestination: String? = null,
+
+    val activeRouteMinutesToArrival: Float? = null,
+
+    val activeRouteMilesToArrival: Float? = null,
+
+    val activeRouteTrafficMinutesDelay: Float? = null,
+
+    val activeRouteEnergyAtArrival: Float? = null,
+
     val batteryLevel: Int? = null,
 
     val usableBatteryLevel: Int? = null,
@@ -49,6 +63,21 @@ data class TeslaDashboardTelemetry(
     val chargeAgeMillis: Long? = null,
 
     val locationAgeMillis: Long? = null
+
+)
+
+
+data class TeslaNavigationTelemetry(
+
+    val destination: String?,
+
+    val remainingDistanceKm: Float?,
+
+    val remainingMinutes: Float?,
+
+    val trafficDelayMinutes: Float?,
+
+    val energyAtArrivalPercent: Float?
 
 )
 
@@ -89,6 +118,21 @@ object TeslaDashboardTelemetryMapper {
 
             gear =
                 drive?.shiftState,
+
+            activeRouteDestination =
+                drive?.activeRouteDestination,
+
+            activeRouteMinutesToArrival =
+                drive?.activeRouteMinutesToArrival,
+
+            activeRouteMilesToArrival =
+                drive?.activeRouteMilesToArrival,
+
+            activeRouteTrafficMinutesDelay =
+                drive?.activeRouteTrafficMinutesDelay,
+
+            activeRouteEnergyAtArrival =
+                drive?.activeRouteEnergyAtArrival,
 
             batteryLevel =
                 charge?.batteryLevel,
@@ -209,6 +253,91 @@ object TeslaDashboardTelemetryMapper {
             else ->
                 null
         }
+    }
+
+
+    fun activeNavigation(
+        telemetry: TeslaDashboardTelemetry,
+        maxAgeMillis: Long = 3_000L
+    ): TeslaNavigationTelemetry? {
+
+        if (
+            !isDriveFresh(
+                telemetry,
+                maxAgeMillis
+            )
+        ) {
+            return null
+        }
+
+        val destination =
+            telemetry
+                .activeRouteDestination
+                ?.trim()
+                ?.takeIf {
+                    it.isNotEmpty()
+                }
+
+        val minutes =
+            telemetry
+                .activeRouteMinutesToArrival
+                ?.takeIf {
+                    it >= 0f
+                }
+
+        val miles =
+            telemetry
+                .activeRouteMilesToArrival
+                ?.takeIf {
+                    it >= 0f
+                }
+
+        val traffic =
+            telemetry
+                .activeRouteTrafficMinutesDelay
+                ?.takeIf {
+                    it >= 0f
+                }
+
+        val energy =
+            telemetry
+                .activeRouteEnergyAtArrival
+                ?.takeIf {
+                    it in 0f..100f
+                }
+
+        /*
+         * Ohne irgendeinen activeRoute-Wert
+         * existiert für das Dashboard keine
+         * aktive Tesla-Navigation.
+         */
+        if (
+            destination == null &&
+            minutes == null &&
+            miles == null &&
+            traffic == null &&
+            energy == null
+        ) {
+            return null
+        }
+
+        return TeslaNavigationTelemetry(
+            destination = destination,
+
+            remainingDistanceKm =
+                miles?.times(
+                    1.609344f
+                ),
+
+            remainingMinutes =
+                minutes,
+
+            trafficDelayMinutes =
+                traffic,
+
+            energyAtArrivalPercent =
+                energy
+        )
     }
 
 

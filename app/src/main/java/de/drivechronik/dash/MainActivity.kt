@@ -27,6 +27,7 @@ import de.drivechronik.dash.ble.TeslaLiveProtocolConfig
 import de.drivechronik.dash.ble.TeslaProtocolSessionStatus
 import com.tesla.generated.universalmessage.UniversalMessage
 import de.drivechronik.dash.ble.TeslaVehicleDataRouter
+import de.drivechronik.dash.ble.TeslaNavigationTelemetry
 import de.drivechronik.dash.ble.TeslaDashboardTelemetryMapper
 import de.drivechronik.dash.data.TeslaDashboardRepository
 import android.graphics.Typeface
@@ -37,7 +38,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -88,6 +88,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -130,6 +131,7 @@ data class DashboardUiState(
     val usableCapacityKwh: Float = 60f,
     val rangeKm: Int = 308,
         val gear: String = "D",
+    val navigation: TeslaNavigationTelemetry? = null,
 val leftIndicator: Boolean = false,
     val rightIndicator: Boolean = false,
     val lowBeam: Boolean = true,
@@ -173,7 +175,13 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = DashBackground
                 ) {
-                    DriveChronikDashboard()
+                    DriveChronikDashboard(
+                        navigationPreview =
+                            intent.getBooleanExtra(
+                                "navigationPreview",
+                                false
+                            )
+                    )
                 }
             }
         }
@@ -181,7 +189,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun DriveChronikDashboard() {
+private fun DriveChronikDashboard(
+    navigationPreview: Boolean = false
+) {
 
     var speed by remember {
         mutableFloatStateOf(96f)
@@ -336,6 +346,45 @@ private fun DriveChronikDashboard() {
             142f
         ).roundToInt()
 
+    val activeNavigation =
+        if (navigationPreview) {
+
+            /*
+             * Reine UI-Vorschau.
+             *
+             * Wird ausschließlich über den Intent-Parameter
+             * navigationPreview=true aktiviert.
+             *
+             * Keine Speicherung.
+             * Kein BLE.
+             * Keine Änderung des Tesla-Status.
+             */
+            TeslaNavigationTelemetry(
+                destination =
+                    "Hannover",
+
+                remainingDistanceKm =
+                    42f,
+
+                remainingMinutes =
+                    31f,
+
+                trafficDelayMinutes =
+                    4f,
+
+                energyAtArrivalPercent =
+                    54f
+            )
+        }
+        else {
+
+            TeslaDashboardTelemetryMapper
+                .activeNavigation(
+                    liveTelemetry
+                )
+        }
+
+
     DashboardContent(
         state = DashboardUiState(
             speed = speed,
@@ -346,6 +395,8 @@ private fun DriveChronikDashboard() {
             rangeKm = rangeKm,
 
                         gear = displayGear,
+
+            navigation = activeNavigation,
 
 // Blinkersimulation
             leftIndicator =
@@ -417,29 +468,42 @@ private fun DashboardContent(
 
                     Speedometer(
                         speed = state.speed,
+                        speedLimit = state.speedLimit,
                                                 gear = state.gear,
 modifier =
                             Modifier
                                 .fillMaxSize()
                                 .padding(
                                     top = 2.dp,
-                                    end = 8.dp,
+                                    end = 30.dp,
                                     bottom = 2.dp
+                                )
+                                .offset(
+                                    x = (-38).dp
                                 )
                     )
 
-                    SpeedLimitSign(
-                        limit = state.speedLimit,
-                        modifier =
-                            Modifier
-                                .align(
-                                    Alignment.TopEnd
-                                )
-                                .padding(
-                                    top = 10.dp,
-                                    end = 14.dp
-                                )
-                    )
+
+
+                    state.navigation?.let {
+                        navigation ->
+
+                        NavigationPanel(
+                            navigation =
+                                navigation,
+
+                            modifier =
+                                Modifier
+                                    .align(
+                                        Alignment.TopEnd
+                                    )
+                                    .offset(
+                                        y = 18.dp
+                                    )
+                                    .width(145.dp)
+                        )
+                    }
+
                 }
 
             }
@@ -518,7 +582,8 @@ modifier =
                     compact = true
                 )
 
-                VehicleStatusBar(
+
+VehicleStatusBar(
                     leftIndicator =
                         state.leftIndicator,
                     rightIndicator =
@@ -1833,16 +1898,205 @@ private fun TeslaBleHeaderStatus() {
 }
 
 
+
+@Composable
+private fun rememberAutomaticSolarNightMode(): Boolean {
+
+    val context =
+        LocalContext.current
+
+    val preferences =
+        remember(context) {
+            context.getSharedPreferences(
+                "drivechronik_solar_theme",
+                Context.MODE_PRIVATE
+            )
+        }
+
+
+    val storedLatitude =
+        preferences
+            .getString(
+                "last_tesla_latitude",
+                null
+            )
+            ?.toDoubleOrNull()
+
+    val storedLongitude =
+        preferences
+            .getString(
+                "last_tesla_longitude",
+                null
+            )
+            ?.toDoubleOrNull()
+
+
+    var latitude by
+        remember {
+            mutableStateOf(
+                storedLatitude
+                    ?: SolarDayNight.DEFAULT_LATITUDE
+            )
+        }
+
+    var longitude by
+        remember {
+            mutableStateOf(
+                storedLongitude
+                    ?: SolarDayNight.DEFAULT_LONGITUDE
+            )
+        }
+
+
+    var lastPersistedLatitude by
+        remember {
+            mutableStateOf(
+                storedLatitude
+            )
+        }
+
+    var lastPersistedLongitude by
+        remember {
+            mutableStateOf(
+                storedLongitude
+            )
+        }
+
+
+    var now by
+        remember {
+            mutableStateOf(
+                java.time.ZonedDateTime.now()
+            )
+        }
+
+
+    LaunchedEffect(Unit) {
+
+        while (true) {
+
+            val vehicleLocation =
+                TeslaDashboardRepository
+                    .snapshot
+                    .value
+                    .location
+
+            val liveLatitude =
+                vehicleLocation
+                    ?.latitude
+                    ?.toDouble()
+
+            val liveLongitude =
+                vehicleLocation
+                    ?.longitude
+                    ?.toDouble()
+
+
+            val validLocation =
+                liveLatitude != null &&
+                    liveLongitude != null &&
+                    liveLatitude.isFinite() &&
+                    liveLongitude.isFinite() &&
+                    liveLatitude in -90.0..90.0 &&
+                    liveLongitude in -180.0..180.0
+
+
+            if (validLocation) {
+
+                val newLatitude =
+                    liveLatitude!!
+
+                val newLongitude =
+                    liveLongitude!!
+
+                latitude =
+                    newLatitude
+
+                longitude =
+                    newLongitude
+
+
+                /*
+                 * Nicht alle 30 Sekunden Flash schreiben.
+                 * Erst ab ungefähr 0,1 Grad Positionsänderung
+                 * oder beim ersten Tesla-Fix speichern.
+                 */
+                val shouldPersist =
+                    lastPersistedLatitude == null ||
+                        lastPersistedLongitude == null ||
+                        kotlin.math.abs(
+                            newLatitude -
+                                lastPersistedLatitude!!
+                        ) >= 0.1 ||
+                        kotlin.math.abs(
+                            newLongitude -
+                                lastPersistedLongitude!!
+                        ) >= 0.1
+
+
+                if (shouldPersist) {
+
+                    preferences
+                        .edit()
+                        .putString(
+                            "last_tesla_latitude",
+                            newLatitude.toString()
+                        )
+                        .putString(
+                            "last_tesla_longitude",
+                            newLongitude.toString()
+                        )
+                        .apply()
+
+                    lastPersistedLatitude =
+                        newLatitude
+
+                    lastPersistedLongitude =
+                        newLongitude
+                }
+            }
+
+
+            now =
+                java.time.ZonedDateTime.now()
+
+            /*
+             * Mehr als ausreichend genau für
+             * Sonnenuntergang / Tagesanbruch.
+             */
+            delay(
+                30_000L
+            )
+        }
+    }
+
+
+    return remember(
+        now,
+        latitude,
+        longitude
+    ) {
+
+        SolarDayNight.isNight(
+            now = now,
+            latitude = latitude,
+            longitude = longitude
+        )
+    }
+}
+
+
 @Composable
 private fun Speedometer(
     speed: Float,
+    speedLimit: Int,
     gear: String = "D",
     modifier: Modifier = Modifier
 ) {
 
 
     val isNightMode =
-        isSystemInDarkTheme()
+        rememberAutomaticSolarNightMode()
 
     val gaugeOuterRingColor =
         if (isNightMode)
@@ -2229,6 +2483,26 @@ private fun Speedometer(
             }
 
             /*
+             * Tempolimit im Tachokranz.
+             * Kleiner und bewusst zurückhaltend.
+             */
+            SpeedLimitSign(
+                limit =
+                    speedLimit,
+
+                modifier =
+                    Modifier
+                        .align(
+                            Alignment.Center
+                        )
+                        .offset(
+                            x = 52.dp,
+                            y = (-72).dp
+                        )
+            )
+
+
+            /*
              * digitale Geschwindigkeit
              */
             Column(
@@ -2297,18 +2571,25 @@ private fun SpeedLimitSign(
     Box(
         modifier =
             modifier
-                .size(90.dp)
-                .background(
-                    Color.White,
+                .size(56.dp)
+                .clip(
                     CircleShape
                 )
+                .background(
+                    Color.White.copy(
+                        alpha = 0.56f
+                    )
+                )
                 .border(
-                    width = 8.dp,
+                    width = 3.dp,
                     color =
-                        Color(0xFFE52626),
+                        DashRed.copy(
+                            alpha = 0.46f
+                        ),
                     shape =
                         CircleShape
                 ),
+
         contentAlignment =
             Alignment.Center
     ) {
@@ -2316,10 +2597,13 @@ private fun SpeedLimitSign(
         Text(
             text =
                 limit.toString(),
+
             color =
-                Color.Black,
-            fontSize =
-                38.sp,
+                Color.Black.copy(
+                    alpha = 0.74f
+                ),
+
+            fontSize = 21.sp,
             fontWeight =
                 FontWeight.Bold
         )
@@ -2545,6 +2829,182 @@ private fun EnergyBar(
                         Color.White
                     )
         )
+    }
+}
+
+
+@Composable
+private fun NavigationPanel(
+    navigation: TeslaNavigationTelemetry,
+    modifier: Modifier = Modifier
+) {
+
+    val destination =
+        navigation.destination
+            ?: "Aktive Route"
+
+    val distanceText =
+        navigation
+            .remainingDistanceKm
+            ?.let { km ->
+
+                if (km < 10f) {
+
+                    String.format(
+                        java.util.Locale.GERMANY,
+                        "%.1f km",
+                        km
+                    )
+                }
+                else {
+
+                    "${km.roundToInt()} km"
+                }
+            }
+            ?: "— km"
+
+    val remainingMinutes =
+        navigation
+            .remainingMinutes
+            ?.roundToInt()
+            ?.coerceAtLeast(0)
+
+    val durationText =
+        remainingMinutes
+            ?.let {
+                "$it min"
+            }
+            ?: "— min"
+
+    val etaText =
+        remainingMinutes
+            ?.let { minutes ->
+
+                java.time.LocalTime
+                    .now()
+                    .plusMinutes(
+                        minutes.toLong()
+                    )
+                    .format(
+                        java.time.format
+                            .DateTimeFormatter
+                            .ofPattern(
+                                "HH:mm"
+                            )
+                    )
+            }
+            ?: "—:—"
+
+    val arrivalText =
+        navigation
+            .energyAtArrivalPercent
+            ?.roundToInt()
+            ?.coerceIn(
+                0,
+                100
+            )
+            ?.let {
+                "$it %"
+            }
+            ?: "— %"
+
+    val trafficDelay =
+        navigation
+            .trafficDelayMinutes
+            ?.roundToInt()
+            ?.coerceAtLeast(0)
+            ?: 0
+
+
+    Column(
+        modifier =
+            modifier
+
+                .padding(
+                    start = 10.dp,
+                    end = 4.dp,
+                    top = 3.dp,
+                    bottom = 3.dp
+                ),
+
+        horizontalAlignment =
+            Alignment.Start,
+
+        verticalArrangement =
+            Arrangement.Top
+    ) {
+
+        Spacer(
+            modifier =
+                Modifier.height(14.dp)
+        )
+
+
+
+        Spacer(
+            modifier =
+                Modifier.height(8.dp)
+        )
+
+        Text(
+            text = destination,
+            color = DashText,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        Spacer(
+            modifier =
+                Modifier.height(5.dp)
+        )
+
+        Text(
+            text =
+                "$distanceText  ·  $durationText",
+
+            color = DashText,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+
+        Spacer(
+            modifier =
+                Modifier.height(2.dp)
+        )
+
+        Text(
+            text =
+                "ETA $etaText  ·  $arrivalText",
+
+            color = DashText,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1
+        )
+
+        if (trafficDelay >= 1) {
+
+            Spacer(
+                modifier =
+                    Modifier.height(8.dp)
+            )
+
+            Text(
+                text =
+                    "+$trafficDelay min Verkehr",
+
+                color =
+                    DashText.copy(
+                        alpha = 0.74f
+                    ),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1
+            )
+        }
     }
 }
 

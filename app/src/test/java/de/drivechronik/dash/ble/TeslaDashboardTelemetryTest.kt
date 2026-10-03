@@ -20,7 +20,22 @@ class TeslaDashboardTelemetryTest {
                         power = 44,
                         shiftState = "D",
                         odometerHundredthsOfMile =
-                            123456
+                            123456,
+
+                        activeRouteDestination =
+                            "Hannover",
+
+                        activeRouteMinutesToArrival =
+                            31f,
+
+                        activeRouteMilesToArrival =
+                            26.1f,
+
+                        activeRouteTrafficMinutesDelay =
+                            4f,
+
+                        activeRouteEnergyAtArrival =
+                            54f
                     ),
 
                 charge =
@@ -107,6 +122,32 @@ class TeslaDashboardTelemetryTest {
         assertEquals(
             "D",
             result.gear
+        )
+
+
+        assertEquals(
+            "Hannover",
+            result.activeRouteDestination
+        )
+
+        assertEquals(
+            31f,
+            result.activeRouteMinutesToArrival
+        )
+
+        assertEquals(
+            26.1f,
+            result.activeRouteMilesToArrival
+        )
+
+        assertEquals(
+            4f,
+            result.activeRouteTrafficMinutesDelay
+        )
+
+        assertEquals(
+            54f,
+            result.activeRouteEnergyAtArrival
         )
 
         assertEquals(
@@ -365,6 +406,107 @@ class TeslaDashboardTelemetryTest {
             "R",
             TeslaDashboardTelemetryMapper
                 .displayGear(
+                    telemetry
+                )
+        )
+    }
+
+
+    @Test
+    fun freshNavigationIsConvertedToMetric() {
+
+        val telemetry =
+            TeslaDashboardTelemetry(
+                activeRouteDestination =
+                    "Hannover",
+
+                activeRouteMinutesToArrival =
+                    31f,
+
+                activeRouteMilesToArrival =
+                    10f,
+
+                activeRouteTrafficMinutesDelay =
+                    4f,
+
+                activeRouteEnergyAtArrival =
+                    54f,
+
+                driveAgeMillis =
+                    2_000L
+            )
+
+        val navigation =
+            TeslaDashboardTelemetryMapper
+                .activeNavigation(
+                    telemetry
+                )
+
+        assertEquals(
+            "Hannover",
+            navigation?.destination
+        )
+
+        assertEquals(
+            16.09344f,
+            navigation?.remainingDistanceKm
+                ?: -1f,
+            0.0001f
+        )
+
+        assertEquals(
+            31f,
+            navigation?.remainingMinutes
+        )
+
+        assertEquals(
+            4f,
+            navigation?.trafficDelayMinutes
+        )
+
+        assertEquals(
+            54f,
+            navigation?.energyAtArrivalPercent
+        )
+    }
+
+
+    @Test
+    fun staleNavigationIsHidden() {
+
+        val telemetry =
+            TeslaDashboardTelemetry(
+                activeRouteDestination =
+                    "Hannover",
+
+                activeRouteMinutesToArrival =
+                    31f,
+
+                driveAgeMillis =
+                    3_001L
+            )
+
+        assertNull(
+            TeslaDashboardTelemetryMapper
+                .activeNavigation(
+                    telemetry
+                )
+        )
+    }
+
+
+    @Test
+    fun missingRouteProducesNoNavigation() {
+
+        val telemetry =
+            TeslaDashboardTelemetry(
+                driveAgeMillis =
+                    500L
+            )
+
+        assertNull(
+            TeslaDashboardTelemetryMapper
+                .activeNavigation(
                     telemetry
                 )
         )

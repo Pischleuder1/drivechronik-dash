@@ -12,7 +12,17 @@ data class TeslaDriveStateData(
 
     val shiftState: String,
 
-    val odometerHundredthsOfMile: Int?
+    val odometerHundredthsOfMile: Int?,
+
+    val activeRouteDestination: String? = null,
+
+    val activeRouteMinutesToArrival: Float? = null,
+
+    val activeRouteMilesToArrival: Float? = null,
+
+    val activeRouteTrafficMinutesDelay: Float? = null,
+
+    val activeRouteEnergyAtArrival: Float? = null
 
 )
 
@@ -148,13 +158,88 @@ object TeslaDriveStateCodec {
                 .name
 
 
+        val activeRouteDestination =
+            if (
+                drive.hasActiveRouteDestination()
+            ) {
+                drive
+                    .activeRouteDestination
+                    .trim()
+                    .takeIf {
+                        it.isNotEmpty()
+                    }
+            }
+            else {
+                null
+            }
+
+
+        val activeRouteMinutesToArrival =
+            if (
+                drive.hasActiveRouteMinutesToArrival()
+            ) {
+                drive.activeRouteMinutesToArrival
+            }
+            else {
+                null
+            }
+
+
+        val activeRouteMilesToArrival =
+            if (
+                drive.hasActiveRouteMilesToArrival()
+            ) {
+                drive.activeRouteMilesToArrival
+            }
+            else {
+                null
+            }
+
+
+        val activeRouteTrafficMinutesDelay =
+            if (
+                drive.hasActiveRouteTrafficMinutesDelay()
+            ) {
+                drive.activeRouteTrafficMinutesDelay
+            }
+            else {
+                null
+            }
+
+
+        val activeRouteEnergyAtArrival =
+            if (
+                drive.hasActiveRouteEnergyAtArrival()
+            ) {
+                drive.activeRouteEnergyAtArrival
+            }
+            else {
+                null
+            }
+
+
         return TeslaDriveStateData(
             speedFloat = speedFloat,
             speed = speed,
             power = power,
             shiftState = shift,
             odometerHundredthsOfMile =
-                odometer
+                odometer,
+
+            activeRouteDestination =
+                activeRouteDestination,
+
+            activeRouteMinutesToArrival =
+                activeRouteMinutesToArrival,
+
+            activeRouteMilesToArrival =
+                activeRouteMilesToArrival,
+
+            activeRouteTrafficMinutesDelay =
+                activeRouteTrafficMinutesDelay,
+
+            activeRouteEnergyAtArrival =
+                activeRouteEnergyAtArrival
         )
     }
 }
