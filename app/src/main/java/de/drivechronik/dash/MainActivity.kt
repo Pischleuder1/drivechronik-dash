@@ -606,7 +606,7 @@ private fun DriveChronikDashboard(
      * Tesla-Routendaten angezeigt.
      */
     val activeNavigation =
-        if (navigationPreview || demoEnabled) {
+        if (navigationPreview && demoEnabled) {
 
             TeslaNavigationTelemetry(
                 destination =
@@ -922,25 +922,6 @@ modifier =
 
 
 
-                    state.navigation?.let {
-                        navigation ->
-
-                        NavigationPanel(
-                            navigation =
-                                navigation,
-
-                            modifier =
-                                Modifier
-                                    .align(
-                                        Alignment.TopEnd
-                                    )
-                                    .offset(
-                                        y = 18.dp
-                                    )
-                                    .width(145.dp)
-                        )
-                    }
-
                 }
 
             }
@@ -1011,13 +992,20 @@ modifier =
                     )
                 }
 
-                RestEnergyPanel(
-                    remainingKwh =
-                        state.remainingKwh,
-                    maxKwh =
-                        state.usableCapacityKwh,
-                    compact = true
-                )
+
+
+                state.navigation?.let {
+                    navigation ->
+
+                    NavigationPanel(
+                        navigation =
+                            navigation,
+
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                    )
+                }
 
 
 VehicleStatusBar(
@@ -4129,13 +4117,13 @@ private fun NavigationPanel(
         navigation.destination
             ?: "Aktive Route"
 
+
     val distanceText =
         navigation
             .remainingDistanceKm
             ?.let { km ->
 
                 if (km < 10f) {
-
                     String.format(
                         java.util.Locale.GERMANY,
                         "%.1f km",
@@ -4143,11 +4131,11 @@ private fun NavigationPanel(
                     )
                 }
                 else {
-
                     "${km.roundToInt()} km"
                 }
             }
             ?: "— km"
+
 
     val remainingMinutes =
         navigation
@@ -4155,12 +4143,14 @@ private fun NavigationPanel(
             ?.roundToInt()
             ?.coerceAtLeast(0)
 
+
     val durationText =
         remainingMinutes
             ?.let {
-                "$it min"
+                "$it Min"
             }
-            ?: "— min"
+            ?: "— Min"
+
 
     val etaText =
         remainingMinutes
@@ -4174,12 +4164,11 @@ private fun NavigationPanel(
                     .format(
                         java.time.format
                             .DateTimeFormatter
-                            .ofPattern(
-                                "HH:mm"
-                            )
+                            .ofPattern("HH.mm")
                     )
             }
-            ?: "—:—"
+            ?: "—.—"
+
 
     val arrivalText =
         navigation
@@ -4190,9 +4179,10 @@ private fun NavigationPanel(
                 100
             )
             ?.let {
-                "$it %"
+                "$it%"
             }
-            ?: "— %"
+            ?: "—%"
+
 
     val trafficDelay =
         navigation
@@ -4205,94 +4195,124 @@ private fun NavigationPanel(
     Column(
         modifier =
             modifier
-
                 .padding(
-                    start = 10.dp,
-                    end = 4.dp,
-                    top = 3.dp,
-                    bottom = 3.dp
+                    start = 14.dp,
+                    end = 12.dp,
+                    top = 5.dp,
+                    bottom = 5.dp
                 ),
 
-        horizontalAlignment =
-            Alignment.Start,
-
         verticalArrangement =
-            Arrangement.Top
+            Arrangement.spacedBy(4.dp)
     ) {
 
+        Row(
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+
+            Text(
+                text = "⌖",
+                color = DashRed,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(
+                modifier =
+                    Modifier.width(7.dp)
+            )
+
+            Text(
+                text = destination,
+                color = DashText,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+        }
+
+
         Spacer(
             modifier =
-                Modifier.height(14.dp)
+                Modifier.height(3.dp)
         )
 
 
-
-        Spacer(
+        Row(
             modifier =
-                Modifier.height(8.dp)
-        )
+                Modifier.fillMaxWidth()
+        ) {
 
-        Text(
-            text = destination,
-            color = DashText,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+            Text(
+                text = "→ $distanceText",
+                color = DashText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+                maxLines = 1
+            )
 
-        Spacer(
+            Text(
+                text = "→ $durationText",
+                color = DashText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+                maxLines = 1
+            )
+        }
+
+
+        Row(
             modifier =
-                Modifier.height(5.dp)
-        )
+                Modifier.fillMaxWidth()
+        ) {
 
-        Text(
-            text =
-                "$distanceText  ·  $durationText",
+            Text(
+                text = "→ $etaText Uhr",
+                color = DashText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+                maxLines = 1
+            )
 
-            color = DashText,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1
-        )
+            Text(
+                text = "→ mit $arrivalText",
+                color = DashText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+                maxLines = 1
+            )
+        }
+
 
         Spacer(
             modifier =
                 Modifier.height(2.dp)
         )
 
+
         Text(
             text =
-                "ETA $etaText  ·  $arrivalText",
+                "↳  Verkehr +$trafficDelay Min",
 
-            color = DashText,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
+            color =
+                Color(0xFFFFA726),
+
+            fontSize =
+                15.sp,
+
+            fontWeight =
+                FontWeight.Medium,
+
             maxLines = 1
         )
-
-        if (trafficDelay >= 1) {
-
-            Spacer(
-                modifier =
-                    Modifier.height(8.dp)
-            )
-
-            Text(
-                text =
-                    "+$trafficDelay min Verkehr",
-
-                color =
-                    DashText.copy(
-                        alpha = 0.74f
-                    ),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1
-            )
-        }
     }
 }
+
 
 
 @Composable
