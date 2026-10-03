@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -68,6 +69,21 @@ class TeslaBleGattClient(
 
     private var writeCharacteristic:
         BluetoothGattCharacteristic? = null
+
+    private val frameDecoder =
+        TeslaBleFrameDecoder()
+
+    private val txQueue =
+        java.util.ArrayDeque<ByteArray>()
+
+    private val txLock =
+        Any()
+
+    private var writeInFlight =
+        false
+
+    private var transportReady =
+        false
 
     private fun hasConnectPermission(): Boolean =
         ContextCompat.checkSelfPermission(
@@ -170,6 +186,16 @@ class TeslaBleGattClient(
         gatt = null
         readCharacteristic = null
         writeCharacteristic = null
+
+        frameDecoder.reset()
+
+        synchronized(txLock) {
+            txQueue.clear()
+            writeInFlight = false
+        }
+
+        transportReady = false
+
         currentMtu = 23
         currentAddress = null
     }
@@ -405,6 +431,51 @@ class TeslaBleGattClient(
                 }
             }
 
+            override fun onCharacteristicWrite(
+                gatt: BluetoothGatt,
+                characteristic:
+                    BluetoothGattCharacteristic,
+                status: Int
+            ) {
+
+                if (
+                    characteristic.uuid !=
+                    TeslaBleConstants.WRITE_UUID
+                ) {
+                    return
+                }
+
+                Log.d(
+                    TAG,
+                    "TX_WRITE_DONE status=$status"
+                )
+
+                if (
+                    status !=
+                    BluetoothGatt.GATT_SUCCESS
+                ) {
+
+                    synchronized(txLock) {
+                        txQueue.clear()
+                        writeInFlight = false
+                    }
+
+                    emitError(
+                        currentAddress,
+                        "Tesla BLE Write fehlgeschlagen: $status"
+                    )
+
+                    return
+                }
+
+                synchronized(txLock) {
+                    writeInFlight = false
+                }
+
+                pumpTxQueue()
+            }
+
+
             override fun onMtuChanged(
                 gatt: BluetoothGatt,
                 mtu: Int,
@@ -447,6 +518,13 @@ class TeslaBleGattClient(
                     status ==
                     BluetoothGatt.GATT_SUCCESS
                 ) {
+
+                    transportReady = true
+
+                    Log.d(
+                        TAG,
+                        "TRANSPORT_READY mtu=$currentMtu"
+                    )
 
                     onState(
                         TeslaGattState(
@@ -652,19 +730,216 @@ class TeslaBleGattClient(
         }
     }
 
+    @SuppressLint("MissingPermission")
+    fun sendRoutableMessage(
+        message: ByteArray
+    ): Boolean {
+
+        if (!hasConnectPermission()) {
+            return false
+        }
+
+        if (!transportReady) {
+
+            Log.w(
+                TAG,
+                "TX rejected: transport not ready"
+            )
+
+            return false
+        }
+
+        if (
+            gatt == null ||
+            writeCharacteristic == null
+        ) {
+
+            Log.w(
+                TAG,
+                "TX rejected: GATT/characteristic unavailable"
+            )
+
+            return false
+        }
+
+        val frame =
+            try {
+                TeslaBleFrameCodec.encode(
+                    message
+                )
+            }
+            catch (
+                e: IllegalArgumentException
+            ) {
+
+                Log.e(
+                    TAG,
+                    "TX framing failed: ${e.message}"
+                )
+
+                return false
+            }
+
+        /*
+         * Konservative ATT-Nutzlast:
+         * ausgehandelte MTU minus 3 Byte
+         * ATT-Write-Overhead.
+         */
+        val maxChunkSize =
+            (currentMtu - 3)
+                .coerceAtLeast(20)
+
+        val chunks =
+            TeslaBleFrameCodec.chunk(
+                frame,
+                maxChunkSize
+            )
+
+        synchronized(txLock) {
+
+            chunks.forEach {
+                txQueue.addLast(it)
+            }
+        }
+
+        Log.d(
+            TAG,
+            "TX_MESSAGE message=${message.size} " +
+                "frame=${frame.size} " +
+                "mtu=$currentMtu " +
+                "chunk=$maxChunkSize " +
+                "chunks=${chunks.size}"
+        )
+
+        pumpTxQueue()
+
+        return true
+    }
+
+
+    @SuppressLint("MissingPermission")
+    private fun pumpTxQueue() {
+
+        val localGatt =
+            gatt ?: return
+
+        val characteristic =
+            writeCharacteristic ?: return
+
+        val chunk =
+            synchronized(txLock) {
+
+                if (writeInFlight) {
+                    return
+                }
+
+                val next =
+                    txQueue.pollFirst()
+                        ?: return
+
+                writeInFlight = true
+
+                next
+            }
+
+        val started =
+            if (
+                Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.TIRAMISU
+            ) {
+
+                localGatt.writeCharacteristic(
+                    characteristic,
+                    chunk,
+                    BluetoothGattCharacteristic
+                        .WRITE_TYPE_DEFAULT
+                ) ==
+                    BluetoothStatusCodes.SUCCESS
+            }
+            else {
+
+                @Suppress("DEPRECATION")
+                characteristic.writeType =
+                    BluetoothGattCharacteristic
+                        .WRITE_TYPE_DEFAULT
+
+                @Suppress("DEPRECATION")
+                characteristic.value =
+                    chunk
+
+                @Suppress("DEPRECATION")
+                localGatt.writeCharacteristic(
+                    characteristic
+                )
+            }
+
+        Log.d(
+            TAG,
+            "TX_CHUNK bytes=${chunk.size} started=$started"
+        )
+
+        if (!started) {
+
+            synchronized(txLock) {
+                txQueue.clear()
+                writeInFlight = false
+            }
+
+            emitError(
+                currentAddress,
+                "Tesla BLE Write konnte nicht gestartet werden"
+            )
+        }
+    }
+
+
     private fun handleIncoming(
         data: ByteArray
     ) {
 
         Log.d(
             TAG,
-            "RX bytes=${data.size} hex=${data.toHex(80)}"
+            "RX_CHUNK bytes=${data.size} hex=${data.toHex(80)}"
         )
 
-        onData(
-            data.copyOf()
-        )
+        try {
+
+            val messages =
+                frameDecoder.feed(data)
+
+            if (messages.isEmpty()) {
+
+                Log.d(
+                    TAG,
+                    "RX_BUFFER buffered=${frameDecoder.bufferedByteCount()}"
+                )
+
+                return
+            }
+
+            messages.forEach { message ->
+
+                Log.d(
+                    TAG,
+                    "RX_MESSAGE bytes=${message.size} hex=${message.toHex(80)}"
+                )
+
+                onData(
+                    message.copyOf()
+                )
+            }
+        }
+        catch (e: IllegalArgumentException) {
+
+            frameDecoder.reset()
+
+            emitError(
+                currentAddress,
+                "Ungültiger Tesla BLE Frame: ${e.message}"
+            )
+        }
     }
+
 
     private fun emitError(
         address: String?,
