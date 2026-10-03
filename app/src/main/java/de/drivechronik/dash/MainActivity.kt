@@ -85,10 +85,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -871,8 +873,41 @@ private fun DashboardContent(
                     Speedometer(
                         speed = state.speed,
                         speedLimit = state.speedLimit,
+                        remainingKwh =
+                            state.remainingKwh,
+
+                        usableCapacityKwh =
+                            state.usableCapacityKwh,
+
                                                 gear = state.gear,
 modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(
+                                    top = 2.dp,
+                                    end = 30.dp,
+                                    bottom = 2.dp
+                                )
+                                .offset(
+                                    x = (-38).dp
+                                )
+                    )
+
+
+                    /*
+                     * Restenergie als äußerer Tachokranz.
+                     *
+                     * 0 %   = Position 0 km/h
+                     * 100 % = Position 100 km/h
+                     */
+                    EnergyRing(
+                        remainingKwh =
+                            state.remainingKwh,
+
+                        maxKwh =
+                            state.usableCapacityKwh,
+
+                        modifier =
                             Modifier
                                 .fillMaxSize()
                                 .padding(
@@ -2888,12 +2923,398 @@ private fun rememberAutomaticSolarNightMode(): Boolean {
 
 
 @Composable
+private fun EnergyRing(
+    remainingKwh: Float,
+    maxKwh: Float,
+    modifier: Modifier = Modifier
+) {
+
+    val percent =
+        if (
+            maxKwh >
+                0.1f
+        ) {
+
+            (
+                remainingKwh /
+                    maxKwh *
+                    100f
+            )
+                .coerceIn(
+                    0f,
+                    100f
+                )
+        }
+        else {
+            0f
+        }
+
+
+    BoxWithConstraints(
+        modifier =
+            modifier,
+
+        contentAlignment =
+            Alignment.Center
+    ) {
+
+        val gaugeSize =
+            minOf(
+                maxWidth,
+                maxHeight
+            )
+
+
+        Canvas(
+            modifier =
+                Modifier.size(
+                    gaugeSize
+                )
+        ) {
+
+            val canvasSize =
+                size.minDimension
+
+
+            val center =
+                androidx.compose.ui.geometry.Offset(
+                    size.width /
+                        2f,
+
+                    size.height /
+                        2f
+                )
+
+
+            /*
+             * Der normale Tacho:
+             *
+             * 0 km/h   = 135°
+             * 200 km/h = 405°
+             *
+             * Damit ist:
+             *
+             * 100 km/h = 270°
+             *
+             * Der Energiekranz verwendet also
+             * genau 135° von 0 bis 100.
+             */
+            val startAngle =
+                135f
+
+            val fullEnergySweep =
+                135f
+
+
+            /*
+             * Etwas innerhalb des äußersten
+             * Tachorings, aber außerhalb der
+             * Geschwindigkeits-Teilstriche.
+             */
+            val radius =
+                canvasSize *
+                    0.465f
+
+
+            val strokeWidth =
+                8.dp.toPx()
+
+
+            val arcTopLeft =
+                androidx.compose.ui.geometry.Offset(
+                    center.x -
+                        radius,
+
+                    center.y -
+                        radius
+                )
+
+
+            val arcSize =
+                androidx.compose.ui.geometry.Size(
+                    radius *
+                        2f,
+
+                    radius *
+                        2f
+                )
+
+
+            /*
+             * Dunkle Hintergrundspur:
+             * kompletter Bereich 0...100 %.
+             */
+            drawArc(
+                color =
+                    Color.White.copy(
+                        alpha =
+                            0.07f
+                    ),
+
+                startAngle =
+                    startAngle,
+
+                sweepAngle =
+                    fullEnergySweep,
+
+                useCenter =
+                    false,
+
+                topLeft =
+                    arcTopLeft,
+
+                size =
+                    arcSize,
+
+                style =
+                    androidx.compose.ui.graphics.drawscope.Stroke(
+                        width =
+                            strokeWidth,
+
+                        cap =
+                            androidx.compose.ui.graphics.StrokeCap.Butt
+                    )
+            )
+
+
+            /*
+             * Feste Farbzonen.
+             *
+             * Die Grenzen liegen bei 8 / 21 / 51 / 76,
+             * damit ein ganzzahliger Wert von z.B. 7 %
+             * noch rot und 8 % bereits violett ist.
+             */
+            data class EnergyZone(
+                val from: Float,
+                val to: Float,
+                val color: Color
+            )
+
+
+            val zones =
+                listOf(
+
+                    EnergyZone(
+                        from =
+                            0f,
+                        to =
+                            8f,
+                        color =
+                            DashRed
+                    ),
+
+                    EnergyZone(
+                        from =
+                            8f,
+                        to =
+                            21f,
+                        color =
+                            Color(
+                                0xFF9B5CFF
+                            )
+                    ),
+
+                    EnergyZone(
+                        from =
+                            21f,
+                        to =
+                            51f,
+                        color =
+                            DashBlue
+                    ),
+
+                    EnergyZone(
+                        from =
+                            51f,
+                        to =
+                            76f,
+                        color =
+                            Color(
+                                0xFF35D9E6
+                            )
+                    ),
+
+                    EnergyZone(
+                        from =
+                            76f,
+                        to =
+                            100f,
+                        color =
+                            DashGreen
+                    )
+                )
+
+
+            /*
+             * Komplette Energieskala immer anzeigen.
+             *
+             * Der Farbkranz ist fest von 0...100 % sichtbar.
+             * Nur der weiße Marker zeigt den aktuellen Ladezustand.
+             */
+            zones.forEach {
+                zone ->
+
+                val zoneStart =
+                    startAngle +
+                        zone.from /
+                        100f *
+                        fullEnergySweep
+
+
+                val zoneSweep =
+                    (
+                        zone.to -
+                            zone.from
+                    ) /
+                        100f *
+                        fullEnergySweep
+
+
+                drawArc(
+                    color =
+                        zone.color,
+
+                    startAngle =
+                        zoneStart,
+
+                    sweepAngle =
+                        zoneSweep,
+
+                    useCenter =
+                        false,
+
+                    topLeft =
+                        arcTopLeft,
+
+                    size =
+                        arcSize,
+
+                    style =
+                        androidx.compose.ui.graphics.drawscope.Stroke(
+                            width =
+                                strokeWidth,
+
+                            cap =
+                                androidx.compose.ui.graphics.StrokeCap.Butt
+                        )
+                )
+            }
+
+
+            /*
+             * Heller Endmarker auf dem aktuellen
+             * Ladezustand.
+             */
+            if (
+                percent >
+                    0f
+            ) {
+
+                val markerAngle =
+                    startAngle +
+                        percent /
+                        100f *
+                        fullEnergySweep
+
+
+                val markerRad =
+                    markerAngle *
+                        kotlin.math.PI
+                            .toFloat() /
+                        180f
+
+
+                val markerCenter =
+                    androidx.compose.ui.geometry.Offset(
+
+                        x =
+                            center.x +
+                                kotlin.math.cos(
+                                    markerRad
+                                ) *
+                                radius,
+
+                        y =
+                            center.y +
+                                kotlin.math.sin(
+                                    markerRad
+                                ) *
+                                radius
+                    )
+
+
+                /*
+                 * Dunkler Rand für gute Erkennbarkeit.
+                 */
+                drawCircle(
+                    color =
+                        DashBackground,
+
+                    radius =
+                        5.5.dp.toPx(),
+
+                    center =
+                        markerCenter
+                )
+
+
+                drawCircle(
+                    color =
+                        Color.White,
+
+                    radius =
+                        3.2.dp.toPx(),
+
+                    center =
+                        markerCenter
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
 private fun Speedometer(
     speed: Float,
     speedLimit: Int,
+    remainingKwh: Float,
+    usableCapacityKwh: Float,
     gear: String = "D",
     modifier: Modifier = Modifier
 ) {
+
+
+    val energyFraction =
+        if (usableCapacityKwh > 0f) {
+            (
+                remainingKwh /
+                    usableCapacityKwh
+            ).coerceIn(
+                0f,
+                1f
+            )
+        }
+        else {
+            0f
+        }
+
+
+    val energyPercent =
+        (
+            energyFraction *
+                100f
+        ).roundToInt()
+
+
+    val energyLabel =
+        String.format(
+            java.util.Locale.GERMANY,
+            "%.1f kWh · %d %%",
+            remainingKwh
+                .coerceAtLeast(0f),
+            energyPercent
+        )
 
 
     val isNightMode =
@@ -3281,7 +3702,51 @@ private fun Speedometer(
                     center =
                         center
                 )
-            }
+
+
+                /*
+                 * Zahlenwert in der unteren Öffnung.
+                 */
+                val energyTextPaint =
+                    Paint(
+                        Paint.ANTI_ALIAS_FLAG
+                    ).apply {
+
+                        color =
+                            android.graphics.Color.argb(
+                                220,
+                                226,
+                                229,
+                                233
+                            )
+
+                        textAlign =
+                            Paint.Align.CENTER
+
+                        textSize =
+                            outerRadius *
+                                0.095f
+
+                        typeface =
+                            Typeface.create(
+                                Typeface.DEFAULT,
+                                Typeface.BOLD
+                            )
+                    }
+
+
+                drawContext
+                    .canvas
+                    .nativeCanvas
+                    .drawText(
+                        energyLabel,
+                        center.x,
+                        center.y +
+                            outerRadius *
+                            0.79f,
+                        energyTextPaint
+                    )
+}
 
             /*
              * Tempolimit im Tachokranz.
