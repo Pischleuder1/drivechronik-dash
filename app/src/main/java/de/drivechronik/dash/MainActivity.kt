@@ -255,7 +255,7 @@ private fun DashboardContent(
             Column(
                 modifier =
                     Modifier
-                        .weight(1.92f)
+                        .weight(1.80f)
                         .fillMaxHeight()
             ) {
 
@@ -272,9 +272,9 @@ private fun DashboardContent(
                             Modifier
                                 .fillMaxSize()
                                 .padding(
-                                    top = 8.dp,
-                                    end = 44.dp,
-                                    bottom = 2.dp
+                                    top = 3.dp,
+                                    end = 18.dp,
+                                    bottom = 1.dp
                                 )
                     )
 
@@ -315,15 +315,15 @@ private fun DashboardContent(
             Row(
                 modifier =
                     Modifier
-                        .weight(1.05f)
+                        .weight(1.18f)
                         .fillMaxHeight()
                         .padding(
-                            start = 8.dp,
-                            top = 8.dp,
-                            bottom = 8.dp
+                            start = 6.dp,
+                            top = 7.dp,
+                            bottom = 7.dp
                         ),
                 horizontalArrangement =
-                    Arrangement.spacedBy(8.dp)
+                    Arrangement.spacedBy(6.dp)
             ) {
 
                 KpiCard(
@@ -888,7 +888,7 @@ private fun RestEnergyPanel(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(100.dp)
+                .height(104.dp)
                 .border(
                     width = 0.dp,
                     color = Color.Transparent
@@ -1109,7 +1109,7 @@ private fun KpiCard(
                         )
                 )
                 .padding(
-                    horizontal = 12.dp
+                    horizontal = 9.dp
                 ),
         verticalArrangement =
             Arrangement.Center
@@ -1120,7 +1120,8 @@ private fun KpiCard(
             color = DashMuted,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 1.2.sp
+            letterSpacing = 0.7.sp,
+            maxLines = 1
         )
 
         Spacer(
