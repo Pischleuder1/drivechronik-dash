@@ -39,6 +39,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -79,10 +80,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1234,6 +1237,77 @@ private fun TeslaBleHeaderStatus() {
 
             keyError =
                 keyError,
+
+            onSaveVin = { requestedVin ->
+
+                val normalizedVin =
+                    TeslaBleVehicleIdentity
+                        .normalizeVin(
+                            requestedVin
+                        )
+
+
+                val validVin =
+                    Regex(
+                        "^[A-HJ-NPR-Z0-9]{17}$"
+                    ).matches(
+                        normalizedVin
+                    )
+
+
+                if (validVin) {
+
+                    val sameVehicle =
+                        normalizedVin ==
+                            liveProtocolConfig
+                                .normalizedVin
+
+
+                    if (!sameVehicle) {
+
+                        sessionController
+                            ?.clear()
+
+                        keyAuthorizationMessage =
+                            null
+                    }
+
+
+                    val updatedConfig =
+                        liveProtocolConfig.copy(
+
+                            vin =
+                                normalizedVin,
+
+                            /*
+                             * Eine neue VIN darf niemals
+                             * alte Freigaben übernehmen.
+                             */
+                            enabled =
+                                if (sameVehicle)
+                                    liveProtocolConfig.enabled
+                                else
+                                    false,
+
+                            keyEnrollmentConfirmed =
+                                if (sameVehicle)
+                                    liveProtocolConfig
+                                        .keyEnrollmentConfirmed
+                                else
+                                    false
+                        )
+
+
+                    liveProtocolSettings
+                        .save(
+                            updatedConfig
+                        )
+
+
+                    liveProtocolConfig =
+                        updatedConfig
+                }
+            },
 
             authorizationAvailable =
                 keyAuthorizationAvailable,
@@ -2552,6 +2626,9 @@ private fun TeslaBleSetupDialog(
     authorizationMessage:
         String?,
 
+    onSaveVin:
+        (String) -> Unit,
+
     onAuthorizeKey:
         () -> Unit,
 
@@ -2573,7 +2650,9 @@ private fun TeslaBleSetupDialog(
 ) {
 
     var vin by
-        remember(currentConfig) {
+        remember(
+            currentConfig
+        ) {
             mutableStateOf(
                 currentConfig.vin
             )
@@ -2581,7 +2660,9 @@ private fun TeslaBleSetupDialog(
 
 
     var enrollmentConfirmed by
-        remember(currentConfig) {
+        remember(
+            currentConfig
+        ) {
             mutableStateOf(
                 currentConfig
                     .keyEnrollmentConfirmed
@@ -2590,7 +2671,9 @@ private fun TeslaBleSetupDialog(
 
 
     var liveEnabled by
-        remember(currentConfig) {
+        remember(
+            currentConfig
+        ) {
             mutableStateOf(
                 currentConfig.enabled
             )
@@ -2610,21 +2693,25 @@ private fun TeslaBleSetupDialog(
 
 
     val normalizedVin =
-        vin
-            .trim()
-            .uppercase(
-                java.util.Locale.ROOT
+        TeslaBleVehicleIdentity
+            .normalizeVin(
+                vin
             )
 
 
     val vinValid =
-        normalizedVin.length == 17
+        Regex(
+            "^[A-HJ-NPR-Z0-9]{17}$"
+        ).matches(
+            normalizedVin
+        )
 
 
     val vinSaved =
         vinValid &&
             normalizedVin ==
-            currentConfig.normalizedVin
+                currentConfig
+                    .normalizedVin
 
 
     val livePossible =
@@ -2633,30 +2720,55 @@ private fun TeslaBleSetupDialog(
             vinSaved
 
 
-    val statusText =
+    /*
+     * Der Assistent bestimmt den nächsten
+     * Schritt ausschließlich aus dem
+     * tatsächlichen Zustand.
+     */
+    val activeStep =
         when {
 
-            !keyPresent ->
-                "Lokaler Schlüssel fehlt"
+            !vinSaved ->
+                1
 
-            !vinValid ->
-                "VIN unvollständig"
+            !keyPresent ->
+                2
 
             !enrollmentConfirmed ->
-                "Schlüssel noch nicht autorisiert"
-
-            liveEnabled ->
-                "Live-BLE aktiviert"
+                3
 
             else ->
-                "Bereit, aber deaktiviert"
+                4
         }
+
+
+    val setupComplete =
+        activeStep == 4 &&
+            liveEnabled &&
+            livePossible
+
+
+    val cardColor =
+        Color(0xFF454A51)
+
+    val mutedColor =
+        Color(0xFFC8CCD1)
+
+    val futureColor =
+        Color(0xFF777C83)
+
+    val successColor =
+        Color(0xFF45D177)
+
+    val activeColor =
+        DashRed
 
 
     AlertDialog(
 
         modifier =
-            Modifier.fillMaxWidth(0.90f),
+            Modifier
+                .fillMaxWidth(0.92f),
 
         properties =
             DialogProperties(
@@ -2670,213 +2782,143 @@ private fun TeslaBleSetupDialog(
         containerColor =
             Color(0xFF3A3F46),
 
-        titleContentColor =
-            Color.White,
-
-        textContentColor =
-            Color(0xFFF0F1F3),
-
+        /*
+         * Titel und Hinweis bewusst in
+         * einer Zeile – spart Höhe.
+         */
         title = {
 
-            Text(
-                text =
-                    "Tesla BLE Setup",
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
 
-                color =
-                    Color.White,
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
 
-                fontSize =
-                    22.sp,
+                Text(
+                    text =
+                        "Tesla BLE Setup",
 
-                fontWeight =
-                    FontWeight.Bold
-            )
+                    color =
+                        Color.White,
+
+                    fontSize =
+                        22.sp,
+
+                    fontWeight =
+                        FontWeight.Bold
+                )
+
+
+                Spacer(
+                    modifier =
+                        Modifier.width(
+                            18.dp
+                        )
+                )
+
+
+                Text(
+                    text =
+                        if (setupComplete)
+                            "Einrichtung abgeschlossen · " +
+                                "Alle Daten bleiben lokal."
+                        else
+                            "Einrichtung in 4 Schritten · " +
+                                "Alle Daten bleiben lokal auf diesem Gerät.",
+
+                    color =
+                        if (setupComplete)
+                            successColor
+                        else
+                            Color(0xFFD3D6DA),
+
+                    fontSize =
+                        10.sp,
+
+                    fontWeight =
+                        if (setupComplete)
+                            FontWeight.Bold
+                        else
+                            FontWeight.Normal
+                )
+            }
         },
 
         text = {
 
-            Row(
-
+            Column(
                 modifier =
                     Modifier.fillMaxWidth(),
 
-                horizontalArrangement =
+                verticalArrangement =
                     Arrangement.spacedBy(
-                        30.dp
+                        7.dp
                     )
             ) {
 
                 /*
-                 * =====================================
-                 * LINKE SPALTE
-                 * VIN + lokaler Schlüssel
-                 * =====================================
+                 * ============================================
+                 * Fortschrittsleiste
+                 * ============================================
                  */
-                Column(
-
+                Row(
                     modifier =
-                        Modifier.weight(1.25f),
+                        Modifier.fillMaxWidth(),
 
-                    verticalArrangement =
-                        Arrangement.spacedBy(
-                            4.dp
-                        )
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
 
-                    Text(
-                        text =
-                            "Alles bleibt lokal auf diesem Gerät.",
+                    for (step in 1..4) {
 
-                        color =
-                            Color(0xFFE3E5E8),
-
-                        fontSize =
-                            11.sp
-                    )
-
-
-                    OutlinedTextField(
-
-                        value =
-                            vin,
-
-                        onValueChange = { value ->
-
-                            vin =
-                                value
-                                    .filter {
-                                        it.isLetterOrDigit()
-                                    }
-                                    .take(17)
-                                    .uppercase(
-                                        java.util.Locale.ROOT
-                                    )
-
-                            confirmVinDeletion =
-                                false
-                        },
-
-                        modifier =
-                            Modifier.fillMaxWidth(),
-
-                        singleLine =
-                            true,
-
-                        label = {
-
-                            Text(
-                                "VIN"
-                            )
-                        },
-
-                        supportingText = {
-
-                            Text(
-                                text =
-                                    when {
-
-                                        vinSaved ->
-                                            "VIN gespeichert"
-
-                                        vinValid ->
-                                            "VIN vollständig – noch nicht gespeichert"
-
-                                        else ->
-                                            "${normalizedVin.length}/17 Zeichen"
-                                    },
-
-                                color =
-                                    if (vinSaved)
-                                        Color(0xFF45D177)
-                                    else
-                                        Color(0xFFE0E2E5),
-
-                                fontSize =
-                                    10.sp
-                            )
-                        },
-
-                        colors =
-                            OutlinedTextFieldDefaults
-                                .colors(
-
-                                    focusedTextColor =
-                                        Color.White,
-
-                                    unfocusedTextColor =
-                                        Color.White,
-
-                                    cursorColor =
-                                        DashRed,
-
-                                    focusedBorderColor =
-                                        Color(0xFFB2B7BE),
-
-                                    unfocusedBorderColor =
-                                        Color(0xFF858B94),
-
-                                    focusedLabelColor =
-                                        Color.White,
-
-                                    unfocusedLabelColor =
-                                        Color(0xFFE0E2E5),
-
-                                    focusedContainerColor =
-                                        Color(0xFF4A5058),
-
-                                    unfocusedContainerColor =
-                                        Color(0xFF4A5058)
+                        val done =
+                            step < activeStep ||
+                                (
+                                    step == 4 &&
+                                    setupComplete
                                 )
-                    )
 
 
-                    if (
-                        currentConfig
-                            .normalizedVin
-                            .isNotEmpty()
-                    ) {
+                        val active =
+                            step == activeStep &&
+                                !setupComplete
 
-                        TextButton(
 
-                            onClick = {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(
+                                        25.dp
+                                    )
+                                    .clip(
+                                        CircleShape
+                                    )
+                                    .background(
+                                        when {
 
-                                if (
-                                    confirmVinDeletion
-                                ) {
+                                            done ->
+                                                successColor
 
-                                    onDeleteVin()
+                                            active ->
+                                                activeColor
 
-                                    vin =
-                                        ""
+                                            else ->
+                                                futureColor
+                                        }
+                                    ),
 
-                                    enrollmentConfirmed =
-                                        false
-
-                                    liveEnabled =
-                                        false
-
-                                    confirmVinDeletion =
-                                        false
-                                }
-                                else {
-
-                                    confirmVinDeletion =
-                                        true
-                                }
-                            }
+                            contentAlignment =
+                                Alignment.Center
                         ) {
 
                             Text(
                                 text =
-                                    if (
-                                        confirmVinDeletion
-                                    )
-                                        "VIN wirklich löschen"
-                                    else
-                                        "VIN löschen",
+                                    step.toString(),
 
                                 color =
-                                    Color(0xFFFFB4AB),
+                                    Color.White,
 
                                 fontSize =
                                     11.sp,
@@ -2885,75 +2927,181 @@ private fun TeslaBleSetupDialog(
                                     FontWeight.Bold
                             )
                         }
+
+
+                        if (step < 4) {
+
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .padding(
+                                            horizontal =
+                                                7.dp
+                                        )
+                                        .height(
+                                            2.dp
+                                        )
+                                        .background(
+                                            if (
+                                                step <
+                                                activeStep
+                                            )
+                                                successColor
+                                            else
+                                                futureColor
+                                        )
+                            )
+                        }
                     }
+                }
 
 
-                    if (keyPresent) {
-                        Row(
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth()
+                ) {
+
+                    listOf(
+                        "VIN",
+                        "Schlüssel",
+                        "Autorisieren",
+                        "Livedaten"
+                    ).forEachIndexed { index, label ->
+
+                        Text(
+                            text =
+                                label,
 
                             modifier =
-                                Modifier.fillMaxWidth(),
+                                Modifier.weight(1f),
 
-                            horizontalArrangement =
-                                Arrangement.SpaceBetween,
+                            color =
+                                if (
+                                    activeStep ==
+                                    index + 1
+                                )
+                                    Color.White
+                                else
+                                    mutedColor,
 
-                            verticalAlignment =
-                                Alignment.CenterVertically
-                        ) {
+                            fontSize =
+                                9.sp,
 
-                            Text(
-                                text =
-                                    "Lokaler Schlüssel vorhanden",
+                            fontWeight =
+                                FontWeight.Bold,
 
-                                color =
-                                    Color(0xFF45D177),
+                            textAlign =
+                                androidx.compose.ui.text.style
+                                    .TextAlign.Center
+                        )
+                    }
+                }
 
-                                fontSize =
-                                    12.sp,
 
-                                fontWeight =
-                                    FontWeight.Bold
+                /*
+                 * ============================================
+                 * Nur der aktuelle Schritt
+                 * ============================================
+                 */
+                Surface(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+
+                    shape =
+                        RoundedCornerShape(
+                            14.dp
+                        ),
+
+                    color =
+                        cardColor
+                ) {
+
+                    Column(
+                        modifier =
+                            Modifier.padding(
+                                horizontal =
+                                    18.dp,
+                                vertical =
+                                    12.dp
+                            ),
+
+                        verticalArrangement =
+                            Arrangement.spacedBy(
+                                7.dp
                             )
+                    ) {
+
+                        when (activeStep) {
+
+                            /*
+                             * ====================================
+                             * SCHRITT 1 – VIN
+                             * ====================================
+                             */
+                            1 -> {
+
+                                Row(
+                                    modifier =
+                                        Modifier.fillMaxWidth(),
+
+                                    verticalAlignment =
+                                        Alignment.CenterVertically
+                                ) {
+
+                                    Text(
+                                        text =
+                                            "1. VIN eingeben",
+
+                                        modifier =
+                                            Modifier.weight(1f),
+
+                                        color =
+                                            Color.White,
+
+                                        fontSize =
+                                            18.sp,
+
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
 
 
-                            TextButton(
+                                    Text(
+                                        text =
+                                            "AKTUELL",
 
-                                onClick = {
+                                        color =
+                                            activeColor,
 
-                                    if (
-                                        confirmKeyDeletion
-                                    ) {
+                                        fontSize =
+                                            10.sp,
 
-                                        onDeleteKey()
-
-                                        enrollmentConfirmed =
-                                            false
-
-                                        liveEnabled =
-                                            false
-
-                                        confirmKeyDeletion =
-                                            false
-                                    }
-                                    else {
-
-                                        confirmKeyDeletion =
-                                            true
-                                    }
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
                                 }
-                            ) {
+
 
                                 Text(
                                     text =
-                                        if (
-                                            confirmKeyDeletion
-                                        )
-                                            "Löschen bestätigen"
-                                        else
-                                            "Schlüssel löschen",
+                                        "Bitte die 17-stellige " +
+                                            "Fahrzeug-Identnummer eingeben.",
 
                                     color =
-                                        Color(0xFFFF6B6B),
+                                        mutedColor,
+
+                                    fontSize =
+                                        10.sp
+                                )
+
+
+                                Text(
+                                    text =
+                                        "VIN",
+
+                                    color =
+                                        Color.White,
 
                                     fontSize =
                                         10.sp,
@@ -2961,301 +3109,695 @@ private fun TeslaBleSetupDialog(
                                     fontWeight =
                                         FontWeight.Bold
                                 )
-                            }
-                        }
 
 
-                        Text(
-                            text =
-                                if (keyFingerprint != null) {
+                                /*
+                                 * Bewusst KEIN Material
+                                 * OutlinedTextField.
+                                 *
+                                 * Dadurch wird die VIN auf
+                                 * dem Pixel nicht vertikal
+                                 * abgeschnitten.
+                                 */
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .height(
+                                                54.dp
+                                            )
+                                            .border(
+                                                width =
+                                                    2.dp,
 
-                                    val fp =
-                                        keyFingerprint
+                                                color =
+                                                    DashRed,
 
-                                    val shortFp =
-                                        if (fp.length > 40)
-                                            fp.take(20) +
-                                                " … " +
-                                                fp.takeLast(20)
-                                        else
-                                            fp
+                                                shape =
+                                                    RoundedCornerShape(
+                                                        6.dp
+                                                    )
+                                            )
+                                            .padding(
+                                                horizontal =
+                                                    15.dp
+                                            ),
 
-                                    "SHA-256: $shortFp"
+                                    contentAlignment =
+                                        Alignment.CenterStart
+                                ) {
+
+                                    BasicTextField(
+
+                                        value =
+                                            vin,
+
+                                        onValueChange = { value ->
+
+                                            val newVin =
+                                                value
+                                                    .filter {
+                                                        it.isLetterOrDigit()
+                                                    }
+                                                    .take(17)
+                                                    .uppercase(
+                                                        java.util.Locale.ROOT
+                                                    )
+
+
+                                            vin =
+                                                newVin
+
+
+                                            confirmVinDeletion =
+                                                false
+
+
+                                            val validNewVin =
+                                                Regex(
+                                                    "^[A-HJ-NPR-Z0-9]{17}$"
+                                                ).matches(
+                                                    newVin
+                                                )
+
+
+                                            if (
+                                                validNewVin &&
+                                                newVin !=
+                                                    currentConfig
+                                                        .normalizedVin
+                                            ) {
+
+                                                onSaveVin(
+                                                    newVin
+                                                )
+                                            }
+                                        },
+
+                                        modifier =
+                                            Modifier.fillMaxWidth(),
+
+                                        singleLine =
+                                            true,
+
+                                        textStyle =
+                                            TextStyle(
+
+                                                color =
+                                                    Color.White,
+
+                                                fontSize =
+                                                    17.sp,
+
+                                                lineHeight =
+                                                    22.sp,
+
+                                                fontWeight =
+                                                    FontWeight.Medium
+                                            ),
+
+                                        cursorBrush =
+                                            SolidColor(
+                                                DashRed
+                                            )
+                                    )
                                 }
-                                else {
-
-                                    "SHA-256: nicht verfügbar"
-                                },
-
-                            color =
-                                Color(0xFFE6E8EB),
-
-                            fontSize =
-                                9.sp,
-
-                            maxLines =
-                                1
-                        )
-}
-                    else {
-
-                        Text(
-                            text =
-                                "Kein lokaler Tesla-Schlüssel vorhanden.",
-
-                            color =
-                                Color.White,
-
-                            fontSize =
-                                11.sp
-                        )
 
 
-                        TextButton(
-                            onClick =
-                                onPrepareKey
-                        ) {
+                                Text(
+                                    text =
+                                        when {
 
-                            Text(
-                                text =
-                                    "Lokalen Schlüssel erzeugen",
+                                            normalizedVin.length <
+                                                17 ->
 
-                                color =
-                                    Color.White,
+                                                "${normalizedVin.length}/17 Zeichen"
 
-                                fontSize =
-                                    11.sp,
+                                            vinValid ->
 
-                                fontWeight =
-                                    FontWeight.Bold
-                            )
+                                                "VIN vollständig – wird gespeichert …"
+
+                                            else ->
+
+                                                "Ungültige VIN: " +
+                                                    "I, O und Q sind nicht zulässig"
+                                        },
+
+                                    color =
+                                        when {
+
+                                            vinValid ->
+                                                successColor
+
+                                            normalizedVin.length ==
+                                                17 ->
+                                                Color(0xFFFFB4AB)
+
+                                            else ->
+                                                mutedColor
+                                        },
+
+                                    fontSize =
+                                        10.sp,
+
+                                    fontWeight =
+                                        if (
+                                            normalizedVin.length ==
+                                            17
+                                        )
+                                            FontWeight.Bold
+                                        else
+                                            FontWeight.Normal
+                                )
+
+
+                                if (
+                                    currentConfig
+                                        .normalizedVin
+                                        .isNotEmpty()
+                                ) {
+
+                                    TextButton(
+                                        onClick = {
+
+                                            if (
+                                                confirmVinDeletion
+                                            ) {
+
+                                                onDeleteVin()
+
+                                                vin =
+                                                    ""
+
+                                                enrollmentConfirmed =
+                                                    false
+
+                                                liveEnabled =
+                                                    false
+
+                                                confirmVinDeletion =
+                                                    false
+                                            }
+                                            else {
+
+                                                confirmVinDeletion =
+                                                    true
+                                            }
+                                        }
+                                    ) {
+
+                                        Text(
+                                            text =
+                                                if (
+                                                    confirmVinDeletion
+                                                )
+                                                    "VIN wirklich löschen"
+                                                else
+                                                    "Gespeicherte VIN löschen",
+
+                                            color =
+                                                Color(0xFFFFB4AB),
+
+                                            fontSize =
+                                                9.sp,
+
+                                            fontWeight =
+                                                FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+
+
+                            /*
+                             * ====================================
+                             * SCHRITT 2 – KEY
+                             * ====================================
+                             */
+                            2 -> {
+
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .height(
+                                                120.dp
+                                            )
+                                ) {
+
+                                    /*
+                                     * Texte links
+                                     */
+                                    Column(
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth(0.62f)
+                                                .align(
+                                                    Alignment.CenterStart
+                                                ),
+
+                                        verticalArrangement =
+                                            Arrangement.spacedBy(
+                                                9.dp
+                                            )
+                                    ) {
+
+                                        Text(
+                                            text =
+                                                "2. Lokalen Schlüssel erzeugen",
+
+                                            color =
+                                                Color.White,
+
+                                            fontSize =
+                                                18.sp,
+
+                                            fontWeight =
+                                                FontWeight.Bold
+                                        )
+
+
+                                        Text(
+                                            text =
+                                                "✓ VIN gespeichert",
+
+                                            color =
+                                                successColor,
+
+                                            fontSize =
+                                                11.sp,
+
+                                            fontWeight =
+                                                FontWeight.Bold
+                                        )
+
+
+                                        Text(
+                                            text =
+                                                "Der Schlüssel wird ausschließlich " +
+                                                "lokal auf diesem Gerät erzeugt.",
+
+                                            color =
+                                                mutedColor,
+
+                                            fontSize =
+                                                10.sp
+                                        )
+
+
+                                        if (keyError != null) {
+
+                                            Text(
+                                                text =
+                                                    keyError,
+
+                                                color =
+                                                    Color(0xFFFFB4AB),
+
+                                                fontSize =
+                                                    10.sp
+                                            )
+                                        }
+                                    }
+
+
+                                    /*
+                                     * Button garantiert
+                                     * mittig rechts in der KPI.
+                                     */
+                                    Button(
+                                        onClick =
+                                            onPrepareKey,
+
+                                        modifier =
+                                            Modifier
+                                                .align(
+                                                    Alignment.CenterEnd
+                                                )
+                                                .width(
+                                                    220.dp
+                                                )
+                                                .height(
+                                                    48.dp
+                                                ),
+
+                                        colors =
+                                            ButtonDefaults
+                                                .buttonColors(
+
+                                                    containerColor =
+                                                        DashRed,
+
+                                                    contentColor =
+                                                        Color.White
+                                                )
+                                    ) {
+
+                                        Text(
+                                            text =
+                                                "Schlüssel erzeugen",
+
+                                            fontSize =
+                                                11.sp,
+
+                                            fontWeight =
+                                                FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+
+
+                            /*
+                             * ====================================
+                             * SCHRITT 3 – AUTORISIERUNG
+                             * ====================================
+                             */
+                            3 -> {
+
+                                Text(
+                                    text =
+                                        "3. Schlüssel bei Tesla autorisieren",
+
+                                    color =
+                                        Color.White,
+
+                                    fontSize =
+                                        18.sp,
+
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+
+
+                                Text(
+                                    text =
+                                        "✓ VIN gespeichert   ·   " +
+                                            "✓ Lokaler Schlüssel vorhanden",
+
+                                    color =
+                                        successColor,
+
+                                    fontSize =
+                                        10.sp,
+
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+
+
+                                Text(
+                                    text =
+                                        if (
+                                            authorizationAvailable
+                                        )
+                                            "Tesla verbunden – " +
+                                                "bereit zur Autorisierung"
+                                        else
+                                            "Warte auf den zu dieser VIN " +
+                                                "gehörenden Tesla …",
+
+                                    color =
+                                        if (
+                                            authorizationAvailable
+                                        )
+                                            successColor
+                                        else
+                                            mutedColor,
+
+                                    fontSize =
+                                        11.sp,
+
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+
+
+                                Button(
+                                    onClick =
+                                        onAuthorizeKey,
+
+                                    enabled =
+                                        authorizationAvailable,
+
+                                    colors =
+                                        ButtonDefaults
+                                            .buttonColors(
+
+                                                containerColor =
+                                                    DashRed,
+
+                                                contentColor =
+                                                    Color.White,
+
+                                                disabledContainerColor =
+                                                    Color(0xFF62666C),
+
+                                                disabledContentColor =
+                                                    Color(0xFFBFC2C7)
+                                            )
+                                ) {
+
+                                    Text(
+                                        text =
+                                            "Schlüssel autorisieren",
+
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
+                                }
+
+
+                                Text(
+                                    text =
+                                        "Danach Schlüsselkarte oder Keyfob " +
+                                            "am Tesla auflegen und die " +
+                                            "Freigabe im Fahrzeug bestätigen.",
+
+                                    color =
+                                        mutedColor,
+
+                                    fontSize =
+                                        9.sp
+                                )
+
+
+                                if (
+                                    authorizationMessage != null
+                                ) {
+
+                                    Text(
+                                        text =
+                                            authorizationMessage,
+
+                                        color =
+                                            Color.White,
+
+                                        fontSize =
+                                            10.sp,
+
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
+                                }
+
+
+                                TextButton(
+                                    onClick = {
+
+                                        if (
+                                            confirmKeyDeletion
+                                        ) {
+
+                                            onDeleteKey()
+
+                                            enrollmentConfirmed =
+                                                false
+
+                                            liveEnabled =
+                                                false
+
+                                            confirmKeyDeletion =
+                                                false
+                                        }
+                                        else {
+
+                                            confirmKeyDeletion =
+                                                true
+                                        }
+                                    }
+                                ) {
+
+                                    Text(
+                                        text =
+                                            if (
+                                                confirmKeyDeletion
+                                            )
+                                                "Schlüssel wirklich löschen"
+                                            else
+                                                "Lokalen Schlüssel löschen",
+
+                                        color =
+                                            Color(0xFFFFB4AB),
+
+                                        fontSize =
+                                            9.sp,
+
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
+                                }
+                            }
+
+
+                            /*
+                             * ====================================
+                             * SCHRITT 4 – LIVE
+                             * ====================================
+                             */
+                            4 -> {
+
+                                Text(
+                                    text =
+                                        if (setupComplete)
+                                            "Einrichtung abgeschlossen"
+                                        else
+                                            "4. Tesla-Livedaten aktivieren",
+
+                                    color =
+                                        Color.White,
+
+                                    fontSize =
+                                        18.sp,
+
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+
+
+                                Text(
+                                    text =
+                                        "✓ VIN   ·   ✓ Schlüssel   ·   " +
+                                            "✓ Tesla-Autorisierung",
+
+                                    color =
+                                        successColor,
+
+                                    fontSize =
+                                        10.sp,
+
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+
+
+                                Row(
+                                    modifier =
+                                        Modifier.fillMaxWidth(),
+
+                                    verticalAlignment =
+                                        Alignment.CenterVertically
+                                ) {
+
+                                    Checkbox(
+
+                                        checked =
+                                            liveEnabled,
+
+                                        enabled =
+                                            livePossible,
+
+                                        colors =
+                                            CheckboxDefaults
+                                                .colors(
+
+                                                    checkedColor =
+                                                        DashRed,
+
+                                                    uncheckedColor =
+                                                        Color.White,
+
+                                                    checkmarkColor =
+                                                        Color.White,
+
+                                                    disabledUncheckedColor =
+                                                        Color(0xFF8F949C)
+                                                ),
+
+                                        onCheckedChange = { checked ->
+
+                                            liveEnabled =
+                                                checked
+                                        }
+                                    )
+
+
+                                    Text(
+                                        text =
+                                            "Tesla-Livedaten über Bluetooth aktivieren",
+
+                                        color =
+                                            Color.White,
+
+                                        fontSize =
+                                            12.sp,
+
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
+                                }
+
+
+                                Text(
+                                    text =
+                                        if (liveEnabled)
+                                            "Livedaten aktiviert – " +
+                                                "mit Speichern übernehmen."
+                                        else
+                                            "Livedaten sind noch deaktiviert.",
+
+                                    color =
+                                        if (liveEnabled)
+                                            successColor
+                                        else
+                                            mutedColor,
+
+                                    fontSize =
+                                        10.sp
+                                )
+                            }
                         }
                     }
-
-
-                    if (keyError != null) {
-
-                        Text(
-                            text =
-                                keyError,
-
-                            color =
-                                DashRed,
-
-                            fontSize =
-                                10.sp
-                        )
-                    }
-                }
-
-
-                /*
-                 * =====================================
-                 * RECHTE SPALTE
-                 * Freigaben + Status
-                 * =====================================
-                 */
-                Column(
-
-                    modifier =
-                        Modifier.weight(0.85f),
-
-                    verticalArrangement =
-                        Arrangement.spacedBy(
-                            6.dp
-                        )
-                ) {
-
-                    Text(
-                        text =
-                            "Freigaben",
-
-                        color =
-                            Color.White,
-
-                        fontSize =
-                            15.sp,
-
-                        fontWeight =
-                            FontWeight.Bold
-                    )
-
-
-                    Button(
-                        onClick =
-                            onAuthorizeKey,
-
-                        enabled =
-                            authorizationAvailable &&
-                            !enrollmentConfirmed,
-
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor =
-                                    DashRed,
-
-                                contentColor =
-                                    Color.White,
-
-                                disabledContainerColor =
-                                    Color(0xFF62666C),
-
-                                disabledContentColor =
-                                    Color(0xFFBFC2C7)
-                            )
-                    ) {
-
-                        Text(
-                            text =
-                                if (enrollmentConfirmed)
-                                    "Schlüssel autorisiert"
-                                else
-                                    "Schlüssel autorisieren",
-
-                            fontSize =
-                                12.sp,
-
-                            fontWeight =
-                                FontWeight.Bold
-                        )
-                    }
-
-
-                    if (
-                        authorizationMessage != null
-                    ) {
-
-                        Text(
-                            text =
-                                authorizationMessage,
-
-                            color =
-                                Color(0xFFE3E5E8),
-
-                            fontSize =
-                                10.sp
-                        )
-                    }
-
-
-                    Row(
-
-                        modifier =
-                            Modifier.fillMaxWidth(),
-
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-
-                        Checkbox(
-
-                            checked =
-                                liveEnabled,
-
-                            enabled =
-                                livePossible,
-
-                            colors =
-                                CheckboxDefaults
-                                    .colors(
-
-                                        checkedColor =
-                                            DashRed,
-
-                                        uncheckedColor =
-                                            Color.White,
-
-                                        checkmarkColor =
-                                            Color.White,
-
-                                        disabledUncheckedColor =
-                                            Color(0xFF8F949C)
-                                    ),
-
-                            onCheckedChange = { checked ->
-
-                                liveEnabled =
-                                    checked
-                            }
-                        )
-
-
-                        Text(
-                            text =
-                                "Tesla-Livedaten über Bluetooth aktivieren",
-
-                            modifier =
-                                Modifier.weight(1f),
-
-                            color =
-                                Color.White,
-
-                            fontSize =
-                                12.sp,
-
-                            fontWeight =
-                                FontWeight.Bold
-                        )
-                    }
-
-
-                    Text(
-                        text =
-                            "Status: $statusText",
-
-                        color =
-                            if (
-                                liveEnabled &&
-                                livePossible
-                            )
-                                Color(0xFF45D177)
-                            else
-                                Color.White,
-
-                        fontSize =
-                            12.sp,
-
-                        fontWeight =
-                            FontWeight.Bold
-                    )
                 }
             }
         },
 
-        confirmButton = {
+        dismissButton = {
 
             Button(
+                onClick =
+                    onDismiss,
 
-                onClick = {
-
-                    onSave(
-                        TeslaLiveProtocolConfig(
-
-                            enabled =
-                                liveEnabled,
-
-                            keyEnrollmentConfirmed =
-                                enrollmentConfirmed,
-
-                            vin =
-                                normalizedVin
-                        )
-                    )
-                },
+                modifier =
+                    Modifier.width(
+                        170.dp
+                    ),
 
                 colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor =
-                            Color(0xFF45D177),
+                    ButtonDefaults
+                        .buttonColors(
 
-                        contentColor =
-                            Color.White
-                    )
+                            containerColor =
+                                Color(0xFFF32227),
+
+                            contentColor =
+                                Color.White
+                        )
             ) {
 
                 Text(
                     text =
-                        "Speichern",
+                        "Abbrechen",
 
                     fontWeight =
                         FontWeight.Bold
@@ -3263,26 +3805,56 @@ private fun TeslaBleSetupDialog(
             }
         },
 
-        dismissButton = {
+        confirmButton = {
 
             Button(
+                onClick = {
 
-                onClick =
-                    onDismiss,
+                    if (activeStep == 4) {
+
+                        onSave(
+                            TeslaLiveProtocolConfig(
+
+                                enabled =
+                                    liveEnabled,
+
+                                keyEnrollmentConfirmed =
+                                    enrollmentConfirmed,
+
+                                vin =
+                                    normalizedVin
+                            )
+                        )
+                    }
+                    else {
+
+                        onDismiss()
+                    }
+                },
+
+                modifier =
+                    Modifier.width(
+                        170.dp
+                    ),
 
                 colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor =
-                            DashRed,
+                    ButtonDefaults
+                        .buttonColors(
 
-                        contentColor =
-                            Color.White
-                    )
+                            containerColor =
+                                Color(0xFF43D17A),
+
+                            contentColor =
+                                Color.White
+                        )
             ) {
 
                 Text(
                     text =
-                        "Abbrechen",
+                        if (activeStep == 4)
+                            "Speichern"
+                        else
+                            "Schließen",
 
                     fontWeight =
                         FontWeight.Bold
