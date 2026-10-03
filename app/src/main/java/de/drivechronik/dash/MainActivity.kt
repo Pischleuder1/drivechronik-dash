@@ -13,6 +13,9 @@ import androidx.core.content.ContextCompat
 import de.drivechronik.dash.ble.TeslaBleScanState
 import de.drivechronik.dash.ble.TeslaBleScanStatus
 import de.drivechronik.dash.ble.TeslaBleScanner
+import de.drivechronik.dash.ble.TeslaBleGattClient
+import de.drivechronik.dash.ble.TeslaGattState
+import de.drivechronik.dash.ble.TeslaGattStatus
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.WindowManager
@@ -490,6 +493,13 @@ private fun TeslaBleHeaderStatus() {
             )
         }
 
+    var gattState by
+        remember {
+            mutableStateOf(
+                TeslaGattState()
+            )
+        }
+
     val scanner =
         remember {
             TeslaBleScanner(
@@ -497,6 +507,24 @@ private fun TeslaBleHeaderStatus() {
             ) {
                 scanState = it
             }
+        }
+
+    val gattClient =
+        remember {
+            TeslaBleGattClient(
+                context =
+                    context.applicationContext,
+                onState = {
+                    gattState = it
+                },
+                onData = {
+                    /*
+                     * Noch keine Protobuf-Auswertung.
+                     * Hier landen später die
+                     * Tesla-RoutableMessage-Frames.
+                     */
+                }
+            )
         }
 
     val permissionLauncher =
@@ -511,10 +539,6 @@ private fun TeslaBleHeaderStatus() {
                 )
         }
 
-    /*
-     * Bei erstem Start Berechtigungen
-     * für "Geräte in der Nähe" anfordern.
-     */
     LaunchedEffect(Unit) {
 
         if (!permissionGranted) {
@@ -531,10 +555,6 @@ private fun TeslaBleHeaderStatus() {
         }
     }
 
-    /*
-     * Nach erteilter Berechtigung einmal
-     * 12 Sekunden lokal nach Tesla suchen.
-     */
     LaunchedEffect(
         permissionGranted
     ) {
@@ -548,55 +568,127 @@ private fun TeslaBleHeaderStatus() {
         }
     }
 
-    DisposableEffect(scanner) {
+    /*
+     * Sobald der Scanner einen Tesla erkennt,
+     * beginnt die GATT-Verbindung.
+     */
+    LaunchedEffect(
+        scanState.status,
+        scanState.address
+    ) {
+
+        if (
+            scanState.status ==
+                TeslaBleScanStatus.FOUND
+            &&
+            scanState.address != null
+        ) {
+
+            gattClient.connect(
+                scanState.address!!
+            )
+        }
+    }
+
+    DisposableEffect(
+        scanner,
+        gattClient
+    ) {
 
         onDispose {
+
             scanner.stopScan()
+            gattClient.close()
         }
     }
 
     val text =
-        when (
-            scanState.status
-        ) {
+        when (gattState.status) {
 
-            TeslaBleScanStatus.IDLE ->
-                "Tesla BLE"
+            TeslaGattStatus.CONNECTING ->
+                "Tesla verbindet"
 
-            TeslaBleScanStatus.SCANNING ->
-                "BLE Scan · ${scanState.devicesSeen}"
+            TeslaGattStatus.CONNECTED ->
+                "Tesla verbunden"
 
-            TeslaBleScanStatus.FOUND ->
-                scanState.name
-                    ?: "Tesla gefunden"
+            TeslaGattStatus.DISCOVERING_SERVICES ->
+                "Tesla Dienste"
 
-            TeslaBleScanStatus.NOT_FOUND ->
-                "Tesla nicht gefunden"
+            TeslaGattStatus.SERVICE_READY ->
+                "Tesla GATT"
 
-            TeslaBleScanStatus.PERMISSION_MISSING ->
-                "BLE Freigabe"
+            TeslaGattStatus.SUBSCRIBING ->
+                "Tesla RX"
 
-            TeslaBleScanStatus.BLUETOOTH_OFF ->
-                "Bluetooth aus"
+            TeslaGattStatus.READY ->
+                "Tesla BLE · MTU ${gattState.mtu}"
 
-            TeslaBleScanStatus.ERROR ->
+            TeslaGattStatus.DISCONNECTED ->
+                "Tesla getrennt"
+
+            TeslaGattStatus.ERROR ->
                 "BLE Fehler"
+
+            TeslaGattStatus.IDLE ->
+                when (
+                    scanState.status
+                ) {
+
+                    TeslaBleScanStatus.IDLE ->
+                        "Tesla BLE"
+
+                    TeslaBleScanStatus.SCANNING ->
+                        "BLE Scan · ${scanState.devicesSeen}"
+
+                    TeslaBleScanStatus.FOUND ->
+                        "Tesla gefunden"
+
+                    TeslaBleScanStatus.NOT_FOUND ->
+                        "Tesla nicht gefunden"
+
+                    TeslaBleScanStatus.PERMISSION_MISSING ->
+                        "BLE Freigabe"
+
+                    TeslaBleScanStatus.BLUETOOTH_OFF ->
+                        "Bluetooth aus"
+
+                    TeslaBleScanStatus.ERROR ->
+                        "BLE Fehler"
+                }
         }
 
     val dotColor =
-        when (
-            scanState.status
-        ) {
+        when {
 
-            TeslaBleScanStatus.FOUND ->
+            gattState.status ==
+                TeslaGattStatus.READY ->
+
                 Color(0xFF45D177)
 
-            TeslaBleScanStatus.SCANNING ->
+
+            gattState.status in
+                listOf(
+                    TeslaGattStatus.CONNECTING,
+                    TeslaGattStatus.CONNECTED,
+                    TeslaGattStatus.DISCOVERING_SERVICES,
+                    TeslaGattStatus.SERVICE_READY,
+                    TeslaGattStatus.SUBSCRIBING
+                ) ->
+
                 Color(0xFF4A90FF)
 
-            TeslaBleScanStatus.ERROR,
-            TeslaBleScanStatus.BLUETOOTH_OFF ->
+
+            gattState.status ==
+                TeslaGattStatus.ERROR ->
+
                 Color(0xFFE82127)
+
+
+            scanState.status ==
+                TeslaBleScanStatus.SCANNING ->
+
+                Color(0xFF4A90FF)
+
 
             else ->
                 DashMuted
