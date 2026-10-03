@@ -58,14 +58,14 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-private val DashBackground = Color(0xFF030405)
-private val DashPanel = Color(0xFF090C0F)
-private val DashLine = Color(0xFF20242A)
-private val DashText = Color(0xFFF4F5F6)
-private val DashMuted = Color(0xFF858A91)
-private val DashRed = Color(0xFFEA2727)
-private val DashBlue = Color(0xFF3478F6)
-private val DashGreen = Color(0xFF28B45B)
+private val DashBackground = Color(0xFF000000)
+private val DashPanel = Color(0xFF111315)
+private val DashLine = Color(0xFF292C30)
+private val DashText = Color(0xFFF4F4F4)
+private val DashMuted = Color(0xFF9A9DA2)
+private val DashRed = Color(0xFFE82127)
+private val DashBlue = Color(0xFF3E8BFF)
+private val DashGreen = Color(0xFF3ECF6E)
 
 data class DashboardUiState(
     val speed: Float = 100f,
@@ -74,6 +74,10 @@ data class DashboardUiState(
     val remainingKwh: Float = 43.7f,
     val usableCapacityKwh: Float = 60f,
     val rangeKm: Int = 308,
+    val leftIndicator: Boolean = false,
+    val rightIndicator: Boolean = false,
+    val lowBeam: Boolean = true,
+    val highBeam: Boolean = false,
 )
 
 class MainActivity : ComponentActivity() {
@@ -211,7 +215,23 @@ private fun DriveChronikDashboard() {
             powerKw = powerKw,
             remainingKwh = remainingKwh,
             usableCapacityKwh = 60f,
-            rangeKm = rangeKm
+            rangeKm = rangeKm,
+
+            // Blinkersimulation
+            leftIndicator =
+                (tick % 120 in 10..34) &&
+                (tick % 4 < 2),
+
+            rightIndicator =
+                (tick % 120 in 72..96) &&
+                (tick % 4 < 2),
+
+            // Lichtsimulation
+            lowBeam =
+                tick % 120 !in 48..62,
+
+            highBeam =
+                tick % 120 in 48..62
         )
     )
 }
@@ -262,8 +282,7 @@ private fun DashboardContent(
                 Box(
                     modifier =
                         Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                            .fillMaxSize()
                 ) {
 
                     Speedometer(
@@ -272,9 +291,9 @@ private fun DashboardContent(
                             Modifier
                                 .fillMaxSize()
                                 .padding(
-                                    top = 3.dp,
-                                    end = 18.dp,
-                                    bottom = 1.dp
+                                    top = 2.dp,
+                                    end = 8.dp,
+                                    bottom = 2.dp
                                 )
                     )
 
@@ -292,12 +311,6 @@ private fun DashboardContent(
                     )
                 }
 
-                RestEnergyPanel(
-                    remainingKwh =
-                        state.remainingKwh,
-                    maxKwh =
-                        state.usableCapacityKwh
-                )
             }
 
             Box(
@@ -312,7 +325,7 @@ private fun DashboardContent(
              * Rechte Seite:
              * nur Leistung und Reichweite
              */
-            Row(
+            Column(
                 modifier =
                     Modifier
                         .weight(1.18f)
@@ -322,38 +335,71 @@ private fun DashboardContent(
                             top = 7.dp,
                             bottom = 7.dp
                         ),
-                horizontalArrangement =
+                verticalArrangement =
                     Arrangement.spacedBy(6.dp)
             ) {
 
-                KpiCard(
-                    title = "LEISTUNG",
-                    value =
-                        String.format(
-                            "%.1f",
-                            state.powerKw
-                        ),
-                    unit = "kW",
+                Row(
                     modifier =
                         Modifier
                             .weight(1f)
-                            .fillMaxHeight(),
-                    valueColor =
-                        if (state.powerKw < -0.5f)
-                            Color(0xFF4B9CFF)
-                        else
-                            DashText
+                            .fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(6.dp)
+                ) {
+
+                    KpiCard(
+                        title = "LEISTUNG",
+                        value =
+                            String.format(
+                                "%.1f",
+                                state.powerKw
+                            ),
+                        unit = "kW",
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                        valueColor =
+                            if (state.powerKw < -0.5f)
+                                Color(0xFF4B9CFF)
+                            else
+                                DashText
+                    )
+
+                    KpiCard(
+                        title = "REICHWEITE",
+                        value =
+                            state.rangeKm.toString(),
+                        unit = "km",
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                    )
+                }
+
+                RestEnergyPanel(
+                    remainingKwh =
+                        state.remainingKwh,
+                    maxKwh =
+                        state.usableCapacityKwh,
+                    compact = true
                 )
 
-                KpiCard(
-                    title = "REICHWEITE",
-                    value =
-                        state.rangeKm.toString(),
-                    unit = "km",
+                VehicleStatusBar(
+                    leftIndicator =
+                        state.leftIndicator,
+                    rightIndicator =
+                        state.rightIndicator,
+                    lowBeam =
+                        state.lowBeam,
+                    highBeam =
+                        state.highBeam,
                     modifier =
                         Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
+                            .fillMaxWidth()
+                            .height(64.dp)
                 )
             }
         }
@@ -447,7 +493,7 @@ private fun Speedometer(
                     )
 
                 val outerRadius =
-                    canvasSize * 0.455f
+                    canvasSize * 0.495f
 
                 /*
                  * dezenter äußerer Ring
@@ -485,7 +531,7 @@ private fun Speedometer(
 
                 drawCircle(
                     color =
-                        Color(0xFF070A0D),
+                        Color(0xFF0A0B0D),
                     radius =
                         outerRadius * 0.92f,
                     center =
@@ -611,12 +657,12 @@ private fun Speedometer(
                             Paint.Align.CENTER
 
                         textSize =
-                            canvasSize * 0.040f
+                            canvasSize * 0.053f
 
                         typeface =
                             Typeface.create(
                                 Typeface.DEFAULT,
-                                Typeface.NORMAL
+                                Typeface.BOLD
                             )
 
                         isAntiAlias = true
@@ -737,7 +783,7 @@ private fun Speedometer(
 
                 drawLine(
                     color =
-                        Color(0xFFFF3535),
+                        Color(0xFFE82127),
                     start =
                         needleTail,
                     end =
@@ -794,7 +840,7 @@ private fun Speedometer(
                     color =
                         DashText,
                     fontSize =
-                        60.sp,
+                        70.sp,
                     fontWeight =
                         FontWeight.Light
                 )
@@ -869,7 +915,8 @@ private fun SpeedLimitSign(
 @Composable
 private fun RestEnergyPanel(
     remainingKwh: Float,
-    maxKwh: Float
+    maxKwh: Float,
+    compact: Boolean = false
 ) {
 
     val percentage =
@@ -888,7 +935,12 @@ private fun RestEnergyPanel(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(104.dp)
+                .height(
+                    if (compact)
+                        92.dp
+                    else
+                        104.dp
+                )
                 .border(
                     width = 0.dp,
                     color = Color.Transparent
@@ -941,7 +993,7 @@ private fun RestEnergyPanel(
                         remainingKwh
                     ),
                 color = DashText,
-                fontSize = 25.sp,
+                fontSize = 36.sp,
                 fontWeight =
                     FontWeight.SemiBold
             )
@@ -1082,6 +1134,116 @@ private fun EnergyBar(
     }
 }
 
+
+@Composable
+private fun VehicleStatusBar(
+    leftIndicator: Boolean,
+    rightIndicator: Boolean,
+    lowBeam: Boolean,
+    highBeam: Boolean,
+    modifier: Modifier = Modifier
+) {
+
+    Column(
+        modifier = modifier
+    ) {
+
+        /*
+         * Nur eine feine obere Trennlinie.
+         * Keine Karte, kein Rahmen.
+         */
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(DashLine)
+        )
+
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(
+                        horizontal = 14.dp
+                    ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+
+            StatusIndicator(
+                symbol = "◀",
+                active = leftIndicator,
+                activeColor =
+                    Color(0xFF45D177),
+                modifier =
+                    Modifier.weight(1f)
+            )
+
+            StatusIndicator(
+                symbol = "◐",
+                active = lowBeam,
+                activeColor =
+                    Color(0xFF55C878),
+                modifier =
+                    Modifier.weight(1f)
+            )
+
+            StatusIndicator(
+                symbol = "✦",
+                active = highBeam,
+                activeColor =
+                    Color(0xFF4A90FF),
+                modifier =
+                    Modifier.weight(1f)
+            )
+
+            StatusIndicator(
+                symbol = "▶",
+                active = rightIndicator,
+                activeColor =
+                    Color(0xFF45D177),
+                modifier =
+                    Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+
+@Composable
+private fun StatusIndicator(
+    symbol: String,
+    active: Boolean,
+    activeColor: Color,
+    modifier: Modifier = Modifier
+) {
+
+    val inactiveColor =
+        Color(0xFF303338)
+
+    Box(
+        modifier =
+            modifier.fillMaxHeight(),
+        contentAlignment =
+            Alignment.Center
+    ) {
+
+        Text(
+            text = symbol,
+            color =
+                if (active)
+                    activeColor
+                else
+                    inactiveColor,
+            fontSize = 38.sp,
+            fontWeight =
+                FontWeight.Bold
+        )
+    }
+}
+
+
 @Composable
 private fun KpiCard(
     title: String,
@@ -1094,22 +1256,9 @@ private fun KpiCard(
     Column(
         modifier =
             modifier
-                .clip(
-                    RoundedCornerShape(
-                        14.dp
-                    )
-                )
-                .background(DashPanel)
-                .border(
-                    width = 1.dp,
-                    color = DashLine,
-                    shape =
-                        RoundedCornerShape(
-                            14.dp
-                        )
-                )
                 .padding(
-                    horizontal = 9.dp
+                    horizontal = 18.dp,
+                    vertical = 12.dp
                 ),
         verticalArrangement =
             Arrangement.Center
@@ -1119,8 +1268,8 @@ private fun KpiCard(
             text = title,
             color = DashMuted,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.7.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.5.sp,
             maxLines = 1
         )
 
@@ -1161,6 +1310,7 @@ private fun KpiCard(
         }
     }
 }
+
 
 @Preview(
     widthDp = 915,
