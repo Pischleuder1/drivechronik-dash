@@ -17,3 +17,6 @@ local.properties
 # Lokale UI-Screenshots
 /native-*.png
 /tesla-design*.png
+
+# Lokale Release-Artefakte
+/dist/
