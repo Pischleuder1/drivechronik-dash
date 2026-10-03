@@ -1163,7 +1163,7 @@ main {
   <div class="tacho-area">
 
     <div class="limit-box">
-      <div class="limit-sign">100</div>
+      <div class="limit-sign" id="speedLimit">100</div>
     </div>
 
     <div class="speedometer" id="speedometer">
@@ -1239,7 +1239,7 @@ main {
   <div class="kpi">
     <div class="kpi-title">Reichweite</div>
     <div class="kpi-value">
-      318
+      <span id="rangeKm">318</span>
       <span class="kpi-inline-unit">km</span>
     </div>
   </div>
@@ -1406,36 +1406,265 @@ function updateEnergy(kwh) {
 }
 
 
-let t=0;
 
-setInterval(()=>{
+/* =========================================================
+   REALISTISCHERE FAHRSIMULATION
+   ========================================================= */
 
-  t += .12;
+let simSpeed = 82;
+let targetSpeed = 100;
 
-  const speed =
-    96 + Math.sin(t)*10;
+let remainingKwh = 43.8;
+let speedLimit = 100;
 
-  const power =
-    15.1 +
-    Math.sin(t*1.65)*6;
+let simulationTick = 0;
+let limitTimer = 0;
 
-  const remainingKwh =
-    42.6 +
-    Math.sin(t*.3)*1.3;
+const speedLimits = [50, 70, 100, 120];
 
 
-  updateSpeed(speed);
+/*
+   Zielgeschwindigkeit abhängig vom Tempolimit.
+   Kleine Abweichungen sorgen dafür, dass die Anzeige
+   nicht statisch wirkt.
+*/
+function chooseNewTargetSpeed() {
 
-  updateEnergy(
-    remainingKwh
-  );
+  targetSpeed =
+    Math.max(
+      0,
+      speedLimit +
+      (-8 + Math.random() * 13)
+    );
+}
+
+
+/*
+   Gelegentlich ein neues Tempolimit.
+*/
+function updateSpeedLimit() {
+
+  limitTimer++;
+
+  if (limitTimer < 120) {
+    return;
+  }
+
+  limitTimer = 0;
+
+  const currentIndex =
+    speedLimits.indexOf(speedLimit);
+
+  let nextIndex =
+    currentIndex +
+    (Math.random() > .5 ? 1 : -1);
+
+  nextIndex =
+    Math.max(
+      0,
+      Math.min(
+        speedLimits.length - 1,
+        nextIndex
+      )
+    );
+
+  speedLimit =
+    speedLimits[nextIndex];
 
   document
-    .getElementById("power")
+    .getElementById("speedLimit")
     .textContent =
-      power.toFixed(1);
+      speedLimit;
 
-},400);
+  chooseNewTargetSpeed();
+}
+
+
+/*
+   Reichweite aus verbleibender Energie.
+   Für die reine Simulation verwenden wir
+   einen geglätteten angenommenen Verbrauch.
+*/
+function updateRange() {
+
+  const assumedWhPerKm = 142;
+
+  const range =
+    Math.round(
+      remainingKwh * 1000 /
+      assumedWhPerKm
+    );
+
+  const el =
+    document.getElementById("rangeKm");
+
+  if (el) {
+    el.textContent = range;
+  }
+}
+
+
+/*
+   Startwerte
+*/
+chooseNewTargetSpeed();
+updateEnergy(remainingKwh);
+updateRange();
+
+
+setInterval(() => {
+
+  simulationTick++;
+
+  updateSpeedLimit();
+
+
+  /*
+     Geschwindigkeit bewegt sich langsam
+     auf die Zielgeschwindigkeit zu.
+  */
+  const difference =
+    targetSpeed - simSpeed;
+
+  const acceleration =
+    Math.max(
+      -2.0,
+      Math.min(
+        1.4,
+        difference * .055
+      )
+    );
+
+  simSpeed += acceleration;
+
+
+  /*
+     Kleine natürliche Bewegung.
+  */
+  simSpeed +=
+    Math.sin(
+      simulationTick * .12
+    ) * .12;
+
+  simSpeed =
+    Math.max(
+      0,
+      Math.min(
+        MAX_SPEED,
+        simSpeed
+      )
+    );
+
+
+  /*
+     Leistung:
+     - Beschleunigen = positive kW
+     - Rollen = geringer Verbrauch
+     - Verzögern = Rekuperation / negative kW
+  */
+
+  const roadLoad =
+    2.4 +
+    Math.pow(
+      simSpeed / 100,
+      2
+    ) * 8.5;
+
+  let power =
+    roadLoad +
+    acceleration * 15;
+
+
+  /*
+     Grenzen für plausible Anzeige
+  */
+  power =
+    Math.max(
+      -38,
+      Math.min(
+        65,
+        power
+      )
+    );
+
+
+  /*
+     Restenergie nur bei positiver Leistung
+     verringern.
+
+     Ein Tick = 400 ms.
+  */
+  if (power > 0) {
+
+    const hours =
+      0.4 / 3600;
+
+    remainingKwh -=
+      power * hours;
+
+  }
+
+  /*
+     Kleine Rekuperation berücksichtigen.
+  */
+  if (power < 0) {
+
+    const hours =
+      0.4 / 3600;
+
+    remainingKwh +=
+      Math.abs(power) *
+      hours *
+      .78;
+
+  }
+
+  remainingKwh =
+    Math.max(
+      0,
+      Math.min(
+        MAX_ENERGY_KWH,
+        remainingKwh
+      )
+    );
+
+
+  updateSpeed(simSpeed);
+  updateEnergy(remainingKwh);
+  updateRange();
+
+
+  const powerEl =
+    document.getElementById("power");
+
+  powerEl.textContent =
+    power.toFixed(1);
+
+
+  /*
+     Rekuperation dezent kennzeichnen.
+     Kein grelles Farbenspiel.
+  */
+  if (power < -.5) {
+    powerEl.style.color =
+      "#4b9cff";
+  }
+  else {
+    powerEl.style.color =
+      "";
+  }
+
+
+  /*
+     Nach einigen Sekunden neues Fahrziel,
+     auch wenn sich das Tempolimit nicht ändert.
+  */
+  if (simulationTick % 55 === 0) {
+    chooseNewTargetSpeed();
+  }
+
+}, 400);
+
 </script>
 
 </body>
