@@ -3956,7 +3956,7 @@ private fun TeslaBleSetupDialog(
                 modifier =
                     Modifier
                         .width(
-                            230.dp
+                            260.dp
                         )
                         .height(
                             48.dp
@@ -3994,6 +3994,12 @@ private fun TeslaBleSetupDialog(
         confirmButton = {
 
             Button(
+
+                enabled =
+                    previewStep4 ||
+                    activeStep != 4 ||
+                    liveEnabled,
+
                 onClick = {
 
                     if (previewStep4) {
@@ -4027,9 +4033,13 @@ private fun TeslaBleSetupDialog(
                 },
 
                 modifier =
-                    Modifier.width(
-                        170.dp
-                    ),
+                    Modifier
+                        .width(
+                            260.dp
+                        )
+                        .height(
+                            48.dp
+                        ),
 
                 colors =
                     ButtonDefaults
@@ -4048,9 +4058,15 @@ private fun TeslaBleSetupDialog(
                         if (previewStep4)
                             "Vorschau schließen"
                         else if (activeStep == 4)
-                            "Speichern"
+                            "Aktivieren & speichern"
                         else
                             "Schließen",
+
+                    maxLines =
+                        1,
+
+                    fontSize =
+                        11.sp,
 
                     fontWeight =
                         FontWeight.Bold
