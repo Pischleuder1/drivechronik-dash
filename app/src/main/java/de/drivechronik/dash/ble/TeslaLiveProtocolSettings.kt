@@ -44,7 +44,7 @@ class TeslaLiveProtocolSettings(
             "enabled"
 
         private const val KEY_ENROLLMENT_CONFIRMED =
-            "key_enrollment_confirmed"
+            "key_enrollment_verified_v2"
 
         private const val KEY_VIN =
             "vin"

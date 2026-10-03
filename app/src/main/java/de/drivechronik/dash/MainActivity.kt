@@ -21,6 +21,7 @@ import de.drivechronik.dash.ble.TeslaGattState
 import de.drivechronik.dash.ble.TeslaGattStatus
 import de.drivechronik.dash.ble.TeslaBleSessionController
 import de.drivechronik.dash.ble.TeslaKeyStore
+import de.drivechronik.dash.ble.TeslaKeyEnrollmentRequest
 import de.drivechronik.dash.ble.TeslaLiveProtocolSettings
 import de.drivechronik.dash.ble.TeslaLiveProtocolConfig
 import de.drivechronik.dash.ble.TeslaProtocolSessionStatus
@@ -567,6 +568,15 @@ private fun TeslaBleHeaderStatus() {
 
             mutableStateOf(false)
         }
+
+
+    var keyAuthorizationMessage by
+        remember {
+            mutableStateOf<String?>(
+                null
+            )
+        }
+
 
 
     /*
@@ -1173,6 +1183,42 @@ private fun TeslaBleHeaderStatus() {
             else ->
                 DashMuted
         }
+    val expectedConfiguredTeslaName =
+        runCatching {
+
+            val vin =
+                liveProtocolConfig
+                    .normalizedVin
+
+            if (vin.length == 17) {
+
+                TeslaBleVehicleIdentity
+                    .advertisementLocalName(
+                        vin
+                    )
+            }
+            else {
+
+                null
+            }
+
+        }.getOrNull()
+
+
+    val keyAuthorizationAvailable =
+        keyPresent &&
+        liveProtocolConfig
+            .normalizedVin
+            .length == 17 &&
+        gattState.status ==
+            TeslaGattStatus.READY &&
+        scanState.status ==
+            TeslaBleScanStatus.FOUND &&
+        scanState.name != null &&
+        scanState.name ==
+            expectedConfiguredTeslaName
+
+
 
     if (showTeslaSetup) {
 
@@ -1188,6 +1234,131 @@ private fun TeslaBleHeaderStatus() {
 
             keyError =
                 keyError,
+
+            authorizationAvailable =
+                keyAuthorizationAvailable,
+
+            authorizationMessage =
+                keyAuthorizationMessage,
+
+            onAuthorizeKey = {
+
+                /*
+                 * Zweite Sicherheitsprüfung unmittelbar
+                 * vor dem tatsächlichen TX.
+                 */
+                val expectedName =
+                    runCatching {
+
+                        TeslaBleVehicleIdentity
+                            .advertisementLocalName(
+                                liveProtocolConfig
+                                    .normalizedVin
+                            )
+
+                    }.getOrNull()
+
+
+                val safeToSend =
+                    keyPresent &&
+                    liveProtocolConfig
+                        .normalizedVin
+                        .length == 17 &&
+                    gattState.status ==
+                        TeslaGattStatus.READY &&
+                    scanState.status ==
+                        TeslaBleScanStatus.FOUND &&
+                    scanState.name != null &&
+                    scanState.name ==
+                        expectedName
+
+
+                if (!safeToSend) {
+
+                    keyAuthorizationMessage =
+                        "Autorisierung nicht möglich: " +
+                        "passender Tesla ist nicht verbunden"
+                }
+                else {
+
+                    try {
+
+                        /*
+                         * Niemals einen alten/manuellen
+                         * Bestätigungszustand übernehmen.
+                         */
+                        val unverifiedConfig =
+                            liveProtocolConfig.copy(
+                                enabled = false,
+                                keyEnrollmentConfirmed =
+                                    false
+                            )
+
+
+                        liveProtocolSettings
+                            .save(
+                                unverifiedConfig
+                            )
+
+
+                        liveProtocolConfig =
+                            unverifiedConfig
+
+
+                        sessionController
+                            ?.clear()
+
+
+                        val enrollmentMessage =
+                            TeslaKeyEnrollmentRequest
+                                .build(
+                                    TeslaKeyStore
+                                        .encodedPublicKey()
+                                )
+
+
+                        val accepted =
+                            gattClient
+                                .sendVcsecMessage(
+                                    enrollmentMessage
+                                )
+
+
+                        if (accepted) {
+
+                            keyAuthorizationMessage =
+                                "Anfrage gesendet – " +
+                                "NFC-Schlüsselkarte oder Keyfob " +
+                                "am Tesla auflegen und am " +
+                                "Fahrzeugdisplay bestätigen"
+
+                            Log.d(
+                                "DriveChronikENROLL",
+                                "Tesla add-key request queued " +
+                                    "bytes=${enrollmentMessage.size}"
+                            )
+                        }
+                        else {
+
+                            keyAuthorizationMessage =
+                                "Autorisierungsanfrage konnte " +
+                                "nicht gesendet werden"
+                        }
+                    }
+                    catch (e: Exception) {
+
+                        keyAuthorizationMessage =
+                            e.message
+                                ?: "Autorisierungsanfrage fehlgeschlagen"
+
+                        Log.e(
+                            "DriveChronikENROLL",
+                            "Tesla add-key request failed",
+                            e
+                        )
+                    }
+                }
+            },
 
             onPrepareKey = {
 
@@ -1216,6 +1387,9 @@ private fun TeslaBleHeaderStatus() {
 
             onDeleteVin = {
 
+                keyAuthorizationMessage =
+                    null
+
                 sessionController
                     ?.clear()
 
@@ -1240,6 +1414,9 @@ private fun TeslaBleHeaderStatus() {
 
 
             onDeleteKey = {
+
+                keyAuthorizationMessage =
+                    null
 
                 sessionController
                     ?.clear()
@@ -1317,22 +1494,47 @@ private fun TeslaBleHeaderStatus() {
                  * vollständig sind, kann Live-BLE
                  * nicht versehentlich aktiv bleiben.
                  */
+                /*
+                 * Eine bestätigte Autorisierung gehört
+                 * immer exakt zu der gespeicherten VIN.
+                 *
+                 * Wird die VIN geändert, darf die alte
+                 * Bestätigung niemals übernommen werden.
+                 */
+                val sameVehicle =
+                    requested
+                        .normalizedVin ==
+                    liveProtocolConfig
+                        .normalizedVin
+
+
+                val verifiedEnrollment =
+                    requested
+                        .keyEnrollmentConfirmed &&
+                    keyPresent &&
+                    sameVehicle
+
+
                 val safeConfig =
                     requested.copy(
+
                         keyEnrollmentConfirmed =
-                            requested
-                                .keyEnrollmentConfirmed &&
-                                keyPresent,
+                            verifiedEnrollment,
 
                         enabled =
                             requested.enabled &&
-                                requested
-                                    .keyEnrollmentConfirmed &&
-                                keyPresent &&
-                                requested
-                                    .normalizedVin
-                                    .length == 17
+                            verifiedEnrollment &&
+                            requested
+                                .normalizedVin
+                                .length == 17
                     )
+
+
+                if (!sameVehicle) {
+
+                    keyAuthorizationMessage =
+                        null
+                }
 
 
                 /*
@@ -2344,6 +2546,15 @@ private fun TeslaBleSetupDialog(
     keyError:
         String?,
 
+    authorizationAvailable:
+        Boolean,
+
+    authorizationMessage:
+        String?,
+
+    onAuthorizeKey:
+        () -> Unit,
+
     onPrepareKey:
         () -> Unit,
 
@@ -2419,7 +2630,7 @@ private fun TeslaBleSetupDialog(
     val livePossible =
         keyPresent &&
             enrollmentConfirmed &&
-            vinValid
+            vinSaved
 
 
     val statusText =
@@ -2870,69 +3081,59 @@ private fun TeslaBleSetupDialog(
                     )
 
 
-                    Row(
+                    Button(
+                        onClick =
+                            onAuthorizeKey,
 
-                        modifier =
-                            Modifier.fillMaxWidth(),
+                        enabled =
+                            authorizationAvailable &&
+                            !enrollmentConfirmed,
 
-                        verticalAlignment =
-                            Alignment.CenterVertically
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor =
+                                    DashRed,
+
+                                contentColor =
+                                    Color.White,
+
+                                disabledContainerColor =
+                                    Color(0xFF62666C),
+
+                                disabledContentColor =
+                                    Color(0xFFBFC2C7)
+                            )
                     ) {
-
-                        Checkbox(
-
-                            checked =
-                                enrollmentConfirmed,
-
-                            enabled =
-                                keyPresent,
-
-                            colors =
-                                CheckboxDefaults
-                                    .colors(
-
-                                        checkedColor =
-                                            DashRed,
-
-                                        uncheckedColor =
-                                            Color.White,
-
-                                        checkmarkColor =
-                                            Color.White,
-
-                                        disabledUncheckedColor =
-                                            Color(0xFF8F949C)
-                                    ),
-
-                            onCheckedChange = { checked ->
-
-                                enrollmentConfirmed =
-                                    checked
-
-                                if (!checked) {
-
-                                    liveEnabled =
-                                        false
-                                }
-                            }
-                        )
-
 
                         Text(
                             text =
-                                "Schlüssel von Tesla autorisieren lassen",
-
-                            modifier =
-                                Modifier.weight(1f),
-
-                            color =
-                                Color.White,
+                                if (enrollmentConfirmed)
+                                    "Schlüssel autorisiert"
+                                else
+                                    "Schlüssel autorisieren",
 
                             fontSize =
                                 12.sp,
 
                             fontWeight =
-                                FontWeight.Medium
+                                FontWeight.Bold
+                        )
+                    }
+
+
+                    if (
+                        authorizationMessage != null
+                    ) {
+
+                        Text(
+                            text =
+                                authorizationMessage,
+
+                            color =
+                                Color(0xFFE3E5E8),
+
+                            fontSize =
+                                10.sp
                         )
                     }
 

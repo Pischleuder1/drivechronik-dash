@@ -817,6 +817,22 @@ class TeslaBleGattClient(
     }
 
 
+    /*
+     * Tesla Key-Enrollment wird als rohes
+     * VCSEC.ToVCSECMessage über denselben
+     * BLE-Längenrahmen übertragen.
+     */
+    fun sendVcsecMessage(
+        message: ByteArray
+    ): Boolean {
+
+        return sendRoutableMessage(
+            message
+        )
+    }
+
+
+
     @SuppressLint("MissingPermission")
     private fun pumpTxQueue() {
 
