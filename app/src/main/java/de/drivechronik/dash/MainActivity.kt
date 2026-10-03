@@ -3475,177 +3475,158 @@ private fun TeslaBleSetupDialog(
                              */
                             3 -> {
 
-                                Text(
-                                    text =
-                                        "3. Schlüssel bei Tesla autorisieren",
-
-                                    color =
-                                        Color.White,
-
-                                    fontSize =
-                                        18.sp,
-
-                                    fontWeight =
-                                        FontWeight.Bold
-                                )
-
-
-                                Text(
-                                    text =
-                                        "✓ VIN gespeichert   ·   " +
-                                            "✓ Lokaler Schlüssel vorhanden",
-
-                                    color =
-                                        successColor,
-
-                                    fontSize =
-                                        10.sp,
-
-                                    fontWeight =
-                                        FontWeight.Bold
-                                )
-
-
-                                Text(
-                                    text =
-                                        if (
-                                            authorizationAvailable
-                                        )
-                                            "Tesla verbunden – " +
-                                                "bereit zur Autorisierung"
-                                        else
-                                            "Warte auf den zu dieser VIN " +
-                                                "gehörenden Tesla …",
-
-                                    color =
-                                        if (
-                                            authorizationAvailable
-                                        )
-                                            successColor
-                                        else
-                                            mutedColor,
-
-                                    fontSize =
-                                        11.sp,
-
-                                    fontWeight =
-                                        FontWeight.Bold
-                                )
-
-
-                                Button(
-                                    onClick =
-                                        onAuthorizeKey,
-
-                                    enabled =
-                                        authorizationAvailable,
-
-                                    colors =
-                                        ButtonDefaults
-                                            .buttonColors(
-
-                                                containerColor =
-                                                    DashRed,
-
-                                                contentColor =
-                                                    Color.White,
-
-                                                disabledContainerColor =
-                                                    Color(0xFF62666C),
-
-                                                disabledContentColor =
-                                                    Color(0xFFBFC2C7)
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .height(
+                                                130.dp
                                             )
                                 ) {
 
-                                    Text(
-                                        text =
-                                            "Schlüssel autorisieren",
+                                    /*
+                                     * Linke Seite
+                                     */
+                                    Column(
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth(0.64f)
+                                                .align(
+                                                    Alignment.CenterStart
+                                                ),
 
-                                        fontWeight =
-                                            FontWeight.Bold
-                                    )
-                                }
+                                        verticalArrangement =
+                                            Arrangement.spacedBy(
+                                                8.dp
+                                            )
+                                    ) {
 
+                                        Text(
+                                            text =
+                                                "3. Schlüssel bei Tesla autorisieren",
 
-                                Text(
-                                    text =
-                                        "Danach Schlüsselkarte oder Keyfob " +
-                                            "am Tesla auflegen und die " +
-                                            "Freigabe im Fahrzeug bestätigen.",
+                                            color =
+                                                Color.White,
 
-                                    color =
-                                        mutedColor,
+                                            fontSize =
+                                                18.sp,
 
-                                    fontSize =
-                                        9.sp
-                                )
-
-
-                                if (
-                                    authorizationMessage != null
-                                ) {
-
-                                    Text(
-                                        text =
-                                            authorizationMessage,
-
-                                        color =
-                                            Color.White,
-
-                                        fontSize =
-                                            10.sp,
-
-                                        fontWeight =
-                                            FontWeight.Bold
-                                    )
-                                }
+                                            fontWeight =
+                                                FontWeight.Bold
+                                        )
 
 
-                                TextButton(
-                                    onClick = {
+                                        Text(
+                                            text =
+                                                "✓ VIN gespeichert   ·   " +
+                                                "✓ Lokaler Schlüssel vorhanden",
+
+                                            color =
+                                                successColor,
+
+                                            fontSize =
+                                                10.sp,
+
+                                            fontWeight =
+                                                FontWeight.Bold
+                                        )
+
+
+                                        Text(
+                                            text =
+                                                if (
+                                                    authorizationAvailable
+                                                )
+                                                    "Tesla verbunden – bereit zur Autorisierung"
+                                                else
+                                                    "Warte auf den zu dieser VIN gehörenden Tesla …",
+
+                                            color =
+                                                if (
+                                                    authorizationAvailable
+                                                )
+                                                    successColor
+                                                else
+                                                    mutedColor,
+
+                                            fontSize =
+                                                10.sp,
+
+                                            fontWeight =
+                                                FontWeight.Bold
+                                        )
+
 
                                         if (
-                                            confirmKeyDeletion
+                                            authorizationMessage != null
                                         ) {
 
-                                            onDeleteKey()
+                                            Text(
+                                                text =
+                                                    authorizationMessage,
 
-                                            enrollmentConfirmed =
-                                                false
+                                                color =
+                                                    Color.White,
 
-                                            liveEnabled =
-                                                false
-
-                                            confirmKeyDeletion =
-                                                false
-                                        }
-                                        else {
-
-                                            confirmKeyDeletion =
-                                                true
+                                                fontSize =
+                                                    9.sp
+                                            )
                                         }
                                     }
-                                ) {
 
-                                    Text(
-                                        text =
-                                            if (
-                                                confirmKeyDeletion
-                                            )
-                                                "Schlüssel wirklich löschen"
-                                            else
-                                                "Lokalen Schlüssel löschen",
 
-                                        color =
-                                            Color(0xFFFFB4AB),
+                                    /*
+                                     * Autorisieren-Button
+                                     * mittig rechts
+                                     */
+                                    Button(
+                                        onClick =
+                                            onAuthorizeKey,
 
-                                        fontSize =
-                                            9.sp,
+                                        enabled =
+                                            authorizationAvailable,
 
-                                        fontWeight =
-                                            FontWeight.Bold
-                                    )
+                                        modifier =
+                                            Modifier
+                                                .align(
+                                                    Alignment.CenterEnd
+                                                )
+                                                .width(
+                                                    220.dp
+                                                )
+                                                .height(
+                                                    48.dp
+                                                ),
+
+                                        colors =
+                                            ButtonDefaults
+                                                .buttonColors(
+
+                                                    containerColor =
+                                                        DashRed,
+
+                                                    contentColor =
+                                                        Color.White,
+
+                                                    disabledContainerColor =
+                                                        Color(0xFF62666C),
+
+                                                    disabledContentColor =
+                                                        Color(0xFFBFC2C7)
+                                                )
+                                    ) {
+
+                                        Text(
+                                            text =
+                                                "Schlüssel autorisieren",
+
+                                            fontSize =
+                                                11.sp,
+
+                                            fontWeight =
+                                                FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
 
