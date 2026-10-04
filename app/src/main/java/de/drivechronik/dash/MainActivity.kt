@@ -1,6 +1,11 @@
 package de.drivechronik.dash
 
+import androidx.compose.animation.core.tween
+
+import androidx.compose.animation.core.animateFloatAsState
+
 import de.drivechronik.dash.diagnostics.TelemetryDiagnosticsLogger
+import de.drivechronik.dash.diagnostics.DiagnosticsSettings
 
 import android.graphics.Paint
 import android.Manifest
@@ -365,23 +370,35 @@ private fun DriveChronikDashboard(
      * Intent-Parameter oder direkt im Dashboard aktiviert
      * werden.
      *
-     * Bei einem normalen vollständigen App-Neustart ist
-     * Diagnose standardmäßig wieder AUS.
+     * Der Zustand aus dem Service-Menü wird lokal gespeichert
+     * und beim nächsten App-Start wiederhergestellt.
      */
-    var diagnosticsEnabled by
-        remember(
-            telemetryDiagnostics
-        ) {
-            mutableStateOf(
-                telemetryDiagnostics
-            )
-        }
-
-
     val diagnosticsContext =
         LocalContext
             .current
             .applicationContext
+
+
+    val diagnosticsSettings =
+        remember(
+            diagnosticsContext
+        ) {
+            DiagnosticsSettings(
+                diagnosticsContext
+            )
+        }
+
+
+    var diagnosticsEnabled by
+        remember(
+            telemetryDiagnostics,
+            diagnosticsSettings
+        ) {
+            mutableStateOf(
+                telemetryDiagnostics ||
+                    diagnosticsSettings.load()
+            )
+        }
 
 
     val diagnosticsLogger =
@@ -735,7 +752,17 @@ private fun DriveChronikDashboard(
 
 
                     navigation =
-                        activeNavigation,
+                if (demoEnabled) {
+                    TeslaNavigationTelemetry(
+                        destination = "Hannover",
+                        remainingDistanceKm = 42f,
+                        remainingMinutes = 31f,
+                        trafficDelayMinutes = 4f,
+                        energyAtArrivalPercent = 54f
+                    )
+                } else {
+                    activeNavigation
+                },
 
 
                     /*
@@ -802,9 +829,14 @@ private fun DriveChronikDashboard(
             diagnosticsEnabled =
                 diagnosticsEnabled,
 
-            onDiagnosticsEnabledChange = {
+            onDiagnosticsEnabledChange = { enabled ->
+
+                diagnosticsSettings.save(
+                    enabled
+                )
+
                 diagnosticsEnabled =
-                    it
+                    enabled
             },
 
             modifier =
@@ -1429,6 +1461,23 @@ private fun DiagnosticsControlOverlay(
 @Composable
 private fun DashboardHeader() {
 
+    var titleVisible by remember {
+        mutableStateOf(true)
+    }
+
+    LaunchedEffect(Unit) {
+        delay(30_000L)
+        titleVisible = false
+    }
+
+    val titleAlpha by animateFloatAsState(
+        targetValue = if (titleVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 800),
+        label = "DashboardTitleFade"
+    )
+
+
+
     Row(
         modifier =
             Modifier
@@ -1440,7 +1489,7 @@ private fun DashboardHeader() {
 
         Text(
             text = "DRIVECHRONIK DASH  ·  v${BuildConfig.VERSION_NAME}",
-            color = DashText,
+            color = DashText.copy(alpha = titleAlpha),
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 2.sp
@@ -3065,138 +3114,43 @@ private fun EnergyRing(
             )
 
 
+
             /*
-             * Feste Farbzonen.
-             *
-             * Die Grenzen liegen bei 8 / 21 / 51 / 76,
-             * damit ein ganzzahliger Wert von z.B. 7 %
-             * noch rot und 8 % bereits violett ist.
+             * Stufenloser Farbverlauf über feste SOC-Skala.
+             * Nur vorhandene Restenergie wird gezeichnet.
              */
-            data class EnergyZone(
-                val from: Float,
-                val to: Float,
-                val color: Color
-            )
-
-
-            val zones =
-                listOf(
-
-                    EnergyZone(
-                        from =
-                            0f,
-                        to =
-                            8f,
-                        color =
-                            DashRed
-                    ),
-
-                    EnergyZone(
-                        from =
-                            8f,
-                        to =
-                            21f,
-                        color =
-                            Color(
-                                0xFF9B5CFF
-                            )
-                    ),
-
-                    EnergyZone(
-                        from =
-                            21f,
-                        to =
-                            51f,
-                        color =
-                            DashBlue
-                    ),
-
-                    EnergyZone(
-                        from =
-                            51f,
-                        to =
-                            76f,
-                        color =
-                            Color(
-                                0xFF35D9E6
-                            )
-                    ),
-
-                    EnergyZone(
-                        from =
-                            76f,
-                        to =
-                            100f,
-                        color =
-                            DashGreen
-                    )
+            if (percent > 0f) {
+                val energyBrush = Brush.sweepGradient(
+                    0f to DashRed,
+                    (startAngle / 360f) to DashRed,
+                    ((startAngle + fullEnergySweep * 0.15f) / 360f)
+                        to Color(0xFFFF8800),
+                    ((startAngle + fullEnergySweep * 0.35f) / 360f)
+                        to Color(0xFFFFD600),
+                    ((startAngle + fullEnergySweep * 0.70f) / 360f)
+                        to DashGreen,
+                    ((startAngle + fullEnergySweep) / 360f)
+                        to DashGreen,
+                    1f to DashGreen,
+                    center = center
                 )
 
-
-            /*
-             * Farbiger Energieanteil:
-             * nur die aktuell vorhandene Restenergie anzeigen.
-             *
-             * Die Farbzonen behalten ihre festen SOC-Bereiche.
-             * Die dunkle 0...100-%-Grundspur bleibt vollständig sichtbar.
-             */
-            zones.forEach {
-                zone ->
-
-                val visibleEnd =
-                    minOf(
-                        percent,
-                        zone.to
-                    )
-
-                if (
-                    visibleEnd >
-                        zone.from
-                ) {
-
-                    val zoneStart =
-                        startAngle +
-                            zone.from /
-                            100f *
-                            fullEnergySweep
-
-                    val zoneSweep =
-                        (
-                            visibleEnd -
-                                zone.from
-                        ) /
-                            100f *
-                            fullEnergySweep
-
-                    drawArc(
-                        color =
-                            zone.color,
-
-                        startAngle =
-                            zoneStart,
-
-                        sweepAngle =
-                            zoneSweep,
-
-                        useCenter =
-                            false,
-
-                        topLeft =
-                            arcTopLeft,
-
-                        size =
-                            arcSize,
-
-                        style =
-                            androidx.compose.ui.graphics.drawscope.Stroke(
-                                width =
-                                    strokeWidth,
-
-                                cap =
-                                    androidx.compose.ui.graphics.StrokeCap.Butt
-                            )
-                    )
-                }
+                drawArc(
+                    brush = energyBrush,
+                    startAngle = startAngle,
+                    sweepAngle =
+                        fullEnergySweep *
+                        (percent / 100f),
+                    useCenter = false,
+                    topLeft = arcTopLeft,
+                    size = arcSize,
+                    style =
+                        androidx.compose.ui.graphics.drawscope.Stroke(
+                            width = strokeWidth,
+                            cap =
+                                androidx.compose.ui.graphics.StrokeCap.Butt
+                        )
+                )
             }
 
 
@@ -4351,17 +4305,14 @@ private fun VehicleStatusBar(
                 Alignment.CenterVertically
         ) {
 
-            StatusIndicator(
-                symbol = "◀",
+            TeslaTurnIndicator(
+                left = true,
                 active = leftIndicator,
-                activeColor =
-                    Color(0xFF45D177),
-                modifier =
-                    Modifier.weight(1f)
+                modifier = Modifier.weight(1f)
             )
 
-            StatusIndicator(
-                symbol = "◐",
+            TeslaBeamIndicator(
+                dipped = true,
                 active = lowBeam,
                 activeColor =
                     Color(0xFF55C878),
@@ -4369,8 +4320,8 @@ private fun VehicleStatusBar(
                     Modifier.weight(1f)
             )
 
-            StatusIndicator(
-                symbol = "✦",
+            TeslaBeamIndicator(
+                dipped = false,
                 active = highBeam,
                 activeColor =
                     Color(0xFF4A90FF),
@@ -4378,13 +4329,211 @@ private fun VehicleStatusBar(
                     Modifier.weight(1f)
             )
 
-            StatusIndicator(
-                symbol = "▶",
+            TeslaTurnIndicator(
+                left = false,
                 active = rightIndicator,
-                activeColor =
-                    Color(0xFF45D177),
-                modifier =
-                    Modifier.weight(1f)
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+
+@Composable
+private fun TeslaBeamIndicator(
+    dipped: Boolean,
+    active: Boolean,
+    activeColor: Color,
+    modifier: Modifier = Modifier
+) {
+
+    val color =
+        if (active)
+            activeColor
+        else
+            Color(0xFF303338)
+
+    Box(
+        modifier =
+            modifier.fillMaxHeight(),
+        contentAlignment =
+            Alignment.Center
+    ) {
+
+        Canvas(
+            modifier =
+                Modifier.size(
+                    width = 46.dp,
+                    height = 38.dp
+                )
+        ) {
+
+            val sx = size.width / 46f
+            val sy = size.height / 38f
+
+            val stroke =
+                2.5.dp.toPx()
+
+            val path =
+                androidx.compose.ui.graphics.Path().apply {
+
+                    moveTo(
+                        25f * sx,
+                        5f * sy
+                    )
+
+                    lineTo(
+                        30f * sx,
+                        5f * sy
+                    )
+
+                    cubicTo(
+                        39f * sx,
+                        7f * sy,
+                        39f * sx,
+                        31f * sy,
+                        30f * sx,
+                        33f * sy
+                    )
+
+                    lineTo(
+                        25f * sx,
+                        33f * sy
+                    )
+
+                    quadraticBezierTo(
+                        21f * sx,
+                        19f * sy,
+                        25f * sx,
+                        5f * sy
+                    )
+
+                    close()
+                }
+
+            drawPath(
+                path = path,
+                color = color,
+                style =
+                    androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = stroke,
+                        cap =
+                            androidx.compose.ui.graphics.StrokeCap.Round,
+                        join =
+                            androidx.compose.ui.graphics.StrokeJoin.Round
+                    )
+            )
+
+            val rays =
+                listOf(
+                    8f,
+                    13.5f,
+                    19f,
+                    24.5f,
+                    30f
+                )
+
+            for (y in rays) {
+
+                drawLine(
+                    color = color,
+
+                    start =
+                        androidx.compose.ui.geometry.Offset(
+                            5f * sx,
+                            (if (dipped) y + 3.5f else y) * sy
+                        ),
+
+                    end =
+                        androidx.compose.ui.geometry.Offset(
+                            19f * sx,
+                            y * sy
+                        ),
+
+                    strokeWidth = stroke,
+
+                    cap =
+                        androidx.compose.ui.graphics.StrokeCap.Round
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun TeslaTurnIndicator(
+    left: Boolean,
+    active: Boolean,
+    modifier: Modifier = Modifier
+) {
+
+    val indicatorColor =
+        if (active)
+            Color(0xFF45D177)
+        else
+            Color(0xFF303338)
+
+    Box(
+        modifier = modifier.fillMaxHeight(),
+        contentAlignment = Alignment.Center
+    ) {
+
+        Canvas(
+            modifier = Modifier.size(
+                width = 42.dp,
+                height = 34.dp
+            )
+        ) {
+
+            val scale = minOf(
+                size.width / 48f,
+                size.height / 32f
+            )
+
+            val offsetX =
+                (size.width - 48f * scale) / 2f
+
+            val offsetY =
+                (size.height - 32f * scale) / 2f
+
+            fun px(x: Float): Float {
+                val mirroredX =
+                    if (left) x else 48f - x
+
+                return offsetX + mirroredX * scale
+            }
+
+            fun py(y: Float): Float {
+                return offsetY + y * scale
+            }
+
+            /*
+             * Tesla-typischer Richtungspfeil:
+             * klarer Pfeilkopf mit geradem Schaft.
+             *
+             * Rechts wird dieselbe Form gespiegelt.
+             */
+            val arrow =
+                androidx.compose.ui.graphics.Path().apply {
+
+                    moveTo(px(3f), py(16f))
+
+                    lineTo(px(21f), py(2f))
+                    lineTo(px(21f), py(10f))
+
+                    lineTo(px(45f), py(10f))
+                    lineTo(px(45f), py(22f))
+
+                    lineTo(px(21f), py(22f))
+                    lineTo(px(21f), py(30f))
+
+                    close()
+                }
+
+            drawPath(
+                path = arrow,
+                color = indicatorColor
             )
         }
     }
