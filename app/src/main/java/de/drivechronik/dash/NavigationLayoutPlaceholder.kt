@@ -38,37 +38,9 @@ internal fun NavigationLayoutPlaceholder(
             .clip(navigationCurve)
             .background(Color(0xFF192B3C))
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    start = 58.dp,
-                    end = 10.dp,
-                    top = 16.dp
-                ),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                "NAVIGATION",
-                color = Color(0xFF76C9FF),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                "Kartenansicht",
-                color = Color.White,
-                fontSize = 18.sp
-            )
-            Text(
-                "Tesla / Android",
-                color = Color(0xFFB0C6D8),
-                fontSize = 12.sp
-            )
-            Text(
-                "Sprachsteuerung: DriveChronik",
-                color = Color(0xFFB0C6D8),
-                fontSize = 11.sp
-            )
-        }
+        NavigationMap(
+            modifier = Modifier.fillMaxSize()
+        )
+
     }
 }
