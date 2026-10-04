@@ -23,8 +23,13 @@ import org.maplibre.android.MapLibre
 import kotlinx.coroutines.delay
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.annotations.MarkerOptions
-import org.maplibre.android.annotations.Marker
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.layers.PropertyFactory.*
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.Point
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMapOptions
@@ -34,12 +39,14 @@ import org.maplibre.android.maps.MapView
 internal fun NavigationMap(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
+    val compassHeading = rememberCompassHeading()
+    val currentCompass by rememberUpdatedState(compassHeading)
     val (phoneState, _, _) = rememberPhoneWeatherLocation()
     val mapState = remember {
         mutableStateOf<MapLibreMap?>(null)
     }
-    var locationMarker by remember {
-        mutableStateOf<Marker?>(null)
+    var lastBearing by remember {
+        mutableFloatStateOf(0f)
     }
     var centered by remember {
         mutableStateOf(false)
@@ -56,6 +63,29 @@ internal fun NavigationMap(modifier: Modifier = Modifier) {
                 map.setStyle(
                     "https://tiles.openfreemap.org/styles/liberty"
                 ) {
+                    it.addImage(
+                        "dash-arrow", navigationArrowBitmap()
+                    )
+                    it.addSource(
+                        GeoJsonSource(
+                            "dash-position",
+                            FeatureCollection.fromFeatures(
+                                emptyArray<Feature>()
+                            )
+                        )
+                    )
+                    it.addLayer(
+                        SymbolLayer(
+                            "dash-arrow-layer", "dash-position"
+                        ).withProperties(
+                            iconImage("dash-arrow"),
+                            iconSize(0.55f),
+                            iconRotate(Expression.get("bearing")),
+                            iconRotationAlignment("map"),
+                            iconAllowOverlap(true),
+                            iconIgnorePlacement(true)
+                        )
+                    )
                     mapState.value = map
                     map.cameraPosition = CameraPosition.Builder()
                         .target(LatLng(51.16, 10.45))
@@ -71,16 +101,33 @@ internal fun NavigationMap(modifier: Modifier = Modifier) {
             val gps = weatherCoordinates(phoneState.value)
             val map = mapState.value
 
-            if (gps != null && map != null) {
-                val position = LatLng(gps.first, gps.second)
-                val marker = locationMarker
-                if (marker == null) {
-                    locationMarker = map.addMarker(
-                        MarkerOptions().position(position)
-                    )
-                } else {
-                    marker.position = position
-                    map.updateMarker(marker)
+            if (map != null) {
+                map.style?.getSourceAs<GeoJsonSource>(
+                    "dash-position"
+                )?.let { source ->
+                    if (gps == null) {
+                        source.setGeoJson(
+                            FeatureCollection.fromFeatures(
+                                emptyArray<Feature>()
+                            )
+                        )
+                    } else {
+                        val bearing = navigationBearing(
+                            phoneState.value, gps
+                        ) ?: currentCompass
+                        if (bearing != null) {
+                            lastBearing = bearing
+                        }
+                        val feature = Feature.fromGeometry(
+                            Point.fromLngLat(
+                                gps.second, gps.first
+                            )
+                        )
+                        feature.addNumberProperty(
+                            "bearing", lastBearing
+                        )
+                        source.setGeoJson(feature)
+                    }
                 }
             }
 
@@ -94,7 +141,7 @@ internal fun NavigationMap(modifier: Modifier = Modifier) {
                 centered = true
             }
 
-            delay(3_000L)
+            delay(1_000L)
         }
     }
 
