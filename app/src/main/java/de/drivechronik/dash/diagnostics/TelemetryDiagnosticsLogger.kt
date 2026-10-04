@@ -146,7 +146,7 @@ class TelemetryDiagnosticsLogger(
         put(
             json,
             "schema",
-            1
+            2
         )
 
 
@@ -289,6 +289,45 @@ class TelemetryDiagnosticsLogger(
             json,
             "routeEnergyAtArrival",
             drive?.activeRouteEnergyAtArrival
+        )
+
+
+        /*
+         * ========================================================
+         * RAW TESLA DRIVE RESPONSE
+         * ========================================================
+         *
+         * Nur im expliziten Diagnosemodus vorhanden.
+         *
+         * Damit können wir später unbekannte Protobuf-Felder
+         * zwischen verschiedenen Navigationszuständen vergleichen.
+         */
+        put(
+            json,
+            "rawResponseLength",
+            drive?.rawResponseBytes?.size
+        )
+
+        put(
+            json,
+            "rawDriveStateLength",
+            drive?.rawDriveStateBytes?.size
+        )
+
+        put(
+            json,
+            "rawResponseHex",
+            drive
+                ?.rawResponseBytes
+                ?.toHexString()
+        )
+
+        put(
+            json,
+            "rawDriveStateHex",
+            drive
+                ?.rawDriveStateBytes
+                ?.toHexString()
         )
 
 
@@ -447,6 +486,46 @@ class TelemetryDiagnosticsLogger(
                     length
             }
         }
+    }
+
+
+    private fun ByteArray.toHexString():
+        String {
+
+        val digits =
+            "0123456789abcdef"
+
+        val result =
+            CharArray(
+                size * 2
+            )
+
+        forEachIndexed {
+                index,
+                value ->
+
+            val v =
+                value.toInt() and
+                    0xff
+
+            result[
+                index * 2
+            ] =
+                digits[
+                    v ushr 4
+                ]
+
+            result[
+                index * 2 + 1
+            ] =
+                digits[
+                    v and 0x0f
+                ]
+        }
+
+        return String(
+            result
+        )
     }
 
 

@@ -20,3 +20,11 @@ local.properties
 
 # Lokale Release-Artefakte
 /dist/
+
+# Lokale Entwicklungsdateien
+*.bak
+*.bak-*
+*.kts.bak-*
+diagnose-test.jsonl
+*.jsonl
+/releases/

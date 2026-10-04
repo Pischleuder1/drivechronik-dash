@@ -22,7 +22,23 @@ data class TeslaDriveStateData(
 
     val activeRouteTrafficMinutesDelay: Float? = null,
 
-    val activeRouteEnergyAtArrival: Float? = null
+    val activeRouteEnergyAtArrival: Float? = null,
+
+    /*
+     * Diagnose-Rohdaten.
+     *
+     * rawResponseBytes:
+     *   kompletter entschlüsselter CarServer.Response-Payload
+     *
+     * rawDriveStateBytes:
+     *   protobuf-serialisierter DriveState inklusive eventuell
+     *   vom Runtime erhalten gebliebener unbekannter Felder.
+     *
+     * Werden im normalen UI nicht verwendet.
+     */
+    val rawResponseBytes: ByteArray? = null,
+
+    val rawDriveStateBytes: ByteArray? = null
 
 )
 
@@ -239,7 +255,14 @@ object TeslaDriveStateCodec {
                 activeRouteTrafficMinutesDelay,
 
             activeRouteEnergyAtArrival =
-                activeRouteEnergyAtArrival
+                activeRouteEnergyAtArrival,
+
+            rawResponseBytes =
+                bytes.copyOf(),
+
+            rawDriveStateBytes =
+                drive.toByteArray()
+
         )
     }
 }

@@ -1,0 +1,61 @@
+# Changelog – drivechronik-dash
+
+## [0.3.0] – 2026-10-04
+
+### Dashboard und Tacho
+- Plastischer 3D-Tacho mit Tiefeneffekt
+- Restenergie als linker Tachokranz
+- Stufenloser Restenergie-Farbverlauf
+- Leistungsring im rechten Tachokranz
+- Orangefarbener POWER-Verlauf
+- Blauer REKUP-Verlauf
+- Gebogene Beschriftungen im Tachokranz
+- Entfernung der bisherigen Leistungs-KPI
+- Optimiertes Navigationslayout
+
+### Demo und Diagnose
+- Demo startet mit 100 % Restenergie
+- Nach 5 Sekunden animierter Übergang
+- Lokale Telemetrie-Diagnosefunktionen
+- Diagnose-Steuerung in der App
+- Service-Modus-Steuerelemente
+- Erweiterte Energieanzeige
+
+### Bekannte Einschränkungen
+- Live-Leistungswerte noch nicht verifiziert
+- Weitere BLE-Diagnosearbeiten erforderlich
+
+## [0.2.0] – 2026-10-03
+
+### Dashboard
+- Navigationstelemetrie integriert
+- Automatische Tag-/Nachtumschaltung
+- Dynamische Ganganzeige
+- Umgang mit veralteten Fahrdaten
+- Versionsanzeige in der App
+- Verbesserte Nachtfarben
+
+### Daten und Release
+- Trennung von Demo- und Live-Daten
+- Keine automatische Demo-Rückfallanzeige
+- Signierte Release-Builds
+- Eigenes DriveChronik-Dash-Appsymbol
+- Lokale Release-Artefakte ausgeschlossen
+
+## [0.1.0] – 2026-10-03
+
+### Erste Entwicklungsfassung
+- Native Android-App im Querformat
+- Digitaler Tacho und Fahrsimulation
+- Tesla-inspiriertes Dashboard
+- Lokaler Bluetooth-Scan
+- BLE-GATT-Verbindung
+- Tesla-Protobuf-Integration
+- RoutableMessage-Verarbeitung
+- Verschlüsselte Tesla-Kommunikation
+- Session- und Schlüsselverwaltung
+- DriveState, ChargeState und LocationState
+- Lokale Fahrzeug-Telemetrie
+- VIN-Zuordnung
+- Geführte BLE-Einrichtung
+- Tesla-Schlüsselregistrierung
