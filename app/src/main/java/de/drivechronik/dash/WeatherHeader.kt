@@ -88,9 +88,11 @@ fun WeatherHeader() {
 
     var weather by remember { mutableStateOf<WeatherNow?>(null) }
     var now by remember { mutableLongStateOf(0L) }
+    var fetchFailed by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         var lastAttempt = -60_000L
+        var failures = 0
         while (true) {
             now = SystemClock.elapsedRealtime()
             val gps = weatherCoordinates(phoneState.value)
@@ -110,12 +112,20 @@ fun WeatherHeader() {
                 val due = old == null ||
                     now - old.updated >= 600_000L
 
+                val retryDelay = if (failures == 0) 60_000L
+                    else 60_000L * (1L shl minOf(failures, 3))
+
                 if ((moved || due) &&
-                    now - lastAttempt >= 60_000L
+                    now - lastAttempt >= retryDelay
                 ) {
                     lastAttempt = now
                     val result = loadWeather(lat, lon)
-                    if (result != null) weather = result
+                    fetchFailed = result == null
+                    if (result == null) failures++
+                    else {
+                        failures = 0
+                        weather = result
+                    }
                 }
             }
             delay(15_000L)
@@ -133,14 +143,23 @@ fun WeatherHeader() {
     }
 
     val label = if (data == null) {
-        if (!allowed && gps == null) "Standort erlauben" else "Wetter —"
+        when {
+            !allowed && gps == null -> "Standort erlauben"
+            gps == null -> "Wetter · GPS fehlt"
+            fetchFailed -> "Wetter · Abruffehler"
+            else -> "Wetter —"
+        }
     } else {
-        String.format(
+        val text = String.format(
             Locale.GERMANY,
             "%s %.0f°C · %.0f km/h",
             weatherSymbol(data.code, data.day),
             data.temp, data.wind
         )
+        val ageMinutes = (now - data.updated).coerceAtLeast(0L) / 60_000L
+        if (fetchFailed || ageMinutes >= 10L)
+            "$text · ${ageMinutes}m alt"
+        else text
     }
 
     Text(
