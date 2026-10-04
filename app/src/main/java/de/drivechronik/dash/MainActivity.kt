@@ -1531,6 +1531,8 @@ private fun DashboardHeader() {
                 Modifier.weight(1f)
         )
 
+        WeatherHeader()
+
         TeslaBleHeaderStatus()
     }
 }
