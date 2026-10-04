@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -41,6 +42,14 @@ internal fun NavigationLayoutPlaceholder(
         NavigationMap(
             modifier = Modifier.fillMaxSize()
         )
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 10.dp, end = 8.dp)
+        ) {
+            NavigationSearch()
+        }
 
     }
 }

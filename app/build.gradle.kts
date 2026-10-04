@@ -33,6 +33,7 @@ android {
     namespace = "de.drivechronik.dash"
     compileSdk = 36
     defaultConfig {
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         applicationId = "de.drivechronik.dash"
         minSdk = 31
         targetSdk = 36
@@ -65,6 +66,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".routingtest"
+        }
         release {
             signingConfig =
                 signingConfigs.getByName("release")
@@ -96,6 +100,10 @@ kotlin {
 }
 
 dependencies {
+    implementation("io.github.rallista:valhalla-mobile:0.6.3")
+    implementation("io.github.rallista:valhalla-models:0.5.2")
+    implementation("io.github.rallista:valhalla-models-config:0.5.2")
+    implementation("com.stadiamaps:osrm-openapi:0.0.10")
     implementation("org.maplibre.gl:android-sdk-opengl:13.6.1")
     implementation("com.google.protobuf:protobuf-javalite:4.36.2")
   val composeBom = platform(libs.androidx.compose.bom)
