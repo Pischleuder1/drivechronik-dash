@@ -651,6 +651,39 @@ private fun DriveChronikDashboard(
         }
 
 
+
+    // Demo: 5 Sekunden volle Restenergie anzeigen.
+    var demoEnergyIntro by remember {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(demoEnabled) {
+        demoEnergyIntro = demoEnabled
+        if (demoEnabled) {
+            delay(5_000L)
+            demoEnergyIntro = false
+        }
+    }
+
+
+    // 100 % sofort, danach sanfter Übergang.
+    val animatedDemoEnergy by
+        androidx.compose.animation.core.animateFloatAsState(
+            targetValue =
+                if (demoEnergyIntro)
+                    60f
+                else
+                    demoRemainingKwh,
+            animationSpec =
+                if (demoEnergyIntro)
+                    androidx.compose.animation.core.snap()
+                else
+                    androidx.compose.animation.core.tween(
+                        durationMillis = 2000
+                    ),
+            label = "DemoEnergyTransition"
+        )
+
     /*
      * ========================================================
      * SICHTBARE DASHBOARD-WERTE
@@ -727,7 +760,7 @@ private fun DriveChronikDashboard(
 
                     remainingKwh =
                         if (demoEnabled) {
-                            demoRemainingKwh
+                            animatedDemoEnergy
                         }
                         else {
                             0f
@@ -3284,10 +3317,21 @@ private fun PowerRing(
 
             if (sweep > 0f) {
                 drawArc(
-                    color = if (power < 0f)
-                        Color(0xFF4B9CFF)
-                    else
-                        Color(0xFF36D98B),
+                    brush = Brush.sweepGradient(
+                        colorStops = if (power < 0f) arrayOf(
+                            0f to Color(0xFF173B73),
+                            0.75f to Color(0xFF173B73),
+                            0.84375f to Color(0xFF4B9CFF),
+                            0.9375f to Color(0xFF9DCAFF),
+                            1f to Color(0xFF9DCAFF)
+                        ) else arrayOf(
+                            0f to Color(0xFFFF9800),
+                            0.125f to Color(0xFFFFD08A),
+                            0.9375f to Color(0xFFB85A00),
+                            1f to Color(0xFFFF9800)
+                        ),
+                        center = center
+                    ),
                     startAngle = if (power < 0f)
                         zeroAngle - sweep
                     else
@@ -3299,6 +3343,76 @@ private fun PowerRing(
                     style = stroke
                 )
             }
+
+
+            // Gebogene Beschriftung entlang des Tachokranzes
+            val labelPaint = android.graphics.Paint(
+                android.graphics.Paint.ANTI_ALIAS_FLAG
+            ).apply {
+                textAlign = android.graphics.Paint.Align.CENTER
+                typeface = android.graphics.Typeface.create(
+                    android.graphics.Typeface.DEFAULT,
+                    android.graphics.Typeface.BOLD
+                )
+                textSize = 9.5.dp.toPx()
+                alpha = 150
+            }
+
+            fun drawArcLabel(
+                text: String,
+                startAngle: Float,
+                endAngle: Float,
+                color: Int
+            ) {
+                if (text.isEmpty()) return
+
+                labelPaint.color = color
+
+                val charCount = text.length
+                val labelRadius = radius * 0.79f
+                val sweep =
+                    if (charCount <= 1) 0f
+                    else (endAngle - startAngle) / (charCount - 1)
+
+                text.forEachIndexed { index, ch ->
+                    val angle = startAngle + sweep * index
+                    val rad = Math.toRadians(angle.toDouble())
+
+                    val x =
+                        center.x +
+                            kotlin.math.cos(rad).toFloat() * labelRadius
+                    val y =
+                        center.y +
+                            kotlin.math.sin(rad).toFloat() * labelRadius
+
+                    drawContext.canvas.nativeCanvas.apply {
+                        save()
+                        translate(x, y)
+                        rotate(angle + 90f)
+                        drawText(
+                            ch.toString(),
+                            0f,
+                            labelPaint.textSize * 0.35f,
+                            labelPaint
+                        )
+                        restore()
+                    }
+                }
+            }
+
+            drawArcLabel(
+                text = "REKUP",
+                startAngle = 286f,
+                endAngle = 324f,
+                color = android.graphics.Color.rgb(75, 156, 255)
+            )
+
+            drawArcLabel(
+                text = "POWER",
+                startAngle = 350f,
+                endAngle = 392f,
+                color = android.graphics.Color.rgb(255, 152, 0)
+            )
 
             // Nullmarkierung
             val rad = Math.toRadians(
@@ -3452,43 +3566,76 @@ private fun Speedometer(
                 val outerRadius =
                     canvasSize * 0.495f
 
+
                 /*
-                 * dezenter äußerer Ring
+                 * Plastischer Tachorahmen.
+                 * Licht oben links, Schatten unten rechts.
                  */
                 drawCircle(
-                    color =
-                        gaugeOuterRingColor,
-                    radius =
-                        outerRadius,
-                    center =
-                        center
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF697581),
+                            Color(0xFF343D48),
+                            Color(0xFF14191F),
+                            Color(0xFF050709)
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(
+                            size.width,
+                            size.height
+                        )
+                    ),
+                    radius = outerRadius,
+                    center = center
                 )
 
+                /*
+                 * Dunkle Einfassung.
+                 */
                 drawCircle(
-                    color =
-                        DashBackground,
-                    radius =
-                        outerRadius - 2.5f,
-                    center =
-                        center
+                    color = Color(0xFF080B10),
+                    radius = outerRadius - 3.dp.toPx(),
+                    center = center
                 )
 
+                /*
+                 * Innere Lichtkante.
+                 */
                 drawCircle(
-                    color =
-                        gaugeInnerRingColor,
-                    radius =
-                        outerRadius * 0.93f,
-                    center =
-                        center
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF53606D),
+                            Color(0xFF222A34),
+                            Color(0xFF10151B)
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(
+                            size.width,
+                            size.height
+                        )
+                    ),
+                    radius = outerRadius * 0.93f,
+                    center = center
                 )
 
+                /*
+                 * Vertieftes Zifferblatt.
+                 */
                 drawCircle(
-                    color =
-                        Color(0xFF0A0B0D),
-                    radius =
-                        outerRadius * 0.92f,
-                    center =
-                        center
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF171D26),
+                            Color(0xFF10151D),
+                            Color(0xFF06080C)
+                        ),
+                        center = Offset(
+                            center.x - outerRadius * 0.15f,
+                            center.y - outerRadius * 0.18f
+                        ),
+                        radius = outerRadius * 1.45f
+                    ),
+                    radius = outerRadius * 0.92f,
+                    center = center
                 )
 
                 /*
