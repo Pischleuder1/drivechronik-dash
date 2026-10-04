@@ -1,5 +1,7 @@
 package de.drivechronik.dash
 
+import androidx.compose.foundation.layout.requiredWidth
+
 import androidx.compose.animation.core.tween
 
 import androidx.compose.animation.core.animateFloatAsState
@@ -954,7 +956,7 @@ modifier =
                                     bottom = 2.dp
                                 )
                                 .offset(
-                                    x = (-38).dp
+                                    x = 0.dp
                                 )
                     )
 
@@ -981,7 +983,7 @@ modifier =
                                     bottom = 2.dp
                                 )
                                 .offset(
-                                    x = (-38).dp
+                                    x = 0.dp
                                 )
                     )
 
@@ -995,7 +997,7 @@ modifier =
                                 end = 30.dp,
                                 bottom = 2.dp
                             )
-                            .offset(x = (-38).dp)
+                            .offset(x = 0.dp)
                     )
 
 
@@ -1011,6 +1013,29 @@ modifier =
                         .fillMaxHeight()
                         .background(DashLine)
             )
+
+            // Navigation zwischen Tacho und Reisedaten.
+            androidx.compose.foundation.layout.BoxWithConstraints(
+                modifier = Modifier
+                    .weight(1.15f)
+                    .fillMaxHeight()
+            ) {
+                NavigationLayoutPlaceholder(
+                    modifier = Modifier
+                        .offset(x = (-45).dp)
+                        .requiredWidth(maxWidth + 45.dp)
+                        .fillMaxHeight()
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .fillMaxHeight()
+                    .background(DashLine)
+            )
+
+
 
             /*
              * Rechte Seite:
