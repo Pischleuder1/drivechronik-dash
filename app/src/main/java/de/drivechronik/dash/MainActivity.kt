@@ -953,6 +953,19 @@ modifier =
                     )
 
 
+                    PowerRing(
+                        powerKw = state.powerKw,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(
+                                top = 2.dp,
+                                end = 30.dp,
+                                bottom = 2.dp
+                            )
+                            .offset(x = (-38).dp)
+                    )
+
+
 
                 }
 
@@ -993,24 +1006,9 @@ modifier =
                         Arrangement.spacedBy(6.dp)
                 ) {
 
-                    KpiCard(
-                        title = "LEISTUNG",
-                        value =
-                            String.format(
-                                "%.1f",
-                                state.powerKw
-                            ),
-                        unit = "kW",
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
-                        valueColor =
-                            if (state.powerKw < -0.5f)
-                                Color(0xFF4B9CFF)
-                            else
-                                DashText
-                    )
+
+
+
 
                     KpiCard(
                         title = "REICHWEITE",
@@ -3226,6 +3224,106 @@ private fun EnergyRing(
     }
 }
 
+
+
+@Composable
+private fun PowerRing(
+    powerKw: Float,
+    modifier: Modifier = Modifier
+) {
+    val target = if (powerKw.isFinite())
+        powerKw.coerceIn(-60f, 60f) else 0f
+
+    val power by
+        androidx.compose.animation.core.animateFloatAsState(
+            targetValue = target,
+            animationSpec =
+                androidx.compose.animation.core.tween(280),
+            label = "PowerRing"
+        )
+
+    BoxWithConstraints(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        val gaugeSize = minOf(maxWidth, maxHeight)
+
+        Canvas(Modifier.size(gaugeSize)) {
+            val center = Offset(
+                size.width / 2f,
+                size.height / 2f
+            )
+            val radius = size.minDimension * 0.465f
+            val topLeft = Offset(
+                center.x - radius,
+                center.y - radius
+            )
+            val arcSize =
+                androidx.compose.ui.geometry.Size(
+                    radius * 2f, radius * 2f
+                )
+            val stroke = Stroke(
+                width = 8.dp.toPx(),
+                cap = StrokeCap.Butt
+            )
+
+            // Rechte Hälfte: 270 bis 405 Grad
+            drawArc(
+                color = Color.White.copy(alpha = 0.07f),
+                startAngle = 270f,
+                sweepAngle = 135f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = stroke
+            )
+
+            val zeroAngle = 337.5f
+            val sweep =
+                kotlin.math.abs(power) / 60f * 67.5f
+
+            if (sweep > 0f) {
+                drawArc(
+                    color = if (power < 0f)
+                        Color(0xFF4B9CFF)
+                    else
+                        Color(0xFF36D98B),
+                    startAngle = if (power < 0f)
+                        zeroAngle - sweep
+                    else
+                        zeroAngle,
+                    sweepAngle = sweep,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = stroke
+                )
+            }
+
+            // Nullmarkierung
+            val rad = Math.toRadians(
+                zeroAngle.toDouble()
+            )
+            val point = Offset(
+                center.x +
+                    kotlin.math.cos(rad).toFloat() * radius,
+                center.y +
+                    kotlin.math.sin(rad).toFloat() * radius
+            )
+
+            drawCircle(
+                color = DashBackground,
+                radius = 5.5.dp.toPx(),
+                center = point
+            )
+            drawCircle(
+                color = Color.White,
+                radius = 3.2.dp.toPx(),
+                center = point
+            )
+        }
+    }
+}
 
 @Composable
 private fun Speedometer(
