@@ -375,7 +375,7 @@ internal fun NavigationMap(
                 // Bei STOPP (ohne Route) normal zentrieren.
                 val previewPixels =
                     if (currentRoutePoints.size >= 2)
-                        mapView.height * 0.07
+                        mapView.height * 0.03
                     else 0.0
 
                 val metersPerPixel =
@@ -419,13 +419,14 @@ internal fun NavigationMap(
                 var delta = (desired - camera.bearing +
                     540.0) % 360.0 - 180.0
 
-                if (NavigationSimulation.active &&
-                    kotlin.math.abs(delta) < 12.0) {
+                // Kleine Richtungsschwankungen ignorieren.
+                // Kleine Kurven und GPS-Schwankungen ignorieren.
+                if (kotlin.math.abs(delta) < 15.0) {
                     delta = 0.0
                 }
 
                 val bearing = camera.bearing +
-                    delta * blend(300.0)
+                    delta * blend(1200.0)
 
                 if (kotlin.math.abs(
                         zoom - camera.zoom

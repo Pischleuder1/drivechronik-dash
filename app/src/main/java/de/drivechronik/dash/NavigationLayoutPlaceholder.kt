@@ -3,6 +3,8 @@ package de.drivechronik.dash
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import kotlinx.coroutines.delay
 import de.drivechronik.dash.routing.OfflineRoute
@@ -61,6 +63,13 @@ internal fun NavigationLayoutPlaceholder(
         onDispose { NavigationSimulation.stop() }
     }
 
+    val stopNavigation = {
+        NavigationSimulation.stop()
+        manualRouteGeneration++
+        NavigationHintState.clear()
+        routePoints = null
+    }
+
     Box(
         modifier = modifier
             .padding(vertical = 7.dp)
@@ -73,20 +82,36 @@ internal fun NavigationLayoutPlaceholder(
             phoneState = phoneState
         )
 
-        Box(
+        Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(top = 10.dp, start = 8.dp)
+                .padding(top = 10.dp, start = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             NavigationSimulationControls(
                 routePoints,
-                onStop = {
-                    NavigationSimulation.stop()
-                    manualRouteGeneration++
-                    NavigationHintState.clear()
-                    routePoints = null
-                }
+                onStop = stopNavigation
             )
+
+            if (routePoints != null) {
+                IconButton(
+                    onClick = stopNavigation,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(
+                            Color(0xFFC0393E),
+                            RoundedCornerShape(10.dp)
+                        )
+                ) {
+                    Text(
+                        "×",
+                        color = Color.White,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
 
         NavigationGuidance(
