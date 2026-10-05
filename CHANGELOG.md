@@ -2,6 +2,21 @@
 
 ## [0.3.0] – 2026-10-04
 
+### Navigation und Sprache (2026-10-05)
+- Offline-Routing und Abbiegeführung
+- Automatisches Rerouting
+- Straßenbasierter GPS-Simulator
+- GPS-Rückkehr nach Simulationsende
+- Dynamischer Zoom und Kameraführung
+- Navigationspfeil mit Tesla-Symbol
+- Beenden-Taste für aktive Navigation
+- Gesprochene Zieleingabe
+- Aktivierungswort DriveChronik mit Vosk
+- Mikrofonsteuerung und Symboloptimierung
+- Vosk 0.3.75 mit 16-KB-Kompatibilität
+
+
+
 ### Dashboard und Tacho
 - Plastischer 3D-Tacho mit Tiefeneffekt
 - Restenergie als linker Tachokranz

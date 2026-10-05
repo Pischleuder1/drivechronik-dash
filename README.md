@@ -33,6 +33,43 @@ einem übersichtlichen digitalen Cockpit dar.
 - Tesla-Session-Verwaltung
 - Verarbeitung von Fahrzeugdaten
 
+## Offline-Navigation
+
+- Offline-Routing mit Valhalla
+- Kartenansicht mit MapLibre
+- GPS über Smartphone oder Tesla-BLE
+- Abbiegehinweise und Reststrecke
+- Automatisches Rerouting
+- Geschwindigkeitsabhängiger Zoom
+- Ruhige, vorausschauende Kameraführung
+- Navigationspfeil mit Tesla-Symbol
+- Simulation mit straßenbasierter Fehlfahrt
+- Navigation jederzeit beenden
+
+Für die Offline-Routenberechnung werden
+lokale Valhalla-Kartendaten benötigt.
+Die Kartenanzeige kann Internet erfordern.
+
+## Sprachsteuerung
+
+Aktivierungswort: **DriveChronik**
+
+- Lokale Aktivierungswort-Erkennung mit Vosk
+- Deutsches Sprachmodell
+- Mikrofon über Symbol ein-/ausschaltbar
+- Grün bedeutet: Sprachsteuerung aktiviert
+- Zieleingabe per Android-Spracherkennung
+- Zielkontrolle vor Navigationsstart
+- Fadenkreuz öffnet die manuelle Zielsuche
+
+Die Aktivierung erfolgt nur bei geöffneter App.
+Die Android-Spracherkennung für Adressen
+kann eine Internetverbindung benötigen.
+
+Das Vosk-Modell wird nicht in Git gespeichert.
+Zur Einrichtung siehe das Installationsskript
+`scripts/install-voice-model.sh`.
+
 ## Demo-Modus
 
 Die App enthält einen Simulationsmodus.

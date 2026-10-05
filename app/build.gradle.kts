@@ -100,6 +100,7 @@ kotlin {
 }
 
 dependencies {
+    implementation("com.alphacephei:vosk-android:0.3.75")
     implementation("io.github.rallista:valhalla-mobile:0.6.3")
     implementation("io.github.rallista:valhalla-models:0.5.2")
     implementation("io.github.rallista:valhalla-models-config:0.5.2")
@@ -118,6 +119,8 @@ dependencies {
   // Arch Components
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+  implementation("androidx.compose.material:material-icons-extended")
 
   // Compose
   implementation(libs.androidx.compose.ui)
