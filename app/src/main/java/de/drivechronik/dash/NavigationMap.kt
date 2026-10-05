@@ -137,7 +137,7 @@ internal fun NavigationMap(
                             "dash-arrow-layer", "dash-position"
                         ).withProperties(
                             iconImage("dash-arrow"),
-                            iconSize(0.55f),
+                            iconSize(0.72f),
                             iconRotate(Expression.get("bearing")),
                             iconRotationAlignment("map"),
                             iconAllowOverlap(true),
@@ -315,8 +315,43 @@ internal fun NavigationMap(
                     if (distance >= 340.0) nearTurn = false
                 }
 
-                val targetZoom =
-                    if (nearTurn) 16.0 else 13.5
+                val phone = phoneState.value
+                val phoneSpeed = phone
+                    ?.takeIf {
+                        it.hasSpeed() &&
+                        it.speed >= 0f &&
+                        navigationGpsIsFresh(
+                            it.elapsedRealtimeNanos,
+                            android.os.SystemClock.elapsedRealtimeNanos()
+                        )
+                    }
+                    ?.speed
+                    ?.toDouble()
+                    ?.times(3.6)
+
+                val speedKmh = if (NavigationSimulation.active) {
+                    NavigationSimulation.speedKmh.toDouble()
+                } else {
+                    phoneSpeed ?: 0.0
+                }
+
+                // Stufenlose Geschwindigkeitskurve.
+                val cruisingZoom = when {
+                    speedKmh <= 30.0 -> 16.0
+                    speedKmh <= 50.0 ->
+                        16.0 - (speedKmh - 30.0) / 20.0
+                    speedKmh <= 80.0 ->
+                        15.0 - (speedKmh - 50.0) / 30.0
+                    speedKmh <= 100.0 ->
+                        14.0 - (speedKmh - 80.0) / 20.0
+                    else -> 13.0
+                }
+
+                val targetZoom = when {
+                    currentRoutePoints.size < 2 -> 15.5
+                    nearTurn -> 16.0
+                    else -> cruisingZoom
+                }
 
 
                 val camera = map.cameraPosition
@@ -336,11 +371,38 @@ internal fun NavigationMap(
                 // Position ebenfalls weich nachführen.
                 val target = camera.target
                     ?: LatLng(cameraGps.first, cameraGps.second)
+                // Blickpunkt vor das Fahrzeug verschieben.
+                // Bei STOPP (ohne Route) normal zentrieren.
+                val previewPixels =
+                    if (currentRoutePoints.size >= 2)
+                        mapView.height * 0.07
+                    else 0.0
+
+                val metersPerPixel =
+                    156543.03392 *
+                    kotlin.math.cos(
+                        Math.toRadians(cameraGps.first)
+                    ) / Math.pow(2.0, zoom)
+
+                val ahead = previewPixels * metersPerPixel
+                val directionRad =
+                    Math.toRadians(camera.bearing)
+
+                val followLat = cameraGps.first +
+                    ahead * kotlin.math.cos(directionRad) /
+                    111320.0
+
+                val followLon = cameraGps.second +
+                    ahead * kotlin.math.sin(directionRad) /
+                    (111320.0 * kotlin.math.cos(
+                        Math.toRadians(cameraGps.first)
+                    ).coerceAtLeast(0.01))
+
                 val lat = target.latitude +
-                    (cameraGps.first - target.latitude) *
+                    (followLat - target.latitude) *
                     blend(220.0)
                 val lon = target.longitude +
-                    (cameraGps.second - target.longitude) *
+                    (followLon - target.longitude) *
                     blend(220.0)
 
                 val direction =

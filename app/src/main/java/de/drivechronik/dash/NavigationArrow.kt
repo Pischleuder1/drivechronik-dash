@@ -56,5 +56,32 @@ internal fun navigationArrowBitmap(): Bitmap {
     paint.style = Paint.Style.FILL
     paint.color = Color.WHITE
     canvas.drawPath(path, paint)
+
+    // Rotes, stilisiertes Tesla-T im Navigationspfeil.
+    val logo = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(232, 33, 39)
+        style = Paint.Style.FILL
+    }
+
+    // Oberer geschwungener T-Balken.
+    val top = Path().apply {
+        moveTo(24f, 34f)
+        quadTo(40f, 24f, 56f, 34f)
+        lineTo(53f, 39f)
+        quadTo(40f, 33f, 27f, 39f)
+        close()
+    }
+    canvas.drawPath(top, logo)
+
+    // Schmaler, nach unten auslaufender T-Schaft.
+    val stem = Path().apply {
+        moveTo(36f, 38f)
+        quadTo(40f, 36f, 44f, 38f)
+        lineTo(42f, 52f)
+        quadTo(40f, 55f, 38f, 52f)
+        close()
+    }
+    canvas.drawPath(stem, logo)
+
     return bitmap
 }
