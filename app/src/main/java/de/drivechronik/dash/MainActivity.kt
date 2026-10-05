@@ -1068,6 +1068,11 @@ modifier =
 
 
 
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    ) {
                     KpiCard(
                         title = "REICHWEITE",
                         value =
@@ -1075,9 +1080,12 @@ modifier =
                         unit = "km",
                         modifier =
                             Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
+                                                                .fillMaxSize()
                     )
+                        NavigationRightOverlay(
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
 
 

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import de.drivechronik.dash.routing.*
@@ -11,7 +12,9 @@ import java.util.Locale
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun NavigationSearch() {
+internal fun NavigationSearch(
+    onRoute: (OfflineRoute) -> Unit
+) {
     var open by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var result by remember { mutableStateOf("") }
@@ -31,11 +34,17 @@ internal fun NavigationSearch() {
 
     if (open) {
         AlertDialog(
+            modifier = Modifier.fillMaxWidth(0.72f)
+                .widthIn(max = 680.dp),
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false
+            ),
             onDismissRequest = { if (!searching) open = false },
             title = { Text("Navigationsziel") },
             text = {
                 Column {
                     OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
                         value = query,
                         onValueChange = { query = it },
                         label = { Text("Ort oder Adresse") },
@@ -58,7 +67,8 @@ internal fun NavigationSearch() {
                             scope.launch {
                                 val gps = weatherCoordinates(phoneState.value)
                                 val route = gps?.let {
-                                    calculateRoute(
+                                    calculateOfflineRoute(
+                                        context,
                                         RoutePoint(it.first, it.second),
                                         target.point
                                     )
@@ -66,12 +76,21 @@ internal fun NavigationSearch() {
                                 result = when {
                                     gps == null -> "GPS fehlt"
                                     route == null -> "Route nicht verfügbar"
-                                    else -> String.format(
-                                        Locale.GERMANY,
-                                        "Route: %.1f km · %.0f Min",
-                                        route.distanceM / 1000.0,
-                                        route.durationS / 60.0
-                                    )
+                                    route.isFailure ->
+                                        "Offline-Route: " +
+                                        (route.exceptionOrNull()?.message
+                                            ?: "Berechnung fehlgeschlagen")
+                                    else -> {
+                                        val data = route.getOrThrow()
+                                        onRoute(data)
+                                    open = false
+                                        String.format(
+                                            Locale.GERMANY,
+                                            "Route: %.1f km · %.0f Min",
+                                            data.distanceKm,
+                                            data.durationSeconds / 60.0
+                                        )
+                                    }
                                 }
                                 routing = false
                             }

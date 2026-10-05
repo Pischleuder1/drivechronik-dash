@@ -3,7 +3,9 @@ package de.drivechronik.dash
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import kotlinx.coroutines.delay
+import de.drivechronik.dash.routing.OfflineRoute
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +35,29 @@ private val navigationCurve = GenericShape { size, _ ->
 internal fun NavigationLayoutPlaceholder(
     modifier: Modifier = Modifier
 ) {
+    var routePoints by remember {
+        mutableStateOf<OfflineRoute?>(null)
+    }
+
+    var manualRouteGeneration by remember {
+        mutableIntStateOf(0)
+    }
+
+    LaunchedEffect(NavigationSimulation.active) {
+        while (NavigationSimulation.active) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            delay(if (NavigationSimulation.paused) 1000L else 100L)
+            val later = android.os.SystemClock.elapsedRealtime()
+            NavigationSimulation.advance(
+                ((later - now) / 1000.0).coerceIn(0.0, 0.25)
+            )
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { NavigationSimulation.stop() }
+    }
+
     Box(
         modifier = modifier
             .padding(vertical = 7.dp)
@@ -40,7 +65,29 @@ internal fun NavigationLayoutPlaceholder(
             .background(Color(0xFF192B3C))
     ) {
         NavigationMap(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            routePoints = routePoints?.points.orEmpty()
+        )
+
+        routePoints?.let { route ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 36.dp, end = 8.dp)
+            ) {
+                NavigationSimulationControls(route)
+            }
+        }
+
+        NavigationGuidance(
+            routePoints,
+            manualRouteGeneration = manualRouteGeneration,
+            onRecalculated = { original, updated ->
+                if (routePoints === original) {
+                    NavigationSimulation.stop()
+                    routePoints = updated
+                }
+            }
         )
 
         Box(
@@ -48,7 +95,14 @@ internal fun NavigationLayoutPlaceholder(
                 .align(Alignment.TopEnd)
                 .padding(top = 10.dp, end = 8.dp)
         ) {
-            NavigationSearch()
+            NavigationSearch(
+                onRoute = { route ->
+                    NavigationSimulation.stop()
+                    manualRouteGeneration++
+                    NavigationHintState.clear()
+                    routePoints = route
+                }
+            )
         }
 
     }

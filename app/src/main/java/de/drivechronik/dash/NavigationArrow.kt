@@ -48,13 +48,13 @@ internal fun navigationArrowBitmap(): Bitmap {
         close()
     }
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    paint.color = Color.WHITE
+    paint.color = Color.rgb(20, 38, 55)
     paint.style = Paint.Style.STROKE
     paint.strokeWidth = 7f
     paint.strokeJoin = Paint.Join.ROUND
     canvas.drawPath(path, paint)
     paint.style = Paint.Style.FILL
-    paint.color = Color.rgb(35, 130, 245)
+    paint.color = Color.WHITE
     canvas.drawPath(path, paint)
     return bitmap
 }
