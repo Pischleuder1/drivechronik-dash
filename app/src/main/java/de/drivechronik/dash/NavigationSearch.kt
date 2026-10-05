@@ -1,5 +1,7 @@
 package de.drivechronik.dash
 
+import android.location.Location
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,7 +15,8 @@ import kotlinx.coroutines.launch
 
 @Composable
 internal fun NavigationSearch(
-    onRoute: (OfflineRoute) -> Unit
+    onRoute: (OfflineRoute) -> Unit,
+    phoneState: State<Location?>
 ) {
     var open by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
@@ -24,7 +27,7 @@ internal fun NavigationSearch(
     var routing by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val (phoneState, _, _) = rememberPhoneWeatherLocation()
+    // Gemeinsames Navigations-GPS
 
     val scope = rememberCoroutineScope()
 

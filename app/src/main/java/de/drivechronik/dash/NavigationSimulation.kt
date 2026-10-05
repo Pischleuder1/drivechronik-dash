@@ -12,6 +12,9 @@ internal object NavigationSimulation {
     var paused by mutableStateOf(false)
         private set
 
+    var gpsOutage by mutableStateOf(false)
+        private set
+
     var speedKmh by mutableIntStateOf(60)
         private set
 
@@ -25,6 +28,20 @@ internal object NavigationSimulation {
     private var index = 0
     private var fraction = 0.0
 
+
+    fun startDetour(value: OfflineRoute): Boolean {
+        if (!active || gpsOutage ||
+            value.points.size < 2) return false
+
+        route = value
+        index = 0
+        fraction = 0.0
+        paused = false
+        generation++
+        publish()
+        return true
+    }
+
     fun start(value: OfflineRoute) {
         if (value.points.size < 2) return
         route = value
@@ -32,7 +49,20 @@ internal object NavigationSimulation {
         fraction = 0.0
         speedKmh = 60
         paused = false
+        gpsOutage = false
         active = true
+        generation++
+        publish()
+    }
+
+
+    fun followReroute(value: OfflineRoute) {
+        if (!active || value.points.size < 2) return
+        route = value
+        index = 0
+        fraction = 0.0
+        gpsOutage = false
+        paused = false
         generation++
         publish()
     }
@@ -40,9 +70,14 @@ internal object NavigationSimulation {
     fun stop() {
         active = false
         paused = false
+        gpsOutage = false
         fix = null
         route = null
         generation++
+    }
+
+    fun toggleGpsOutage() {
+        if (active) gpsOutage = !gpsOutage
     }
 
     fun togglePause() {
@@ -94,6 +129,58 @@ internal object NavigationSimulation {
         publish()
     }
 
+
+
+    fun jumpToNextTurn(): Boolean {
+        val r = route ?: return false
+        if (!active || gpsOutage) return false
+
+        val points = r.points
+        val distances = DoubleArray(points.size)
+
+        for (i in 1 until points.size) {
+            distances[i] = distances[i - 1] +
+                segmentLength(points[i - 1], points[i])
+        }
+
+        val current = distances[index] +
+            (distances[index + 1] - distances[index]) *
+            fraction
+
+        val turns = setOf(
+            9, 10, 11, 12, 13, 14, 15, 16,
+            17, 18, 19, 20, 21, 22, 23, 24, 27
+        )
+
+        val next = r.maneuvers
+            .filter {
+                it.type in turns &&
+                it.beginShapeIndex in points.indices
+            }
+            .map { distances[it.beginShapeIndex] }
+            .firstOrNull { it > current + 30.0 }
+            ?: return false
+
+        val target = maxOf(current + 10.0, next - 150.0)
+        if (target >= next) return false
+
+        var i = index
+        while (i < points.size - 2 &&
+            distances[i + 1] < target) {
+            i++
+        }
+
+        index = i
+        val length = distances[i + 1] - distances[i]
+        fraction = if (length > 0.0) {
+            ((target - distances[i]) / length)
+                .coerceIn(0.0, 1.0)
+        } else 0.0
+
+        publish()
+        generation++
+        return true
+    }
 
     private fun publish() {
         val points = route?.points ?: return

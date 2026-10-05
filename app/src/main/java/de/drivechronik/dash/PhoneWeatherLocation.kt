@@ -14,7 +14,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 
 @Composable
-internal fun rememberPhoneWeatherLocation():
+internal fun rememberPhoneWeatherLocation(
+    navigation: Boolean = false
+):
     Triple<State<Location?>, Boolean, () -> Unit> {
 
     val context = LocalContext.current
@@ -37,7 +39,7 @@ internal fun rememberPhoneWeatherLocation():
         allowed = permitted()
     }
 
-    DisposableEffect(allowed) {
+    DisposableEffect(allowed, navigation) {
         val manager = context.getSystemService(
             Context.LOCATION_SERVICE
         ) as LocationManager
@@ -65,7 +67,9 @@ internal fun rememberPhoneWeatherLocation():
                     }
 
                     manager.requestLocationUpdates(
-                        provider, 15_000L, 20f,
+                        provider,
+                        if (navigation) 1_000L else 15_000L,
+                        if (navigation) 0f else 20f,
                         listener, Looper.getMainLooper()
                     )
                 } catch (_: SecurityException) {

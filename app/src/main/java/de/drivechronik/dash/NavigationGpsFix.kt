@@ -29,7 +29,11 @@ internal fun currentNavigationFix(
     phone: Location?
 ): NavigationGpsFix? {
     if (NavigationSimulation.active) {
-        return NavigationSimulation.fix
+        return if (NavigationSimulation.gpsOutage) {
+            null
+        } else {
+            NavigationSimulation.fix
+        }
     }
 
     var teslaFix: NavigationGpsFix? = null

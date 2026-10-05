@@ -43,6 +43,9 @@ internal fun NavigationLayoutPlaceholder(
         mutableIntStateOf(0)
     }
 
+    val (phoneState, _, _) =
+        rememberPhoneWeatherLocation(navigation = true)
+
     LaunchedEffect(NavigationSimulation.active) {
         while (NavigationSimulation.active) {
             val now = android.os.SystemClock.elapsedRealtime()
@@ -66,25 +69,33 @@ internal fun NavigationLayoutPlaceholder(
     ) {
         NavigationMap(
             modifier = Modifier.fillMaxSize(),
-            routePoints = routePoints?.points.orEmpty()
+            routePoints = routePoints?.points.orEmpty(),
+            phoneState = phoneState
         )
 
-        routePoints?.let { route ->
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 36.dp, end = 8.dp)
-            ) {
-                NavigationSimulationControls(route)
-            }
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 10.dp, start = 8.dp)
+        ) {
+            NavigationSimulationControls(
+                routePoints,
+                onStop = {
+                    NavigationSimulation.stop()
+                    manualRouteGeneration++
+                    NavigationHintState.clear()
+                    routePoints = null
+                }
+            )
         }
 
         NavigationGuidance(
             routePoints,
             manualRouteGeneration = manualRouteGeneration,
+            phoneState = phoneState,
             onRecalculated = { original, updated ->
                 if (routePoints === original) {
-                    NavigationSimulation.stop()
+                    NavigationSimulation.followReroute(updated)
                     routePoints = updated
                 }
             }
@@ -101,7 +112,8 @@ internal fun NavigationLayoutPlaceholder(
                     manualRouteGeneration++
                     NavigationHintState.clear()
                     routePoints = route
-                }
+                },
+                phoneState = phoneState
             )
         }
 

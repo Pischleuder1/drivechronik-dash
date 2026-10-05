@@ -28,7 +28,8 @@ data class OfflineRoute(
 suspend fun calculateOfflineRoute(
     context: Context,
     start: RoutePoint,
-    end: RoutePoint
+    end: RoutePoint,
+    startHeading: Float? = null
 ): Result<OfflineRoute> = withContext(Dispatchers.IO) {
     runCatching {
         val tiles = File(
@@ -40,7 +41,17 @@ suspend fun calculateOfflineRoute(
 
         val request = JSONObject().apply {
             put("locations", org.json.JSONArray().apply {
-                put(JSONObject().put("lat", start.lat).put("lon", start.lon))
+                put(JSONObject()
+                    .put("lat", start.lat)
+                    .put("lon", start.lon)
+                    .apply {
+                        startHeading
+                            ?.takeIf { it.isFinite() }
+                            ?.let {
+                                put("heading", it.toInt().mod(360))
+                                put("heading_tolerance", 45)
+                            }
+                    })
                 put(JSONObject().put("lat", end.lat).put("lon", end.lon))
             })
             put("costing", "auto")

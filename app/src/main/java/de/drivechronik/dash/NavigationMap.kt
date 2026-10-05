@@ -1,5 +1,7 @@
 package de.drivechronik.dash
 
+import android.location.Location
+
 import androidx.compose.runtime.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -43,14 +45,15 @@ import org.maplibre.android.maps.MapView
 @Composable
 internal fun NavigationMap(
     modifier: Modifier = Modifier,
-    routePoints: List<RoutePoint> = emptyList()
+    routePoints: List<RoutePoint> = emptyList(),
+    phoneState: State<Location?>
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     val compassHeading = rememberCompassHeading()
     val currentCompass by rememberUpdatedState(compassHeading)
     val currentRoutePoints by rememberUpdatedState(routePoints)
-    val (phoneState, _, _) = rememberPhoneWeatherLocation()
+    // Gemeinsames Navigations-GPS
     val mapState = remember {
         mutableStateOf<MapLibreMap?>(null)
     }
@@ -175,7 +178,25 @@ internal fun NavigationMap(
 
     LaunchedEffect(routePoints, mapState.value) {
         val map = mapState.value
+        if (routePoints.size < 2) {
+            centered = true
+            val fix = currentNavigationFix(phoneState.value)
+            if (map != null && fix != null) {
+                map.moveCamera(
+                    CameraUpdateFactory.newLatLngZoom(
+                        LatLng(fix.point.lat, fix.point.lon),
+                        15.5
+                    )
+                )
+            }
+            return@LaunchedEffect
+        }
+
         if (map != null && routePoints.size >= 2) {
+            // Beim Rerouting Kamera weiter folgen lassen.
+            if (NavigationSimulation.active && centered) {
+                return@LaunchedEffect
+            }
             centered = false
             val bounds = LatLngBounds.Builder().apply {
                 routePoints.forEach {
@@ -214,10 +235,15 @@ internal fun NavigationMap(
     }
 
     LaunchedEffect(mapView) {
+        var nearTurn = false
+        var lastFrame = 0L
         var lastCameraUpdate = 0L
         while (true) {
             val gps = if (NavigationSimulation.active) {
-                        NavigationSimulation.fix?.let {
+                        NavigationSimulation.fix
+                            ?.takeUnless {
+                                NavigationSimulation.gpsOutage
+                            }?.let {
                             it.point.lat to it.point.lon
                         }
                     } else {
@@ -275,64 +301,97 @@ internal fun NavigationMap(
                 weatherCoordinates(phoneState.value)
             }
 
-            if (centered && cameraGps != null && map != null &&
-                currentRoutePoints.size >= 2) {
+            if (centered && cameraGps != null && map != null) {
+
+                val hint = NavigationHintState.hint
+                val distance = hint
+                    ?.takeUnless { it.stale }
+                    ?.distance
+
+                if (hint == null) {
+                    nearTurn = false
+                } else if (distance != null) {
+                    if (distance <= 300.0) nearTurn = true
+                    if (distance >= 340.0) nearTurn = false
+                }
+
+                val targetZoom =
+                    if (nearTurn) 16.0 else 13.5
+
 
                 val camera = map.cameraPosition
-                val direction = if (liveFix?.source == "simulator") {
-                    liveFix.heading
-                } else if (liveFix != null) {
-                    navigationBearing(phoneState.value, cameraGps)
-                } else null
-
-                val bearing = direction?.toDouble()
-                    ?: camera.bearing
-
-                val turn = kotlin.math.abs(
-                    (bearing - camera.bearing + 540.0) %
-                        360.0 - 180.0
-                )
-
-                val target = camera.target
-                val moved = target == null ||
-                    kotlin.math.abs(
-                        target.latitude - cameraGps.first
-                    ) > (if (NavigationSimulation.active) 0.000001 else 0.00003) ||
-                    kotlin.math.abs(
-                        target.longitude - cameraGps.second
-                    ) > (if (NavigationSimulation.active) 0.000001 else 0.00003)
-
                 val now = android.os.SystemClock.elapsedRealtime()
-                val cameraDue = !NavigationSimulation.active ||
-                    now - lastCameraUpdate >= 250L
+                val dt = if (lastFrame == 0L) 50.0
+                    else (now - lastFrame)
+                        .coerceIn(0L, 100L).toDouble()
+                lastFrame = now
 
-                if (cameraDue && (moved ||
-                    kotlin.math.abs(camera.zoom - 16.0) > 0.1 ||
-                    turn > 5.0)) {
-                    lastCameraUpdate = now
+                fun blend(ms: Double): Double =
+                    1.0 - kotlin.math.exp(-dt / ms)
 
-                    map.animateCamera(
+                // Kontinuierlicher Zoom, ca. 1,7 Sekunden.
+                val zoom = camera.zoom +
+                    (targetZoom - camera.zoom) * blend(550.0)
+
+                // Position ebenfalls weich nachführen.
+                val target = camera.target
+                    ?: LatLng(cameraGps.first, cameraGps.second)
+                val lat = target.latitude +
+                    (cameraGps.first - target.latitude) *
+                    blend(220.0)
+                val lon = target.longitude +
+                    (cameraGps.second - target.longitude) *
+                    blend(220.0)
+
+                val direction =
+                    if (liveFix?.source == "simulator")
+                        liveFix.heading
+                    else if (liveFix != null)
+                        navigationBearing(
+                            phoneState.value, cameraGps
+                        )
+                    else null
+
+                val desired = direction?.toDouble()
+                    ?: camera.bearing
+                var delta = (desired - camera.bearing +
+                    540.0) % 360.0 - 180.0
+
+                if (NavigationSimulation.active &&
+                    kotlin.math.abs(delta) < 12.0) {
+                    delta = 0.0
+                }
+
+                val bearing = camera.bearing +
+                    delta * blend(300.0)
+
+                if (kotlin.math.abs(
+                        zoom - camera.zoom
+                    ) > 0.001 ||
+                    kotlin.math.abs(
+                        lat - target.latitude
+                    ) > 0.000001 ||
+                    kotlin.math.abs(
+                        lon - target.longitude
+                    ) > 0.000001 ||
+                    kotlin.math.abs(
+                        bearing - camera.bearing
+                    ) > 0.05) {
+
+                    map.moveCamera(
                         CameraUpdateFactory.newCameraPosition(
                             CameraPosition.Builder()
-                                .target(LatLng(
-                                    cameraGps.first, cameraGps.second
-                                ))
-                                .zoom(16.0)
-                                .bearing(
-                                    if (
-                                        NavigationSimulation.active &&
-                                        turn < 12.0
-                                    ) camera.bearing
-                                    else bearing
-                                )
+                                .target(LatLng(lat, lon))
+                                .zoom(zoom)
+                                .bearing(bearing)
                                 .build()
-                        ),
-                        if (NavigationSimulation.active) 240 else 700
+                        )
                     )
                 }
+
             }
 
-            delay(if (NavigationSimulation.active) 100L else 1_000L)
+            delay(50L)
         }
     }
 
@@ -374,7 +433,10 @@ internal fun NavigationMap(
                 .background(Color(0xFF172B40))
                 .clickable {
                     val gps = if (NavigationSimulation.active) {
-                        NavigationSimulation.fix?.let {
+                        NavigationSimulation.fix
+                            ?.takeUnless {
+                                NavigationSimulation.gpsOutage
+                            }?.let {
                             it.point.lat to it.point.lon
                         }
                     } else {

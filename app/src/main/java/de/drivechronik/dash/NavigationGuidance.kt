@@ -1,5 +1,7 @@
 package de.drivechronik.dash
 
+import android.location.Location
+
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.*
@@ -21,16 +23,24 @@ import java.util.Date
 internal fun NavigationGuidance(
     route: OfflineRoute?,
     manualRouteGeneration: Int,
-    onRecalculated: (OfflineRoute, OfflineRoute) -> Unit
+    onRecalculated: (OfflineRoute, OfflineRoute) -> Unit,
+    phoneState: State<Location?>
 ) {
     if (route == null) return
 
-    val (phoneState, _, _) = rememberPhoneWeatherLocation()
+    // Gemeinsames Navigations-GPS
     val context = LocalContext.current
     val tracker = remember(route, manualRouteGeneration) { RouteTracking() }
     val coordinator = remember(context, manualRouteGeneration) {
         RerouteCoordinator(route) { start, target ->
-            calculateOfflineRoute(context, start, target)
+            calculateOfflineRoute(
+                context,
+                start,
+                target,
+                startHeading = if (NavigationSimulation.active)
+                    NavigationSimulation.fix?.heading
+                else null
+            )
         }
     }
     var offRouteDetected by remember(route, manualRouteGeneration) {
