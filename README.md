@@ -70,6 +70,18 @@ Das Vosk-Modell wird nicht in Git gespeichert.
 Zur Einrichtung siehe das Installationsskript
 `scripts/install-voice-model.sh`.
 
+## Erweiterte Sprachbedienung
+
+- Navigation per Sprache starten und stoppen
+- Interne Spracheingabe ohne Google-Popup
+- Eigener Doppelklang zur Aktivierung
+- Gesprochene Zielbestätigung
+- Ja/Nein ohne erneutes Aktivierungswort
+- Antwortzeit auf 10 Sekunden begrenzt
+- Postleitzahlen werden einzeln ausgesprochen
+- Android-Sprachdienst kann online arbeiten
+- Systemseitiger Signalton kann zusätzlich ertönen
+
 ## Demo-Modus
 
 Die App enthält einen Simulationsmodus.

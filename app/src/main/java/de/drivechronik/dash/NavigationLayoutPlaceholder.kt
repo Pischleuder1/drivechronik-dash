@@ -138,6 +138,8 @@ internal fun NavigationLayoutPlaceholder(
                     NavigationHintState.clear()
                     routePoints = route
                 },
+                onStop = stopNavigation,
+                navigationActive = routePoints != null,
                 phoneState = phoneState
             )
         }

@@ -2,6 +2,18 @@
 
 ## [0.3.0] – 2026-10-04
 
+### Navigation und Sprachdialog (2026-10-06)
+- Sprachbefehle zum Starten und Stoppen
+- Gesprochene Zielbestätigung mit Ja/Nein
+- Interne Android-Spracherkennung ohne Popup
+- 10-Sekunden-Antwortzeit
+- Eigener Aktivierungs-Doppelklang
+- Postleitzahlen als einzelne Ziffern
+- Optimierter Zoom für die Routenübersicht
+- Stabilitätstests auf Pixel 8 Pro
+
+
+
 ### Navigation und Sprache (2026-10-05)
 - Offline-Routing und Abbiegeführung
 - Automatisches Rerouting

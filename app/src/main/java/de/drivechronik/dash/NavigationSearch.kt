@@ -1,11 +1,6 @@
 package de.drivechronik.dash
 
 import android.location.Location
-import android.app.Activity
-import android.content.Intent
-import android.speech.RecognizerIntent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
@@ -25,6 +20,8 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun NavigationSearch(
     onRoute: (OfflineRoute) -> Unit,
+    onStop: () -> Unit,
+    navigationActive: Boolean,
     phoneState: State<Location?>
 ) {
     var open by remember { mutableStateOf(false) }
@@ -42,18 +39,74 @@ internal fun NavigationSearch(
     var voiceBusy by remember { mutableStateOf(false) }
     var wakeRequest by remember { mutableIntStateOf(0) }
     var wakeSound by remember { mutableStateOf(false) }
+    var startRequest by remember { mutableIntStateOf(0) }
 
-    val voice = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { response ->
-        voiceBusy = false
-        if (response.resultCode == Activity.RESULT_OK) {
-            val spoken = response.data
-                ?.getStringArrayListExtra(
-                    RecognizerIntent.EXTRA_RESULTS
-                )?.firstOrNull().orEmpty()
+    val prompt = remember(context) {
+        NavigationVoicePrompt(context)
+    }
+    val reply = remember(context) {
+        NavigationVoiceReply(context)
+    }
 
-            query = spoken
+    DisposableEffect(prompt, reply) {
+        onDispose {
+            reply.cancel()
+            prompt.close()
+        }
+    }
+
+
+
+    val processSpeech: (String) -> Unit =
+        processSpeech@{ spoken ->
+            voiceBusy = false
+            run {
+val command = spoken
+                    .replaceFirst(
+                        Regex(
+                            """^(drive\s*chronik|drei\s*chronik)[\s,:]*""",
+                            RegexOption.IGNORE_CASE
+                        ), ""
+                    )
+                    .trim()
+                    .lowercase(Locale.GERMANY)
+                    .trimEnd('.', '!', '?')
+
+                when (command) {
+                    "navigation stoppen", "route stoppen",
+                    "navigation beenden", "route beenden",
+                    "stoppen" -> {
+                        if (navigationActive) onStop()
+                        found = null
+                        result = ""
+                        open = false
+                        return@processSpeech
+                    }
+
+                    "navigation starten", "route starten",
+                    "starten", "ja" -> {
+                        if (!navigationActive &&
+                            found != null &&
+                            !searching && !routing) {
+                            startRequest++
+                        } else {
+                            result = "Keine startbereite Route"
+                            open = true
+                        }
+                        return@processSpeech
+                    }
+
+                    "abbrechen", "nein", "schließen" -> {
+                        open = false
+                        found = null
+                        result = ""
+                        return@processSpeech
+                    }
+                }
+
+                open = true
+
+                query = spoken
                 .replaceFirst(
                     Regex("^drive\\s*chronik[, :]*",
                         RegexOption.IGNORE_CASE), "")
@@ -70,6 +123,41 @@ internal fun NavigationSearch(
                     try {
                         found = searchDestination(context, query)
                         result = found?.name ?: "Kein Ziel gefunden"
+
+                        val destination = found
+                        if (destination != null) {
+                            voiceBusy = true
+                            prompt.speak(
+                                "${destination.name} gefunden. Navigation starten?"
+                            ) {
+                                reply.listen { answer ->
+                                    voiceBusy = false
+                                    val normalized = answer
+                                        ?.trim()
+                                        ?.lowercase(Locale.GERMANY)
+                                        ?.trimEnd('.', '!', '?')
+
+                                    when (normalized) {
+                                        "ja", "starten",
+                                        "navigation starten",
+                                        "route starten" -> {
+                                            startRequest++
+                                        }
+                                        "nein", "abbrechen" -> {
+                                            found = null
+                                            result = ""
+                                            open = false
+                                        }
+                                        null -> {
+                                            result = "Keine Antwort. Bitte manuell starten."
+                                        }
+                                        else -> {
+                                            result = "Antwort nicht erkannt: $answer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     } catch (e: Exception) {
                         result = "Zielsuche fehlgeschlagen"
                     } finally {
@@ -86,35 +174,68 @@ internal fun NavigationSearch(
         if (wakeRequest == 0) return@LaunchedEffect
 
         if (wakeSound) {
-            val tone = android.media.ToneGenerator(
-                android.media.AudioManager.STREAM_NOTIFICATION, 65
+            val player = android.media.MediaPlayer.create(
+                context,
+                R.raw.drivechronik_wake
             )
-            tone.startTone(
-                android.media.ToneGenerator.TONE_PROP_BEEP, 120
-            )
-            kotlinx.coroutines.delay(200L)
-            tone.release()
+            player?.setOnCompletionListener {
+                it.release()
+            }
+            player?.start()
+            kotlinx.coroutines.delay(450L)
         }
         wakeSound = false
 
         // Vosk muss das Mikrofon vollständig freigeben.
         kotlinx.coroutines.delay(400L)
 
-        val intent = Intent(
-            RecognizerIntent.ACTION_RECOGNIZE_SPEECH
-        ).apply {
-            putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-            )
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "de-DE")
+        reply.listen { spoken ->
+            if (spoken.isNullOrBlank()) {
+                voiceBusy = false
+                result = "Keine Sprache erkannt"
+            } else {
+                processSpeech(spoken)
+            }
         }
-        try {
-            voice.launch(intent)
-        } catch (e: Exception) {
-            voiceBusy = false
-            result = "Spracherkennung nicht verfügbar"
-        }
+    }
+
+
+    LaunchedEffect(startRequest) {
+        if (startRequest == 0) return@LaunchedEffect
+
+                            val target = found ?: return@LaunchedEffect
+                            routing = true
+                            scope.launch {
+                                val gps = weatherCoordinates(phoneState.value)
+                                val route = gps?.let {
+                                    calculateOfflineRoute(
+                                        context,
+                                        RoutePoint(it.first, it.second),
+                                        target.point
+                                    )
+                                }
+                                result = when {
+                                    gps == null -> "GPS fehlt"
+                                    route == null -> "Route nicht verfügbar"
+                                    route.isFailure ->
+                                        "Offline-Route: " +
+                                        (route.exceptionOrNull()?.message
+                                            ?: "Berechnung fehlgeschlagen")
+                                    else -> {
+                                        val data = route.getOrThrow()
+                                        onRoute(data)
+                                    open = false
+                                        String.format(
+                                            Locale.GERMANY,
+                                            "Route: %.1f km · %.0f Min",
+                                            data.distanceKm,
+                                            data.durationSeconds / 60.0
+                                        )
+                                    }
+                                }
+                                routing = false
+                            }
+
     }
 
     Row(
@@ -140,7 +261,6 @@ internal fun NavigationSearch(
         DriveChronikWakeControl(
             suspended = voiceBusy,
             onWake = {
-                open = true
                 voiceBusy = true
                 wakeSound = true
                 wakeRequest++
@@ -185,40 +305,7 @@ internal fun NavigationSearch(
                     TextButton(
                         enabled = !searching && !routing &&
                             found != null,
-                        onClick = {
-                            val target = found ?: return@TextButton
-                            routing = true
-                            scope.launch {
-                                val gps = weatherCoordinates(phoneState.value)
-                                val route = gps?.let {
-                                    calculateOfflineRoute(
-                                        context,
-                                        RoutePoint(it.first, it.second),
-                                        target.point
-                                    )
-                                }
-                                result = when {
-                                    gps == null -> "GPS fehlt"
-                                    route == null -> "Route nicht verfügbar"
-                                    route.isFailure ->
-                                        "Offline-Route: " +
-                                        (route.exceptionOrNull()?.message
-                                            ?: "Berechnung fehlgeschlagen")
-                                    else -> {
-                                        val data = route.getOrThrow()
-                                        onRoute(data)
-                                    open = false
-                                        String.format(
-                                            Locale.GERMANY,
-                                            "Route: %.1f km · %.0f Min",
-                                            data.distanceKm,
-                                            data.durationSeconds / 60.0
-                                        )
-                                    }
-                                }
-                                routing = false
-                            }
-                        }
+                        onClick = { startRequest++ }
                     ) {
                         Text("Route starten")
                     }

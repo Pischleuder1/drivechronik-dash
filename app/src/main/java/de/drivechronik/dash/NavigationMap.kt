@@ -204,7 +204,7 @@ internal fun NavigationMap(
                 }
             }.build()
             map.animateCamera(
-                CameraUpdateFactory.newLatLngBounds(bounds, 60)
+                CameraUpdateFactory.newLatLngBounds(bounds, 110)
             )
             delay(4_000L)
             centered = true
@@ -518,7 +518,7 @@ internal fun NavigationMap(
                                     }.build()
                                 map.animateCamera(
                                     CameraUpdateFactory.newLatLngBounds(
-                                        bounds, 60
+                                        bounds, 110
                                     )
                                 )
                             }
