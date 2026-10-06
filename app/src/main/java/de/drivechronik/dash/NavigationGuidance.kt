@@ -154,6 +154,102 @@ internal fun NavigationGuidance(
         }
     }
 
+    // Kreisverkehr-Geometrie einmal je Fahrmanöver
+    // prüfen, nicht bei jedem GPS-Tick.
+    LaunchedEffect(
+        route,
+        manualRouteGeneration,
+        progress?.nextManeuver?.beginShapeIndex
+    ) {
+        val maneuver = progress?.nextManeuver
+            ?: return@LaunchedEffect
+
+        if (!isRoundaboutInstruction(
+                maneuver.type,
+                maneuver.instruction
+            )) return@LaunchedEffect
+
+        val point = route.points.getOrNull(
+            maneuver.beginShapeIndex
+        ) ?: return@LaunchedEffect
+
+        val match = RoundaboutIndex.find(
+            context, point
+        )
+
+        val traversal = match?.let {
+            resolveRoundaboutTraversal(
+                it, route, maneuver
+            )
+        }
+
+        val activeHint = NavigationHintState.hint
+
+        if (
+            match != null &&
+            traversal != null &&
+            traversal.orderedExits.size in 2..5 &&
+            activeHint != null &&
+            !activeHint.stale &&
+            activeHint.instruction == maneuver.instruction &&
+            activeHint.type == maneuver.type
+        ) {
+            NavigationHintState.setRoundaboutGraphic(
+                activeHint.id, match, traversal
+            )
+        }
+
+        android.util.Log.i(
+            "DriveChronikRoundabout",
+            if (traversal == null)
+                "TRAVERSAL: keine eindeutige Zuordnung"
+            else
+                "TRAVERSAL: " +
+                    "Einfahrt=${traversal.entry} " +
+                    "Ausfahrt=${traversal.exit} " +
+                    "Nummer=${traversal.exitNumber} " +
+                    "Ausfahrten=${traversal.orderedExits}"
+        )
+
+        if (match != null) {
+            val begin = maneuver.beginShapeIndex
+            val end = maneuver.endShapeIndex
+
+            android.util.Log.i(
+                "DriveChronikRoundabout",
+                "ROUTE begin=$begin end=$end " +
+                    "points=${route.points.size}"
+            )
+
+            for (i in
+                (begin - 8).coerceAtLeast(0)..
+                (end + 8).coerceAtMost(
+                    route.points.lastIndex
+                )
+            ) {
+                val p = route.points[i]
+
+                android.util.Log.i(
+                    "DriveChronikRoundabout",
+                    "POINT $i ${p.lat},${p.lon}"
+                )
+            }
+        }
+
+        android.util.Log.i(
+            "DriveChronikRoundabout",
+            if (match == null)
+                "Kein eindeutiger Kreisverkehr: " +
+                    maneuver.instruction
+            else
+                "Treffer=${match.id} " +
+                    "Abstand=${match.distanceMeters.toInt()}m " +
+                    "Einfahrten=${match.entries.size} " +
+                    "Ausfahrtsknoten=${match.exits.size} " +
+                    "Valhalla=${maneuver.instruction}"
+        )
+    }
+
     NavigationGuidancePanel(
         route,
         if (offRouteDetected) null else progress

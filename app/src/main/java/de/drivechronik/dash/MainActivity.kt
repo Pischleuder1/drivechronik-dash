@@ -914,6 +914,9 @@ private fun DashboardContent(
                     .background(DashLine)
         )
 
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
         Row(
             modifier =
                 Modifier
@@ -1119,6 +1122,14 @@ VehicleStatusBar(
                             .height(64.dp)
                 )
             }
+        }
+
+        NavigationTurnPopup(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .fillMaxWidth(0.60f)
+                .padding(end = 8.dp)
+        )
         }
     }
 }

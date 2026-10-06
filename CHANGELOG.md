@@ -1,6 +1,18 @@
 # Changelog – drivechronik-dash
 
-## [0.3.0] – 2026-10-04
+## [0.3.0]
+
+### Erweiterte Navigation – Kreisverkehre (2026-10-06)
+- Große, animierte Abbiegehinweise rechts vom Tacho
+- Warnhinweise bei 300 m und 75 m
+- Strukturierte Fahranweisungen mit kräftigen Richtungspfeilen
+- Offline-OSM-Kreisverkehrdaten für Deutschland
+- Automatische Zuordnung von Einfahrt und Ausfahrt zur Valhalla-Route
+- Darstellung tatsächlicher Kreisverkehranschlüsse
+- Hervorgehobener Fahrweg zur richtigen Ausfahrt
+- Fallback bei nicht eindeutiger Zuordnung
+
+ – 2026-10-04
 
 ### Navigation und Sprachdialog (2026-10-06)
 - Sprachbefehle zum Starten und Stoppen

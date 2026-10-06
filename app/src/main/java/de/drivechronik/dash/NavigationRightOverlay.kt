@@ -21,12 +21,35 @@ internal data class NavigationHint(
     val stale: Boolean = false
 )
 
+internal data class RoundaboutGraphic(
+    val hintId: Long,
+    val match: RoundaboutMatch,
+    val traversal: RoundaboutTraversal
+)
+
 internal object NavigationHintState {
     var hint by mutableStateOf<NavigationHint?>(null)
         private set
     private var sequence = 0L
 
+    var roundaboutGraphic by mutableStateOf<RoundaboutGraphic?>(null)
+        private set
+
+    fun setRoundaboutGraphic(
+        hintId: Long,
+        match: RoundaboutMatch,
+        traversal: RoundaboutTraversal
+    ) {
+        if (hint?.id == hintId && hint?.stale == false) {
+            roundaboutGraphic = RoundaboutGraphic(
+                hintId, match, traversal
+            )
+        }
+    }
+
+
     fun show(instruction: String, type: Int, distance: Double) {
+        roundaboutGraphic = null
         hint = NavigationHint(++sequence, instruction, type, distance)
     }
 
@@ -42,7 +65,10 @@ internal object NavigationHintState {
     }
 
     fun clear(id: Long? = null) {
-        if (id == null || hint?.id == id) hint = null
+        if (id == null || hint?.id == id) {
+            hint = null
+            roundaboutGraphic = null
+        }
     }
 }
 
@@ -50,7 +76,7 @@ internal object NavigationHintState {
 internal fun NavigationRightOverlay(
     modifier: Modifier = Modifier
 ) {
-    val hint = NavigationHintState.hint
+    val hint: NavigationHint? = null
     val summary = NavigationSummaryState.text
 
 
@@ -130,7 +156,7 @@ internal fun NavigationRightOverlay(
     }
 }
 
-private fun navigationTurnArrow(type: Int): String =
+internal fun navigationTurnArrow(type: Int): String =
     when (type) {
         1, 2, 3, 7, 8, 17, 22 -> "↑"
         9, 18, 20, 23 -> "↗"
