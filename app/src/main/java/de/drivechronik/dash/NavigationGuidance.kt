@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.drivechronik.dash.routing.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import java.util.Locale
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -24,6 +26,7 @@ internal fun NavigationGuidance(
     route: OfflineRoute?,
     manualRouteGeneration: Int,
     onRecalculated: (OfflineRoute, OfflineRoute) -> Unit,
+    onArrived: (OfflineRoute) -> Unit,
     phoneState: State<Location?>
 ) {
     if (route == null) return
@@ -63,6 +66,9 @@ internal fun NavigationGuidance(
         var lastAcceptedAt: Long? = null
         var gpsInterrupted = false
         val handover = NavigationGpsHandover()
+        var rerouteJob: Job? = null
+        var arrivalCount = 0
+        var arrivalSince = 0L
 
         while (true) {
             val fix = currentNavigationFix(phoneState.value)
@@ -105,10 +111,52 @@ internal fun NavigationGuidance(
                         fix.heading
                     )
 
-                    if (coordinator.onFix(fix.point, now)) {
+                    // Zielankunft vor jedem Rerouting prüfen.
+                    val target = route.destination
+                        ?: route.points.last()
+                    val meters = FloatArray(1)
+                    Location.distanceBetween(
+                        fix.point.lat, fix.point.lon,
+                        target.lat, target.lon,
+                        meters
+                    )
+
+                    val arrivalProgress = progress
+                    val arrivedNearEnd =
+                        arrivalProgress != null &&
+                        arrivalProgress.distanceRemainingMeters <= 20.0 &&
+                        arrivalProgress.distanceFromRouteMeters <= 20.0 &&
+                        meters[0] <= 25f
+
+                    if (arrivedNearEnd) {
+                        if (arrivalCount == 0) {
+                            arrivalSince = now
+                        }
+                        arrivalCount++
+                    } else {
+                        arrivalCount = 0
+                        arrivalSince = 0L
+                    }
+
+                    if (arrivalCount >= 3 &&
+                        now - arrivalSince >= 2_000L
+                    ) {
+                        rerouteJob?.cancel()
                         NavigationHintState.clear()
-                        onRecalculated(route, coordinator.route)
+                        onArrived(route)
                         return@LaunchedEffect
+                    }
+
+                    // Valhalla nicht in der GPS-Schleife abwarten.
+                    if (rerouteJob?.isActive != true) {
+                        rerouteJob = launch {
+                            if (coordinator.onFix(fix.point, now, fix.heading)) {
+                                NavigationHintState.clear()
+                                onRecalculated(
+                                    route, coordinator.route
+                                )
+                            }
+                        }
                     }
                     offRouteDetected = coordinator.isOffRoute
                     if (offRouteDetected) {

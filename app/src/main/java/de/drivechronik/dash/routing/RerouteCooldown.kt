@@ -1,7 +1,7 @@
 package de.drivechronik.dash.routing
 
 class RerouteCooldown(
-    private val intervalMillis: Long = 60_000L
+    private val intervalMillis: Long = 5_000L
 ) {
     private var lastAttempt: Long? = null
 

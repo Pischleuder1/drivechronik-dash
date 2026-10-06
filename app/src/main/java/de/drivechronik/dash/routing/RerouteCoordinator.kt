@@ -1,5 +1,7 @@
 package de.drivechronik.dash.routing
 
+import kotlinx.coroutines.ensureActive
+
 class RerouteCoordinator(
     initialRoute: OfflineRoute,
     private val calculate: suspend (
@@ -33,9 +35,10 @@ class RerouteCoordinator(
 
     suspend fun onFix(
         position: RoutePoint,
-        nowMillis: Long
+        nowMillis: Long,
+        headingDegrees: Float? = null
     ): Boolean {
-        if (!detector.update(route, position, nowMillis)) {
+        if (!detector.update(route, position, nowMillis, headingDegrees)) {
             return false
         }
         if (!cooldown.canAttempt(nowMillis)) return false
@@ -50,6 +53,11 @@ class RerouteCoordinator(
         val result = runCatching {
             calculate(position, target)
         }.getOrElse { Result.failure(it) }
+
+        // Nach einem Navigationsabbruch keine
+        // verspäteten Valhalla-Ergebnisse übernehmen.
+        kotlinx.coroutines.currentCoroutineContext()
+            .ensureActive()
 
         if (generation != requestedGeneration) return false
         val selected = selectReroutedRoute(route, result)

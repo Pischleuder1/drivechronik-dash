@@ -123,6 +123,11 @@ internal fun NavigationLayoutPlaceholder(
                     NavigationSimulation.followReroute(updated)
                     routePoints = updated
                 }
+            },
+            onArrived = { arrived ->
+                if (routePoints === arrived) {
+                    stopNavigation()
+                }
             }
         )
 
