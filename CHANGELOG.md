@@ -1,6 +1,6 @@
 # Changelog – drivechronik-dash
 
-## [0.3.0]
+## [0.3.0] – 2026-10-04
 
 ### Erweiterte Navigation – Kreisverkehre (2026-10-06)
 - Große, animierte Abbiegehinweise rechts vom Tacho
@@ -12,7 +12,6 @@
 - Hervorgehobener Fahrweg zur richtigen Ausfahrt
 - Fallback bei nicht eindeutiger Zuordnung
 
- – 2026-10-04
 
 ### Navigation und Sprachdialog (2026-10-06)
 - Sprachbefehle zum Starten und Stoppen
