@@ -1,5 +1,14 @@
 package de.drivechronik.dash
 
+import android.widget.Toast
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
+import de.drivechronik.dash.routing.calculateOfflineRoute
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
@@ -35,8 +44,18 @@ private val navigationCurve = GenericShape { size, _ ->
 
 @Composable
 internal fun NavigationLayoutPlaceholder(
+    nightMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var avoidHighways by remember {
+        mutableStateOf(NavigationHighwaySetting.enabled(context))
+    }
+    var highwayRequest by remember {
+        mutableIntStateOf(0)
+    }
+
     var routePoints by remember {
         mutableStateOf<OfflineRoute?>(null)
     }
@@ -67,6 +86,7 @@ internal fun NavigationLayoutPlaceholder(
         NavigationSimulation.stop()
         manualRouteGeneration++
         NavigationHintState.clear()
+        NavigationSummaryState.clearDestination()
         routePoints = null
     }
 
@@ -77,6 +97,7 @@ internal fun NavigationLayoutPlaceholder(
             .background(Color(0xFF192B3C))
     ) {
         NavigationMap(
+            nightMode = nightMode,
             modifier = Modifier.fillMaxSize(),
             routePoints = routePoints?.points.orEmpty(),
             phoneState = phoneState
@@ -112,6 +133,53 @@ internal fun NavigationLayoutPlaceholder(
                     )
                 }
             }
+            AutobahnAvoidButton(
+                active = avoidHighways,
+                onClick = {
+                    val requested = !avoidHighways
+                    avoidHighways = requested
+                    NavigationHighwaySetting.set(context, requested)
+                    highwayRequest++
+                    val request = highwayRequest
+                    val previous = routePoints
+
+                    if (previous != null) {
+                        val origin =
+                            currentNavigationFix(phoneState.value)?.point
+                        val target = previous.destination
+                            ?: previous.points.lastOrNull()
+
+                        if (origin == null || target == null) {
+                            Toast.makeText(
+                                context,
+                                "Neuberechnung: GPS fehlt",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            scope.launch {
+                                val result = calculateOfflineRoute(
+                                    context, origin, target
+                                )
+                                if (request != highwayRequest ||
+                                    routePoints !== previous
+                                ) return@launch
+
+                                result.onSuccess { updated ->
+                                    NavigationSimulation.followReroute(updated)
+                                    manualRouteGeneration++
+                                    routePoints = updated
+                                }.onFailure {
+                                    Toast.makeText(
+                                        context,
+                                        "Route konnte nicht neu berechnet werden",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        }
+                    }
+                }
+            )
         }
 
         NavigationGuidance(
@@ -149,5 +217,61 @@ internal fun NavigationLayoutPlaceholder(
             )
         }
 
+    }
+}
+
+
+@Composable
+private fun AutobahnAvoidButton(
+    active: Boolean,
+    onClick: () -> Unit
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(44.dp)
+            .background(
+                if (active) Color(0xFF276A98)
+                else Color(0xEE142B40),
+                RoundedCornerShape(10.dp)
+            )
+    ) {
+        Canvas(modifier = Modifier.size(32.dp)) {
+            val k = size.width / 72f
+            drawRoundRect(
+                color = Color(0xFF0755A5),
+                cornerRadius = CornerRadius(6 * k)
+            )
+            val road = Path().apply {
+                moveTo(22*k, 60*k)
+                lineTo(29*k, 12*k)
+                lineTo(34*k, 12*k)
+                lineTo(31*k, 60*k)
+                close()
+                moveTo(50*k, 60*k)
+                lineTo(43*k, 12*k)
+                lineTo(38*k, 12*k)
+                lineTo(41*k, 60*k)
+                close()
+            }
+            drawPath(road, Color.White)
+            drawLine(
+                Color.White, Offset(11*k, 35*k),
+                Offset(27*k, 35*k), 4*k
+            )
+            drawLine(
+                Color.White, Offset(45*k, 35*k),
+                Offset(61*k, 35*k), 4*k
+            )
+            if (active) {
+                drawLine(
+                    Color(0xFFFF4444),
+                    Offset(12*k, 62*k),
+                    Offset(60*k, 10*k),
+                    strokeWidth = 8*k,
+                    cap = StrokeCap.Round
+                )
+            }
+        }
     }
 }

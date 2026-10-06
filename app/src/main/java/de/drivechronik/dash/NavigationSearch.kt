@@ -223,6 +223,7 @@ val command = spoken
                                             ?: "Berechnung fehlgeschlagen")
                                     else -> {
                                         val data = route.getOrThrow()
+                                        NavigationSummaryState.updateDestination(target.name)
                                         onRoute(data)
                                     open = false
                                         String.format(

@@ -1024,6 +1024,7 @@ modifier =
                     .fillMaxHeight()
             ) {
                 NavigationLayoutPlaceholder(
+                    nightMode = rememberAutomaticSolarNightMode(),
                     modifier = Modifier
                         .offset(x = (-45).dp)
                         .requiredWidth(maxWidth + 45.dp)
@@ -1085,29 +1086,29 @@ modifier =
                             Modifier
                                                                 .fillMaxSize()
                     )
-                        NavigationRightOverlay(
-                            modifier = Modifier.fillMaxSize()
-                        )
                     }
                 }
 
 
 
-                state.navigation?.let {
-                    navigation ->
 
-                    NavigationPanel(
-                        navigation =
-                            navigation,
+                val offlineSummary = NavigationSummaryState.text
 
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
+                if (offlineSummary != null) {
+                    OfflineNavigationPanel(
+                        summary = offlineSummary,
+                        modifier = Modifier.fillMaxWidth()
                     )
+                } else {
+                    state.navigation?.let { navigation ->
+                        NavigationPanel(
+                            navigation = navigation,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
 
-
-VehicleStatusBar(
+                VehicleStatusBar(
                     leftIndicator =
                         state.leftIndicator,
                     rightIndicator =
@@ -4558,6 +4559,53 @@ private fun NavigationPanel(
     }
 }
 
+
+
+@Composable
+private fun OfflineNavigationPanel(
+    summary: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(
+            start = 14.dp,
+            end = 12.dp,
+            top = 5.dp,
+            bottom = 5.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "⌖",
+                color = DashRed,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.width(7.dp))
+            Text(
+                text = NavigationSummaryState.destination ?: "Navigationsziel",
+                color = DashText,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
+
+        Spacer(Modifier.height(3.dp))
+
+        Text(
+            text = summary,
+            color = DashText,
+            fontSize = 16.sp,
+            lineHeight = 25.sp,
+            maxLines = 3
+        )
+    }
+}
 
 
 @Composable

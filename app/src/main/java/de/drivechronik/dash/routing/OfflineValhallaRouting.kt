@@ -1,6 +1,7 @@
 package de.drivechronik.dash.routing
 
 import android.content.Context
+import de.drivechronik.dash.NavigationHighwaySetting
 import com.valhalla.valhalla.Valhalla
 import com.valhalla.valhalla.config.ValhallaConfigFactory
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +56,13 @@ suspend fun calculateOfflineRoute(
                 put(JSONObject().put("lat", end.lat).put("lon", end.lon))
             })
             put("costing", "auto")
+            if (NavigationHighwaySetting.enabled(context)) {
+                put("costing_options", JSONObject().apply {
+                    put("auto", JSONObject().apply {
+                        put("use_highways", 0.0)
+                    })
+                })
+            }
             put("directions_options", JSONObject().apply {
                 put("units", "kilometers")
                 put("language", "de-DE")

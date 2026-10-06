@@ -1,0 +1,520 @@
+{
+  "version": 8,
+  "name": "DriveChronik Light",
+  "sources": {
+    "offline": {
+      "type": "vector",
+      "url": "PMTILES_FILE_URL",
+      "attribution": "© OpenMapTiles © OpenStreetMap contributors"
+    }
+  },
+  "layers": [
+    {
+      "id": "offline-background",
+      "type": "background",
+      "paint": {
+        "background-color": "#F4F3EF"
+      }
+    },
+    {
+      "id": "offline-landcover",
+      "type": "fill",
+      "source": "offline",
+      "source-layer": "landcover",
+      "paint": {
+        "fill-color": "#DCE8D7"
+      }
+    },
+    {
+      "id": "offline-water",
+      "type": "fill",
+      "source": "offline",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#B5D8E8"
+      }
+    },
+    {
+      "id": "offline-buildings",
+      "type": "fill",
+      "source": "offline",
+      "source-layer": "building",
+      "paint": {
+        "fill-color": "#D8D6D1",
+        "fill-outline-color": "#A5AAA9"
+      }
+    },
+    {
+      "id": "dc-road-minor-outline",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "minor",
+            "service",
+            "track",
+            "path"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#C0BEBA",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          1.6,
+          14,
+          3.2
+        ]
+      }
+    },
+    {
+      "id": "dc-road-minor",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "minor",
+            "service",
+            "track",
+            "path"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#FFFFFF",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          1.1,
+          14,
+          2.2
+        ]
+      }
+    },
+    {
+      "id": "dc-road-tertiary-outline",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "tertiary"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#C0BEBA",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          2.1,
+          14,
+          4.2
+        ]
+      }
+    },
+    {
+      "id": "dc-road-tertiary",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "tertiary"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#FFFFFF",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          1.6,
+          14,
+          3.2
+        ]
+      }
+    },
+    {
+      "id": "dc-road-secondary-outline",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "secondary"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#C0BEBA",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          2.6,
+          14,
+          5.2
+        ]
+      }
+    },
+    {
+      "id": "dc-road-secondary",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "secondary"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#F8E1AA",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          2.1,
+          14,
+          4.2
+        ]
+      }
+    },
+    {
+      "id": "dc-road-primary-outline",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "primary"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#C0BEBA",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          2.9,
+          14,
+          5.8
+        ]
+      }
+    },
+    {
+      "id": "dc-road-primary",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "primary"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#F5D18B",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          2.4,
+          14,
+          4.8
+        ]
+      }
+    },
+    {
+      "id": "dc-road-trunk-outline",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "trunk"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#C0BEBA",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          3.2,
+          14,
+          6.4
+        ]
+      }
+    },
+    {
+      "id": "dc-road-trunk",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "trunk"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#EBB677",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          2.7,
+          14,
+          5.4
+        ]
+      }
+    },
+    {
+      "id": "dc-road-motorway-outline",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "motorway"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#C0BEBA",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          3.5,
+          14,
+          7.0
+        ]
+      }
+    },
+    {
+      "id": "dc-road-motorway",
+      "type": "line",
+      "source": "offline",
+      "source-layer": "transportation",
+      "filter": [
+        "in",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "literal",
+          [
+            "motorway"
+          ]
+        ]
+      ],
+      "paint": {
+        "line-color": "#E8A66B",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          3.0,
+          14,
+          6.0
+        ]
+      }
+    },
+    {
+      "id": "offline-street-names",
+      "type": "symbol",
+      "source": "offline",
+      "source-layer": "transportation_name",
+      "minzoom": 12,
+      "layout": {
+        "symbol-placement": "line",
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Open Sans Regular"
+        ],
+        "text-size": 12,
+        "text-rotation-alignment": "map"
+      },
+      "paint": {
+        "text-color": "#334653",
+        "text-halo-color": "#FFFFFF",
+        "text-halo-width": 1.5
+      }
+    },
+    {
+      "id": "offline-place-names",
+      "type": "symbol",
+      "source": "offline",
+      "source-layer": "place",
+      "layout": {
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Open Sans Regular"
+        ],
+        "text-size": 14
+      },
+      "paint": {
+        "text-color": "#263D50",
+        "text-halo-color": "#FFFFFF",
+        "text-halo-width": 2
+      }
+    }
+  ],
+  "glyphs": "asset://fonts/{fontstack}/{range}.pbf"
+}

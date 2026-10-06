@@ -41,9 +41,11 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
 
 @Composable
 internal fun NavigationMap(
+    nightMode: Boolean = false,
     modifier: Modifier = Modifier,
     routePoints: List<RoutePoint> = emptyList(),
     phoneState: State<Location?>
@@ -76,9 +78,42 @@ internal fun NavigationMap(
         ).apply {
             onCreate(null)
             getMapAsync { map ->
-                map.setStyle(
-                    "https://tiles.openfreemap.org/styles/liberty"
-                ) {
+                val offlineDir =
+                    context.getExternalFilesDir(null)
+                val offlineFile = offlineDir?.resolve(
+                    "germany.pmtiles"
+                )
+                val offlineEnabled =
+                    context.packageName.endsWith(".routingtest") &&
+                    offlineFile?.isFile == true &&
+                    offlineDir.resolve("offline-map.enabled").isFile
+
+                val styleBuilder = if (offlineEnabled) {
+                    val template = context.assets.open(
+                        "maps/offline-test.json"
+                    ).bufferedReader().use { it.readText() }
+
+                    val uri = "pmtiles://file://" +
+                        offlineFile!!.absolutePath
+
+                    android.util.Log.i(
+                        "DriveChronikOfflineMap",
+                        "Offline-Test: $uri"
+                    )
+
+                    Style.Builder().fromJson(
+                        template.replace(
+                            "PMTILES_FILE_URL",
+                            uri
+                        )
+                    )
+                } else {
+                    Style.Builder().fromUri(
+                        "https://tiles.openfreemap.org/styles/liberty"
+                    )
+                }
+
+                map.setStyle(styleBuilder) {
                     it.addSource(
                         GeoJsonSource(
                             "dash-route",
@@ -146,11 +181,78 @@ internal fun NavigationMap(
                     )
                     mapState.value = map
                     map.cameraPosition = CameraPosition.Builder()
-                        .target(LatLng(51.16, 10.45))
-                        .zoom(5.0)
+                        .target(
+                            if (offlineEnabled)
+                                LatLng(52.27, 8.67)
+                            else LatLng(51.16, 10.45)
+                        )
+                        .zoom(if (offlineEnabled) 6.0 else 5.0)
                         .build()
                 }
             }
+        }
+    }
+
+
+    LaunchedEffect(nightMode, mapState.value) {
+        val style = mapState.value?.style
+            ?: return@LaunchedEffect
+
+        if (style.getSource("offline") == null) {
+            return@LaunchedEffect
+        }
+
+        fun line(id: String, day: String, night: String) {
+            style.getLayer(id)?.setProperties(
+                org.maplibre.android.style.layers.PropertyFactory
+                    .lineColor(if (nightMode) night else day)
+            )
+        }
+
+        fun fill(id: String, day: String, night: String) {
+            style.getLayer(id)?.setProperties(
+                org.maplibre.android.style.layers.PropertyFactory
+                    .fillColor(if (nightMode) night else day)
+            )
+        }
+
+        style.getLayer("offline-background")?.setProperties(
+            org.maplibre.android.style.layers.PropertyFactory
+                .backgroundColor(
+                    if (nightMode) "#182530" else "#F4F3EF"
+                )
+        )
+
+        fill("offline-landcover", "#DCE8D7", "#243D35")
+        fill("offline-water", "#B5D8E8", "#183F56")
+        fill("offline-buildings", "#D8D6D1", "#34404B")
+
+        val roads = listOf(
+            Triple("minor", "#FFFFFF", "#344554"),
+            Triple("tertiary", "#FFFFFF", "#405263"),
+            Triple("secondary", "#F8E1AA", "#85734E"),
+            Triple("primary", "#F5D18B", "#94784E"),
+            Triple("trunk", "#EBB677", "#A17B50"),
+            Triple("motorway", "#E8A66B", "#A77A4F")
+        )
+
+        roads.forEach { (name, day, night) ->
+            line("dc-road-$name", day, night)
+            line("dc-road-$name-outline", "#C0BEBA", "#253442")
+        }
+
+        for ((id, day, night) in listOf(
+            Triple("offline-street-names", "#344451", "#D7DFE6"),
+            Triple("offline-place-names", "#263D50", "#E4EAF0")
+        )) {
+            style.getLayer(id)?.setProperties(
+                org.maplibre.android.style.layers.PropertyFactory
+                    .textColor(if (nightMode) night else day),
+                org.maplibre.android.style.layers.PropertyFactory
+                    .textHaloColor(
+                        if (nightMode) "#182530" else "#FFFFFF"
+                    )
+            )
         }
     }
 

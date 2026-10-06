@@ -42,14 +42,14 @@ internal fun NavigationGuidancePanel(
         .roundToInt().coerceAtLeast(0)
 
     val summary =
-        (if (progress == null) "Plan · " else "") +
-        "%.0f km · %d h %02d min · %s".format(
-            Locale.GERMANY,
-            remaining / 1000.0,
-            totalMinutes / 60,
-            totalMinutes % 60,
-            eta
-        )
+        "Entfernung: %.1f km\nZeit: %dh %02d Min\nAnkunft: %s Uhr"
+            .format(
+                Locale.GERMANY,
+                remaining / 1000.0,
+                totalMinutes / 60,
+                totalMinutes % 60,
+                eta
+            )
 
     SideEffect {
         NavigationSummaryState.update(summary)

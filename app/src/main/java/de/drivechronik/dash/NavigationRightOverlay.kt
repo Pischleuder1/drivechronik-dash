@@ -94,7 +94,7 @@ internal fun NavigationRightOverlay(
         ) {
             Column(
                 modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Top
             ) {
                 if (hint != null) {
                     Row(
@@ -147,8 +147,9 @@ internal fun NavigationRightOverlay(
                         Text(
                             summary,
                             color = Color(0xFFB8D9F0),
-                            fontSize = 12.sp,
-                            maxLines = 1
+                            fontSize = 16.sp,
+                            lineHeight = 23.sp,
+                            maxLines = 3
                         )
                     }
             }
