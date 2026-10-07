@@ -29,6 +29,8 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
     val downloadScope = rememberCoroutineScope()
     var downloadingId by remember { mutableStateOf<String?>(null) }
     var downloadInfo by remember { mutableStateOf("") }
+    var selfTestInfo by remember { mutableStateOf("") }
+
     var downloadResults by remember {
         mutableStateOf<Map<String, String>>(emptyMap())
     }
@@ -282,6 +284,48 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
             "folgen in der nächsten Ausbaustufe.",
             style = MaterialTheme.typography.bodySmall
         )
+
+        if (context.packageName.endsWith(".routingtest")) {
+            TextButton(
+                enabled = downloadingId == null,
+                onClick = {
+                    selfTestInfo = "Läuft …"
+                    downloadScope.launch {
+                        val result = runCatching {
+                            OfflineDownloadSelfTest.run(context)
+                        }
+
+                        selfTestInfo = result.fold(
+                            onSuccess = {
+                                android.util.Log.i(
+                                    "OfflineMaps",
+                                    "Download-Selbsttest erfolgreich"
+                                )
+                                "✓ Selbsttest erfolgreich · Cache entfernt"
+                            },
+                            onFailure = {
+                                android.util.Log.e(
+                                    "OfflineMaps",
+                                    "Download-Selbsttest fehlgeschlagen",
+                                    it
+                                )
+                                "Fehler: ${it.message ?: "Selbsttest"}"
+                            }
+                        )
+                    }
+                }
+            ) {
+                Text("Download-Selbsttest")
+            }
+
+            if (selfTestInfo.isNotEmpty()) {
+                Text(
+                    selfTestInfo,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
         TextButton(onClick = onBack) {
             Text("Zurück zu Einstellungen")
         }

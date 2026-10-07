@@ -53,6 +53,23 @@ internal object OfflinePendingInstaller {
             "Vormerkung konnte nicht abgeschlossen werden"
         }
 
+        // Erst jetzt sind aktive Datei, Versionsstand und Pending
+        // vollständig abgeschlossen. Nur den zugehörigen Download-
+        // und Assembly-Cache entfernen. Backup/Rollback liegen
+        // außerhalb dieses Verzeichnisses und bleiben unangetastet.
+        runCatching {
+            OfflineMapDownloadCleanup.clean(
+                context, pkg.id, pkg.sha256
+            )
+        }.onFailure {
+            android.util.Log.w(
+                "OfflineMaps",
+                "Download-Cache konnte nach Installation " +
+                    "nicht bereinigt werden",
+                it
+            )
+        }
+
         true
     }
 }

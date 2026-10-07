@@ -104,6 +104,8 @@ class OfflinePendingInstallerTest {
             // Neuinstallation prüfen:
             // Vorgemerkte Datei ist gültig, Ziel fehlt.
             assertTrue(target.delete())
+            assertTrue(dir.mkdirs() || dir.isDirectory)
+            verified.writeBytes(data)
             OfflineMapPending.mark(ctx, pkg, verified)
 
             val oldSpace = OfflineMapInstaller.freeSpace
@@ -122,6 +124,8 @@ class OfflinePendingInstallerTest {
 
             // PENDING_LOW_SPACE: Vormerkung muss erhalten bleiben.
             assertTrue(target.delete())
+            assertTrue(dir.mkdirs() || dir.isDirectory)
+            verified.writeBytes(data)
             OfflineMapPending.mark(ctx, pkg, verified)
 
             val savedSpace = OfflineMapInstaller.freeSpace
