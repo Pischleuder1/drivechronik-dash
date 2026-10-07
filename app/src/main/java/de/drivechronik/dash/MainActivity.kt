@@ -1,5 +1,9 @@
 package de.drivechronik.dash
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.foundation.layout.requiredWidth
 
 import androidx.compose.animation.core.tween
@@ -182,6 +186,77 @@ class MainActivity : ComponentActivity() {
                     WindowInsetsControllerCompat
                         .BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
+
+
+        OfflineStartupGate.begin()
+        lifecycleScope.launch {
+            for (id in listOf("de-map", "de-routing")) {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val target = if (id == "de-map") {
+                            getExternalFilesDir(null)
+                                ?.resolve("germany.pmtiles")
+                                ?: error("Kartenspeicher fehlt")
+                        } else {
+                            filesDir.resolve(
+                                "routing/valhalla_tiles.tar"
+                            )
+                        }
+
+                        OfflineMapInstaller.recover(
+                            this@MainActivity, target, id
+                        )
+
+                        runCatching {
+                            OfflinePendingInstaller.process(
+                                this@MainActivity, id
+                            )
+                        }.onFailure { failure ->
+                            android.util.Log.e(
+                                "OfflineMaps",
+                                "Update fehlgeschlagen: $id",
+                                failure
+                            )
+                            val known = OfflineMapVersions.hash(
+                                this@MainActivity, id
+                            )
+                            check(
+                                target.isFile && known != null &&
+                                    OfflineMapInstaller.sha256(target)
+                                        .equals(known, true)
+                            ) {
+                                "Keine geprüfte Altversion: $id"
+                            }
+                        }
+
+                        OfflineInstalledIntegrity.verify(
+                            this@MainActivity, id
+                        )
+                    }
+                }
+
+                result.onSuccess {
+                    if (id == "de-map") {
+                        OfflineStartupGate.mapSuccess()
+                    } else {
+                        OfflineStartupGate.routingSuccess()
+                    }
+                }.onFailure { failure ->
+                    android.util.Log.e(
+                        "OfflineMaps",
+                        "Startprüfung fehlgeschlagen: $id",
+                        failure
+                    )
+                    val message = failure.message
+                        ?: "Offlineprüfung fehlgeschlagen"
+                    if (id == "de-map") {
+                        OfflineStartupGate.mapFailure(message)
+                    } else {
+                        OfflineStartupGate.routingFailure(message)
+                    }
+                }
+            }
+        }
 
         setContent {
             DriveChronikDashTheme {

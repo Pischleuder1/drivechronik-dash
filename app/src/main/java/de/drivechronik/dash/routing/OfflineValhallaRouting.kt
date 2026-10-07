@@ -33,6 +33,10 @@ suspend fun calculateOfflineRoute(
     startHeading: Float? = null
 ): Result<OfflineRoute> = withContext(Dispatchers.IO) {
     runCatching {
+
+        check(de.drivechronik.dash.OfflineStartupGate.routingReady) {
+            "Offlinekarten noch nicht freigegeben"
+        }
         val tiles = File(
             context.filesDir, "routing/valhalla_tiles.tar"
         )

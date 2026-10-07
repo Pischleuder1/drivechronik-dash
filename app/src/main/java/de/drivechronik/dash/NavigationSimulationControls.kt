@@ -1,6 +1,9 @@
 package de.drivechronik.dash
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -21,6 +24,10 @@ internal fun NavigationSimulationControls(
 ) {
     val sim = NavigationSimulation
     var open by remember { mutableStateOf(false) }
+    var developerMode by remember {
+        mutableStateOf(false)
+    }
+
 
     IconButton(
         onClick = { open = true },
@@ -35,6 +42,15 @@ internal fun NavigationSimulationControls(
     }
 
     if (open) {
+        MaterialTheme(
+            colorScheme = darkColorScheme(
+                surface = Color(0xFF142335),
+                onSurface = Color.White,
+                surfaceVariant = Color(0xFF21364B),
+                onSurfaceVariant = Color(0xFFB8D9F0),
+                primary = Color(0xFF65B9FF)
+            )
+        ) {
         AlertDialog(
             onDismissRequest = { open = false },
             properties = DialogProperties(
@@ -45,10 +61,35 @@ internal fun NavigationSimulationControls(
                 .widthIn(max = 500.dp),
             title = { Text("Navigation · Einstellungen") },
             text = {
-                NavigationSimulationMenu(onStop,
-                    route = route,
-                    close = { open = false }
-                )
+                val maxHeight =
+                    LocalConfiguration.current.screenHeightDp * 0.50f
+
+                Box(
+                    modifier = Modifier
+                        .heightIn(max = maxHeight.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    if (developerMode) {
+                        Column {
+                            TextButton(
+                                onClick = { developerMode = false }
+                            ) {
+                                Text("← Normale Einstellungen")
+                            }
+                            NavigationSimulationMenu(
+                                onStop,
+                                route = route,
+                                close = { open = false }
+                            )
+                        }
+                    } else {
+                        NavigationSettingsHome(
+                            onDeveloperMode = {
+                                developerMode = true
+                            }
+                        )
+                    }
+                }
             },
             confirmButton = {
                 TextButton(onClick = { open = false }) {
@@ -56,6 +97,7 @@ internal fun NavigationSimulationControls(
                 }
             }
         )
+        }
     }
 }
 
@@ -70,8 +112,6 @@ private fun NavigationSimulationMenu(onStop: () -> Unit,
     val scope = rememberCoroutineScope()
     var searching by remember { mutableStateOf(false) }
     var searchError by remember { mutableStateOf(false) }
-
-
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {

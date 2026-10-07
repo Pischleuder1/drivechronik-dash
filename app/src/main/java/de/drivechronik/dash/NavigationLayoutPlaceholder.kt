@@ -96,12 +96,22 @@ internal fun NavigationLayoutPlaceholder(
             .clip(navigationCurve)
             .background(Color(0xFF192B3C))
     ) {
+        if (OfflineStartupGate.mapReady) {
         NavigationMap(
             nightMode = nightMode,
             modifier = Modifier.fillMaxSize(),
             routePoints = routePoints?.points.orEmpty(),
             phoneState = phoneState
         )
+        } else {
+            androidx.compose.material3.Text(
+                text = OfflineStartupGate.mapError
+                    ?: "Offlinekarten werden geprüft …",
+                modifier = Modifier.align(
+                    androidx.compose.ui.Alignment.Center
+                )
+            )
+        }
 
         Row(
             modifier = Modifier
