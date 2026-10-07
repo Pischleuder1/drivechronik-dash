@@ -48,6 +48,7 @@ internal fun NavigationMap(
     nightMode: Boolean = false,
     modifier: Modifier = Modifier,
     routePoints: List<RoutePoint> = emptyList(),
+    routeGeneration: Int = 0,
     phoneState: State<Location?>
 ) {
     val context = LocalContext.current
@@ -68,6 +69,10 @@ internal fun NavigationMap(
 
     var centered by remember {
         mutableStateOf(false)
+    }
+
+    var lastOverviewGeneration by remember {
+        mutableStateOf<Int?>(null)
     }
 
     val mapView = remember(context) {
@@ -278,8 +283,13 @@ internal fun NavigationMap(
             )
     }
 
-    LaunchedEffect(routePoints, mapState.value) {
+    LaunchedEffect(
+        routePoints,
+        routeGeneration,
+        mapState.value
+    ) {
         val map = mapState.value
+
         if (routePoints.size < 2) {
             centered = true
             val fix = currentNavigationFix(phoneState.value)
@@ -294,23 +304,32 @@ internal fun NavigationMap(
             return@LaunchedEffect
         }
 
-        if (map != null && routePoints.size >= 2) {
-            // Beim Rerouting Kamera weiter folgen lassen.
-            if (NavigationSimulation.active && centered) {
-                return@LaunchedEffect
-            }
-            centered = false
-            val bounds = LatLngBounds.Builder().apply {
-                routePoints.forEach {
-                    include(LatLng(it.lat, it.lon))
-                }
-            }.build()
-            map.animateCamera(
-                CameraUpdateFactory.newLatLngBounds(bounds, 110)
-            )
-            delay(4_000L)
-            centered = true
+        if (map == null) {
+            return@LaunchedEffect
         }
+
+        // Gesamtstrecke nur einmal pro bewusst gestarteter
+        // Routengeneration anzeigen. Automatisches Rerouting
+        // verändert routePoints, aber nicht routeGeneration.
+        if (lastOverviewGeneration == routeGeneration) {
+            return@LaunchedEffect
+        }
+
+        lastOverviewGeneration = routeGeneration
+        centered = false
+
+        val bounds = LatLngBounds.Builder().apply {
+            routePoints.forEach {
+                include(LatLng(it.lat, it.lon))
+            }
+        }.build()
+
+        map.animateCamera(
+            CameraUpdateFactory.newLatLngBounds(bounds, 110)
+        )
+
+        delay(4_000L)
+        centered = true
     }
 
     LaunchedEffect(routePoints, mapState.value) {

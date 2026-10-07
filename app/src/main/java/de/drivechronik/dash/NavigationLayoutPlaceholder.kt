@@ -101,6 +101,7 @@ internal fun NavigationLayoutPlaceholder(
             nightMode = nightMode,
             modifier = Modifier.fillMaxSize(),
             routePoints = routePoints?.points.orEmpty(),
+            routeGeneration = manualRouteGeneration,
             phoneState = phoneState
         )
         } else {
