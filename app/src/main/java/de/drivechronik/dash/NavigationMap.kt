@@ -413,8 +413,8 @@ internal fun NavigationMap(
                 if (hint == null) {
                     nearTurn = false
                 } else if (distance != null) {
-                    if (distance <= 300.0) nearTurn = true
-                    if (distance >= 340.0) nearTurn = false
+                    if (distance <= 500.0) nearTurn = true
+                    if (distance >= 550.0) nearTurn = false
                 }
 
                 val phone = phoneState.value

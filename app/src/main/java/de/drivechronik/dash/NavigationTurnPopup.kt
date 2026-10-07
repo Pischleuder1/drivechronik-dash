@@ -46,11 +46,11 @@ internal fun NavigationTurnPopup(
         val distance = hint!!.distance
 
         when {
-            distance <= 75.0 && phase < 2 -> {
+            distance <= 125.0 && phase < 2 -> {
                 phase = 2
                 popupVisible = true
             }
-            distance <= 300.0 && phase == 0 -> {
+            distance <= 500.0 && phase == 0 -> {
                 phase = 1
                 popupVisible = true
             }
