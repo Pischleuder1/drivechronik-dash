@@ -88,10 +88,22 @@ internal fun NavigationMap(
                 val offlineFile = offlineDir?.resolve(
                     "germany.pmtiles"
                 )
+                val chargingFile = offlineDir?.resolve(
+                    "charging-stations.pmtiles"
+                )
+
                 val offlineEnabled =
                     context.packageName.endsWith(".routingtest") &&
                     offlineFile?.isFile == true &&
                     offlineDir.resolve("offline-map.enabled").isFile
+
+                val chargingUri =
+                    if (offlineEnabled && chargingFile?.isFile == true) {
+                        "pmtiles://file://" +
+                            chargingFile.absolutePath
+                    } else {
+                        null
+                    }
 
                 val styleBuilder = if (offlineEnabled) {
                     val template = context.assets.open(
@@ -106,12 +118,36 @@ internal fun NavigationMap(
                         "Offline-Test: $uri"
                     )
 
-                    Style.Builder().fromJson(
-                        template.replace(
+                    if (chargingUri != null) {
+                        android.util.Log.i(
+                            "DriveChronikOfflineMap",
+                            "Charging-Overlay: $chargingUri"
+                        )
+                    }
+
+                    val chargingSourceBlock =
+                        if (chargingUri != null) {
+                            """,
+    "charging": {
+      "type": "vector",
+      "url": "$chargingUri",
+      "attribution": "Ladeinfrastruktur: Bundesnetzagentur.de"
+    }"""
+                        } else {
+                            ""
+                        }
+
+                    val styleJson = template
+                        .replace(
                             "PMTILES_FILE_URL",
                             uri
                         )
-                    )
+                        .replace(
+                            "CHARGING_SOURCE_BLOCK",
+                            chargingSourceBlock
+                        )
+
+                    Style.Builder().fromJson(styleJson)
                 } else {
                     Style.Builder().fromUri(
                         "https://tiles.openfreemap.org/styles/liberty"
@@ -159,6 +195,94 @@ internal fun NavigationMap(
                                     circleStrokeWidth(2.5f)
                                 )
                         )
+                    }
+
+                    if (chargingUri != null) {
+                        it.addImage(
+                            "dash-charging-normal",
+                            chargingStationBitmap()
+                        )
+                        it.addImage(
+                            "dash-charging-fast",
+                            fastChargingBitmap()
+                        )
+
+                        // Normale Ladepunkte – erst bei näherem Zoom.
+                        val normalChargingLayer = SymbolLayer(
+                            "charging-normal-layer",
+                            "charging"
+                        ).withSourceLayer(
+                            "charging_station"
+                        ).withFilter(
+                            Expression.all(
+                                Expression.eq(
+                                    Expression.get("is_fast"),
+                                    Expression.literal(false)
+                                ),
+                                Expression.eq(
+                                    Expression.get("is_supercharger"),
+                                    Expression.literal(false)
+                                )
+                            )
+                        ).withProperties(
+                            iconImage("dash-charging-normal"),
+                            iconSize(0.72f),
+                            iconAllowOverlap(false),
+                            iconIgnorePlacement(false)
+                        )
+                        normalChargingLayer.minZoom = 13f
+                        it.addLayer(normalChargingLayer)
+
+                        // Andere Schnelllader.
+                        val fastChargingLayer = SymbolLayer(
+                            "charging-fast-layer",
+                            "charging"
+                        ).withSourceLayer(
+                            "charging_station"
+                        ).withFilter(
+                            Expression.all(
+                                Expression.eq(
+                                    Expression.get("is_fast"),
+                                    Expression.literal(true)
+                                ),
+                                Expression.eq(
+                                    Expression.get("is_supercharger"),
+                                    Expression.literal(false)
+                                )
+                            )
+                        ).withProperties(
+                            iconImage("dash-charging-fast"),
+                            iconSize(0.78f),
+                            iconAllowOverlap(false),
+                            iconIgnorePlacement(false)
+                        )
+                        fastChargingLayer.minZoom = 11f
+                        it.addLayer(fastChargingLayer)
+
+                        // Tesla Supercharger.
+                        it.addImage(
+                            "dash-tesla-supercharger",
+                            teslaSuperchargerBitmap()
+                        )
+
+                        val teslaChargingLayer = SymbolLayer(
+                            "charging-tesla-layer",
+                            "charging"
+                        ).withSourceLayer(
+                            "charging_station"
+                        ).withFilter(
+                            Expression.eq(
+                                Expression.get("is_supercharger"),
+                                Expression.literal(true)
+                            )
+                        ).withProperties(
+                            iconImage("dash-tesla-supercharger"),
+                            iconSize(0.78f),
+                            iconAllowOverlap(true),
+                            iconIgnorePlacement(true)
+                        )
+                        teslaChargingLayer.minZoom = 8f
+                        it.addLayer(teslaChargingLayer)
                     }
 
                     it.addImage(
@@ -491,8 +615,9 @@ internal fun NavigationMap(
                     phoneSpeed ?: 0.0
                 }
 
-                // Stufenlose Geschwindigkeitskurve.
-                val cruisingZoom = when {
+                if (centered || NavigationSimulation.active) {
+                    // Stufenlose Geschwindigkeitskurve.
+                    val cruisingZoom = when {
                     speedKmh <= 30.0 -> 16.0
                     speedKmh <= 50.0 ->
                         16.0 - (speedKmh - 30.0) / 20.0
@@ -606,6 +731,7 @@ internal fun NavigationMap(
                                 .build()
                         )
                     )
+                }
                 }
 
             }

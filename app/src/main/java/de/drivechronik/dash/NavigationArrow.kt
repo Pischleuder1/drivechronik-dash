@@ -85,3 +85,128 @@ internal fun navigationArrowBitmap(): Bitmap {
 
     return bitmap
 }
+
+internal fun teslaSuperchargerBitmap(): Bitmap {
+    val bitmap = Bitmap.createBitmap(
+        72, 72, Bitmap.Config.ARGB_8888
+    )
+    val canvas = Canvas(bitmap)
+
+    // Weißer Kreis mit dunkler Kontur als Kartenmarker.
+    val background = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(36f, 36f, 30f, background)
+
+    val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(40, 50, 60)
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
+    }
+    canvas.drawCircle(36f, 36f, 30f, border)
+
+    // Rotes stilisiertes Tesla-T.
+    val logo = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(232, 33, 39)
+        style = Paint.Style.FILL
+    }
+
+    val top = Path().apply {
+        moveTo(18f, 29f)
+        quadTo(36f, 17f, 54f, 29f)
+        lineTo(50f, 36f)
+        quadTo(36f, 28f, 22f, 36f)
+        close()
+    }
+    canvas.drawPath(top, logo)
+
+    val stem = Path().apply {
+        moveTo(31f, 34f)
+        quadTo(36f, 31f, 41f, 34f)
+        lineTo(39f, 53f)
+        quadTo(36f, 57f, 33f, 53f)
+        close()
+    }
+    canvas.drawPath(stem, logo)
+
+    return bitmap
+}
+
+internal fun chargingStationBitmap(): Bitmap {
+    val bitmap = Bitmap.createBitmap(
+        56, 56, Bitmap.Config.ARGB_8888
+    )
+    val canvas = Canvas(bitmap)
+
+    val background = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(58, 134, 255)
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(28f, 28f, 22f, background)
+
+    val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+    }
+    canvas.drawCircle(28f, 28f, 22f, border)
+
+    val bolt = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.FILL
+    }
+
+    val path = Path().apply {
+        moveTo(30f, 11f)
+        lineTo(19f, 29f)
+        lineTo(27f, 29f)
+        lineTo(24f, 45f)
+        lineTo(38f, 24f)
+        lineTo(30f, 24f)
+        close()
+    }
+
+    canvas.drawPath(path, bolt)
+
+    return bitmap
+}
+
+internal fun fastChargingBitmap(): Bitmap {
+    val bitmap = Bitmap.createBitmap(
+        60, 60, Bitmap.Config.ARGB_8888
+    )
+    val canvas = Canvas(bitmap)
+
+    val background = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(245, 158, 11)
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(30f, 30f, 24f, background)
+
+    val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+    }
+    canvas.drawCircle(30f, 30f, 24f, border)
+
+    val bolt = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.FILL
+    }
+
+    val path = Path().apply {
+        moveTo(32f, 12f)
+        lineTo(20f, 31f)
+        lineTo(29f, 31f)
+        lineTo(26f, 48f)
+        lineTo(41f, 26f)
+        lineTo(32f, 26f)
+        close()
+    }
+
+    canvas.drawPath(path, bolt)
+
+    return bitmap
+}
