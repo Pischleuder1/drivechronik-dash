@@ -15,10 +15,13 @@ internal fun NavigationSettingsHome(
     route: de.drivechronik.dash.routing.OfflineRoute?,
     onStop: () -> Unit,
     close: () -> Unit,
-    onDeveloperMode: () -> Unit
+    onDeveloperMode: () -> Unit,
+    initialMapsOpen: Boolean = false
 ) {
     val context = LocalContext.current
-    var mapsOpen by remember { mutableStateOf(false) }
+    var mapsOpen by remember(initialMapsOpen) {
+        mutableStateOf(initialMapsOpen)
+    }
     var taps by remember { mutableIntStateOf(0) }
     val version = remember {
         context.packageManager

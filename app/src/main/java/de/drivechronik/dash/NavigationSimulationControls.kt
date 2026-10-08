@@ -27,10 +27,26 @@ internal fun NavigationSimulationControls(
     var developerMode by remember {
         mutableStateOf(false)
     }
+    var openOfflineMaps by remember {
+        mutableStateOf(false)
+    }
 
+    val offlineMapsRequest =
+        OfflineUpdateState.openOfflineMapsRequest
+
+    LaunchedEffect(offlineMapsRequest) {
+        if (offlineMapsRequest > 0L) {
+            developerMode = false
+            openOfflineMaps = true
+            open = true
+        }
+    }
 
     IconButton(
-        onClick = { open = true },
+        onClick = {
+            openOfflineMaps = false
+            open = true
+        },
         modifier = Modifier
             .size(44.dp)
             .background(
@@ -52,7 +68,10 @@ internal fun NavigationSimulationControls(
             )
         ) {
         AlertDialog(
-            onDismissRequest = { open = false },
+            onDismissRequest = {
+                openOfflineMaps = false
+                open = false
+            },
             properties = DialogProperties(
                 usePlatformDefaultWidth = false
             ),
@@ -86,16 +105,25 @@ internal fun NavigationSimulationControls(
                         NavigationSettingsHome(
                             route = route,
                             onStop = onStop,
-                            close = { open = false },
+                            close = {
+                                openOfflineMaps = false
+                                open = false
+                            },
                             onDeveloperMode = {
                                 developerMode = true
-                            }
+                            },
+                            initialMapsOpen = openOfflineMaps
                         )
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { open = false }) {
+                TextButton(
+                    onClick = {
+                        openOfflineMaps = false
+                        open = false
+                    }
+                ) {
                     Text("Schließen")
                 }
             }

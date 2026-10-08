@@ -992,6 +992,11 @@ private fun DriveChronikDashboard(
 private fun DashboardContent(
     state: DashboardUiState
 ) {
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        OfflineUpdateState.refresh(context)
+    }
 
     Column(
         modifier =
@@ -1224,6 +1229,15 @@ modifier =
                 )
             }
         }
+
+        OfflineUpdateIndicator(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(
+                    top = 7.dp,
+                    end = 8.dp
+                )
+        )
 
         NavigationTurnPopup(
             modifier = Modifier
