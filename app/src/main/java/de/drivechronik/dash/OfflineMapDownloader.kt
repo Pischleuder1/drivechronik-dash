@@ -2,13 +2,21 @@ package de.drivechronik.dash
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
 internal object OfflineMapDownloader {
+
+    private val downloadLocks =
+        ConcurrentHashMap<String, Mutex>()
 
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -74,14 +82,22 @@ internal object OfflineMapDownloader {
         )
         check(dir.isDirectory || dir.mkdirs())
 
-        val file = File(dir, part.name)
-        val partial = File(dir, part.name + ".download")
+        val lockKey =
+            "${pkg.id}/${pkg.sha256.lowercase()}/${part.name}"
+        val lock = downloadLocks.computeIfAbsent(lockKey) {
+            Mutex()
+        }
+        val downloadContext = currentCoroutineContext()
+
+        lock.withLock {
+            val file = File(dir, part.name)
+            val partial = File(dir, part.name + ".download")
 
         if (file.isFile) {
             if (file.length() == part.sizeBytes &&
                 sha256(file).equals(part.sha256, true)) {
                 onProgress(part.sizeBytes, part.sizeBytes)
-                return@withContext file
+                return@withLock file
             }
             check(file.delete()) {
                 "Beschädigten Cache nicht entfernbar"
@@ -94,15 +110,18 @@ internal object OfflineMapDownloader {
             0L
         }
 
-        check(offset <= part.sizeBytes) {
-            "Unplausible Dateigröße"
+        if (offset > part.sizeBytes) {
+            check(partial.delete()) {
+                "Übergroßen Teil nicht entfernbar"
+            }
+            offset = 0L
         }
 
         if (offset == part.sizeBytes) {
             if (sha256(partial).equals(part.sha256, true)) {
                 check(partial.renameTo(file))
                 onProgress(part.sizeBytes, part.sizeBytes)
-                return@withContext file
+                return@withLock file
             }
             check(partial.delete()) {
                 "Beschädigten Teil nicht entfernbar"
@@ -164,6 +183,7 @@ internal object OfflineMapDownloader {
                 java.io.FileOutputStream(partial, true).use { output ->
                     val buffer = ByteArray(256 * 1024)
                     while (true) {
+                        downloadContext.ensureActive()
                         val count = input.read(buffer)
                         if (count < 0) break
                         check(count <= part.sizeBytes - received) {
@@ -192,5 +212,6 @@ internal object OfflineMapDownloader {
             "Speichern fehlgeschlagen"
         }
         file
+        }
     }
 }

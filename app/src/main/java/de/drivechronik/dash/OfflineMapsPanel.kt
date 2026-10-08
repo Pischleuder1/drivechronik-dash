@@ -222,9 +222,11 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                                             }
                                         }
                                         downloadInfo = "Prüfe Gesamtpaket …"
+
                                         withContext(Dispatchers.IO) {
                                             val verified =
                                                 OfflineMapAssembler.assemble(context, item)
+
                                             if (item.id == "de-map" ||
                                                 item.id == "de-routing") {
                                                 OfflineMapPending.mark(
@@ -232,9 +234,32 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                                                 )
                                             }
                                         }
-                                        downloadInfo = "Paket vollständig geprüft"
+
+                                        downloadInfo = "Installiere …"
+
+                                        val installed =
+                                            withContext(Dispatchers.IO) {
+                                                if (item.id == "de-map" ||
+                                                    item.id == "de-routing") {
+                                                    OfflinePendingInstaller.process(
+                                                        context, item.id
+                                                    )
+                                                } else {
+                                                    false
+                                                }
+                                            }
+
+                                        check(installed) {
+                                            "Installation wurde nicht durchgeführt"
+                                        }
+
+                                        installedStatus =
+                                            installedStatus +
+                                                (item.id to MapInstallStatus.CURRENT)
+
+                                        downloadInfo = "Installiert"
                                         downloadResults = downloadResults +
-                                            (item.id to "Bereit · noch nicht installiert")
+                                            (item.id to "✓ Installiert")
                                     } catch (e: Exception) {
                                         downloadInfo =
                                             "Fehler: ${e.message ?: "Download"}"
