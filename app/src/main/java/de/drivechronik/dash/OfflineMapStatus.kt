@@ -63,20 +63,11 @@ internal object OfflineMapStatus {
         } else {
             val previousHash =
                 OfflineMapVersions.hash(context, pkg.id)
-            val previousVersion =
-                OfflineMapVersions.version(context, pkg.id)
-
-            val previousDate = previousVersion
-                ?.takeIf { it.matches(Regex("""\d{4}-\d{2}""")) }
-            val availableDate = pkg.version
-                .takeIf { it.matches(Regex("""\d{4}-\d{2}""")) }
 
             if (
                 previousHash != null &&
                 hash.equals(previousHash, ignoreCase = true) &&
-                previousDate != null &&
-                availableDate != null &&
-                availableDate > previousDate
+                !hash.equals(pkg.sha256, ignoreCase = true)
             ) {
                 MapInstallStatus.UPDATE_AVAILABLE
             } else {

@@ -90,6 +90,37 @@ internal object OfflineMapInstaller {
         }
     }
 
+    internal fun cleanupCommittedBackup(
+        destination: File
+    ): Boolean {
+        val parent = destination.parentFile ?: return false
+        val backup = File(parent, destination.name + ".backup")
+        val rollback = File(parent, destination.name + ".rollback")
+
+        if (OfflineMapJournal.read(destination) != null ||
+            rollback.exists()
+        ) {
+            android.util.Log.w(
+                "OfflineMaps",
+                "Backup bleibt erhalten: Transaktion noch nicht sicher abgeschlossen"
+            )
+            return false
+        }
+
+        if (!backup.exists()) return true
+
+        val deleted = backup.isFile && backup.delete()
+        if (!deleted) {
+            android.util.Log.w(
+                "OfflineMaps",
+                "Altes Backup konnte nicht entfernt werden: " +
+                    backup.absolutePath
+            )
+        }
+
+        return deleted
+    }
+
     suspend fun install(
         context: Context,
         pkg: RemoteMapPackage,
@@ -200,6 +231,7 @@ internal object OfflineMapInstaller {
                 context, pkg.id, pkg.version, pkg.sha256
             )
             OfflineMapJournal.clear(destination)
+            cleanupCommittedBackup(destination)
         } catch (e: Exception) {
             if (!activationVerified) {
                 val txn = OfflineMapJournal.read(destination)
@@ -246,6 +278,7 @@ internal object OfflineMapInstaller {
         val rollback = File(parent, destination.name + ".rollback")
         val staged = File(parent, destination.name + ".new")
         val txn = OfflineMapJournal.read(destination)
+        var recoveredNewVersion = false
 
         if (txn != null) {
             check(txn.packageId == packageId)
@@ -259,6 +292,7 @@ internal object OfflineMapInstaller {
                 OfflineMapVersions.saveVerified(
                     context, packageId, txn.newVersion, txn.newHash
                 )
+                recoveredNewVersion = true
             } else if (actual != null &&
                 txn.previousHash != null &&
                 actual.equals(txn.previousHash, true)) {
@@ -310,6 +344,9 @@ internal object OfflineMapInstaller {
                 }
             }
             OfflineMapJournal.clear(destination)
+            if (recoveredNewVersion) {
+                cleanupCommittedBackup(destination)
+            }
             return
         }
 

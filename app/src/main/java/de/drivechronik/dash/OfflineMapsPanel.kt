@@ -185,7 +185,28 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                     }
 
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.SpaceBetween,
+                        verticalAlignment =
+                            androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "$type · ${size(item.sizeBytes)}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            state,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
                     if (status != MapInstallStatus.CURRENT) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
                         TextButton(
                             enabled = downloadingId == null,
                             onClick = {
@@ -271,32 +292,28 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                                 }
                             }
                         ) {
+                            val actionText = when (status) {
+                                MapInstallStatus.UPDATE_AVAILABLE ->
+                                    "Aktualisieren"
+                                MapInstallStatus.NOT_INSTALLED ->
+                                    "Herunterladen"
+                                MapInstallStatus.UNKNOWN_VERSION ->
+                                    "Neu installieren"
+                                else ->
+                                    "Herunterladen"
+                            }
+
                             Text(
                                 if (downloadingId == item.id)
                                     "Lädt: $downloadInfo"
                                 else
                                     downloadResults[item.id]
-                                        ?: "Herunterladen"
+                                        ?: actionText
                             )
+                        }
                         }
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement =
-                            Arrangement.SpaceBetween,
-                        verticalAlignment =
-                            androidx.compose.ui.Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "$type · ${size(item.sizeBytes)}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            state,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
                 }
             }
         }
@@ -304,8 +321,8 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
         val storage = android.os.StatFs(context.filesDir.path)
         Text("Freier Speicher: ${size(storage.availableBytes)}")
         Text(
-            "Download, Aktualisierung und Löschen " +
-            "folgen in der nächsten Ausbaustufe.",
+            "Offline-Pakete können hier heruntergeladen und " +
+            "aktualisiert werden.",
             style = MaterialTheme.typography.bodySmall
         )
 
