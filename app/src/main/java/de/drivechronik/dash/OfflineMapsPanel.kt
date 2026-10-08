@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.app.Activity
@@ -172,10 +173,17 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                 )
                 items.forEach { item ->
                     val status = installedStatus[item.id]
-                    val type = when (item.kind) {
+                    val title = when (item.kind) {
+                        "map" -> "Offline-Karte"
+                        "routing" -> "Offline-Routing"
+                        "charging" -> "Ladestationen"
+                        else -> item.kind
+                    }
+
+                    val technicalType = when (item.kind) {
                         "map" -> "PMTiles"
                         "routing" -> "Valhalla"
-                        "charging" -> "Ladestationen"
+                        "charging" -> "Charging Overlay"
                         else -> item.kind
                     }
                     val state = when (status) {
@@ -190,29 +198,74 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                     }
 
 
-                    Row(
+                    OutlinedCard(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement =
-                            Arrangement.SpaceBetween,
-                        verticalAlignment =
-                            androidx.compose.ui.Alignment.CenterVertically
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = Color(0xFF21364B)
+                        )
                     ) {
-                        Text(
-                            "$type · ${size(item.sizeBytes)}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            state,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-
-                    if (status != MapInstallStatus.CURRENT) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    horizontal = 14.dp,
+                                    vertical = 11.dp
+                                ),
+                            verticalArrangement =
+                                Arrangement.spacedBy(4.dp)
                         ) {
-                        TextButton(
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement =
+                                    Arrangement.SpaceBetween,
+                                verticalAlignment =
+                                    androidx.compose.ui.Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = title,
+                                    style =
+                                        MaterialTheme.typography.titleMedium
+                                )
+
+                                Text(
+                                    text = state,
+                                    style =
+                                        MaterialTheme.typography.bodySmall,
+                                    color = when (status) {
+                                        MapInstallStatus.CURRENT ->
+                                            Color(0xFF67D391)
+
+                                        MapInstallStatus.UPDATE_AVAILABLE ->
+                                            Color(0xFFFFB74D)
+
+                                        else ->
+                                            MaterialTheme.colorScheme.onSurface
+                                    }
+                                )
+                            }
+
+                            Text(
+                                text = technicalType,
+                                style =
+                                    MaterialTheme.typography.bodySmall,
+                                color =
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Text(
+                                text =
+                                    "Version ${item.version} · " +
+                                        size(item.sizeBytes),
+                                style =
+                                    MaterialTheme.typography.bodyMedium
+                            )
+
+                            if (status != MapInstallStatus.CURRENT) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    TextButton(
                             enabled = downloadingId == null,
                             onClick = {
                                 downloadingId = item.id
@@ -353,6 +406,8 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                                         ?: actionText
                             )
                         }
+                                }
+                            }
                         }
                     }
 
