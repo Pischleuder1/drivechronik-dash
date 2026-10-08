@@ -2,12 +2,12 @@ package de.drivechronik.dash.routing
 
 import android.content.Context
 import de.drivechronik.dash.NavigationHighwaySetting
+import de.drivechronik.dash.OfflineMapRepository
 import com.valhalla.valhalla.Valhalla
 import com.valhalla.valhalla.config.ValhallaConfigFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.File
 
 data class RouteManeuver(
     val instruction: String,
@@ -37,11 +37,22 @@ suspend fun calculateOfflineRoute(
         check(de.drivechronik.dash.OfflineStartupGate.routingReady) {
             "Offlinekarten noch nicht freigegeben"
         }
-        val tiles = File(
-            context.filesDir, "routing/valhalla_tiles.tar"
-        )
-        require(tiles.isFile && tiles.length() > 0L) {
-            "Offline-Routingdaten fehlen"
+        val activePackage =
+            OfflineMapRepository.activePackage(context)
+
+        val tiles =
+            activePackage.routingFile
+                ?: error(
+                    "Keine Routingdaten für " +
+                        activePackage.name
+                )
+
+        require(
+            tiles.isFile &&
+                tiles.length() > 0L
+        ) {
+            "Offline-Routingdaten fehlen für " +
+                activePackage.name
         }
 
         val request = JSONObject().apply {

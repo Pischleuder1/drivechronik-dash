@@ -5,7 +5,7 @@ import android.content.Context
 internal object OfflineInstalledIntegrity {
 
     fun verify(context: Context) {
-        OfflinePackageSupport.supportedIds.forEach { id ->
+        OfflinePackageSupport.startupIds(context).forEach { id ->
             verify(context, id)
         }
     }

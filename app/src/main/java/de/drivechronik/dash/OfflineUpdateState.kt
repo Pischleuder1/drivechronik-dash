@@ -27,14 +27,16 @@ internal object OfflineUpdateState {
 
         packages
             .filter {
-                it.country == "de" &&
-                    OfflinePackageSupport.isSupported(it.id)
+                OfflinePackageSupport.isSupported(it.id)
             }
             .forEach { pkg ->
-                val file = OfflinePackageSupport.target(
-                    context,
-                    pkg.id
-                )
+                val file = runCatching {
+                    OfflinePackageSupport.target(
+                        context,
+                        pkg
+                    )
+                }.getOrNull()
+                    ?: return@forEach
 
                 // Nicht installierte optionale Pakete erzeugen
                 // bewusst keinen Dashboard-Hinweis.

@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.app.Activity
 import android.content.Intent
-import java.io.File
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -67,11 +66,14 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
         loading = false
     }
 
-    val map = context.getExternalFilesDir(null)
-        ?.resolve("germany.pmtiles")
-    val routing = File(
-        context.filesDir, "routing/valhalla_tiles.tar"
-    )
+    val activeOfflinePackage =
+        OfflineMapRepository.activePackage(context)
+
+    val map =
+        activeOfflinePackage.mapFile
+
+    val routing =
+        activeOfflinePackage.routingFile
     val marker = context.getExternalFilesDir(null)
         ?.resolve("offline-map.enabled")
     val testApp = context.packageName.endsWith(".routingtest")

@@ -44,15 +44,31 @@ class OfflineMapCrashRecoveryTest {
                 ))
                 OfflineMapInstaller.recover(context, target, id)
                 assertEquals(if (stage == 0) a else d, target.readText())
-                assertEquals(if (stage == 0) c else a, backup.readText())
+
+                if (stage == 0) {
+                    assertTrue(backup.isFile)
+                    assertEquals(c, backup.readText())
+                } else {
+                    assertFalse(backup.exists())
+                }
+
                 assertFalse(rollback.exists())
                 assertFalse(staged.exists())
                 assertNull(OfflineMapJournal.read(target))
-                assertEquals(if (stage == 0) sha(a) else sha(d),
-                    OfflineMapVersions.hash(context, id))
+                assertEquals(
+                    if (stage == 0) sha(a) else sha(d),
+                    OfflineMapVersions.hash(context, id)
+                )
+
                 // Zweiter Start darf keine Änderungen bewirken.
                 OfflineMapInstaller.recover(context, target, id)
-                assertEquals(if (stage == 0) c else a, backup.readText())
+
+                if (stage == 0) {
+                    assertTrue(backup.isFile)
+                    assertEquals(c, backup.readText())
+                } else {
+                    assertFalse(backup.exists())
+                }
             } finally {
                 dir.deleteRecursively()
             }

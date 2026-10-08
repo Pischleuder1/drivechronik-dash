@@ -54,6 +54,9 @@ internal fun NavigationMap(
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
+
+    val activeCountry =
+        OfflineMapRepository.activeCountry(context)
     val compassHeading = rememberCompassHeading()
     val currentCompass by rememberUpdatedState(compassHeading)
     val currentRoutePoints by rememberUpdatedState(routePoints)
@@ -79,7 +82,10 @@ internal fun NavigationMap(
         mutableStateOf<Int?>(null)
     }
 
-    val mapView = remember(context) {
+    val mapView = remember(
+        context,
+        activeCountry
+    ) {
         MapLibre.getInstance(context.applicationContext)
         MapView(
             context,
@@ -89,17 +95,25 @@ internal fun NavigationMap(
             getMapAsync { map ->
                 val offlineDir =
                     context.getExternalFilesDir(null)
-                val offlineFile = offlineDir?.resolve(
-                    "germany.pmtiles"
-                )
-                val chargingFile = offlineDir?.resolve(
-                    "charging-stations.pmtiles"
-                )
+
+                val activeOfflinePackage =
+                    OfflineMapRepository.packageFor(
+                        context,
+                        activeCountry
+                    )
+
+                val offlineFile =
+                    activeOfflinePackage.mapFile
+
+                val chargingFile =
+                    activeOfflinePackage.chargingFile
 
                 val offlineEnabled =
                     context.packageName.endsWith(".routingtest") &&
                     offlineFile?.isFile == true &&
-                    offlineDir.resolve("offline-map.enabled").isFile
+                    offlineDir
+                        ?.resolve("offline-map.enabled")
+                        ?.isFile == true
 
                 val chargingUri =
                     if (offlineEnabled && chargingFile?.isFile == true) {
@@ -119,7 +133,7 @@ internal fun NavigationMap(
 
                     android.util.Log.i(
                         "DriveChronikOfflineMap",
-                        "Offline-Test: $uri"
+                        "Offline ${activeOfflinePackage.name}: $uri"
                     )
 
                     if (chargingUri != null) {

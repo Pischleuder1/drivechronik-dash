@@ -19,13 +19,16 @@ internal object OfflineMapStatus {
         context: Context,
         pkg: RemoteMapPackage
     ): File? {
-        if (pkg.country != "de") return null
-        if (!OfflinePackageSupport.isSupported(pkg.id)) return null
+        if (!OfflinePackageSupport.isSupported(pkg.id)) {
+            return null
+        }
 
-        return OfflinePackageSupport.target(
-            context,
-            pkg.id
-        )
+        return runCatching {
+            OfflinePackageSupport.target(
+                context,
+                pkg
+            )
+        }.getOrNull()
     }
 
     suspend fun check(

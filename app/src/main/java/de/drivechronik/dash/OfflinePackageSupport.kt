@@ -5,73 +5,264 @@ import java.io.File
 
 internal object OfflinePackageSupport {
 
-    val supportedIds = listOf(
+    private val supportedKinds =
+        setOf("map", "routing", "charging")
+
+    /**
+     * Kompatibilität für den derzeit aktiven Deutschland-Bestand.
+     *
+     * Diese Liste ist NICHT mehr die Definition aller erlaubten Pakete.
+     * Neue Länder werden ausschließlich über das Schema
+     *
+     *     <country>-<kind>
+     *
+     * erkannt.
+     */
+    val bootstrapIds = listOf(
         "de-map",
         "de-routing",
         "de-charging"
     )
 
+    data class PackageId(
+        val country: String,
+        val kind: String
+    )
+
+    fun parseId(id: String): PackageId? {
+        val split = id.lastIndexOf('-')
+
+        if (split <= 0 || split >= id.lastIndex) {
+            return null
+        }
+
+        val country = id.substring(0, split)
+        val kind = id.substring(split + 1)
+
+        if (
+            !country.matches(
+                Regex("[a-z0-9][a-z0-9-]*")
+            )
+        ) {
+            return null
+        }
+
+        if (kind !in supportedKinds) {
+            return null
+        }
+
+        return PackageId(
+            country = country,
+            kind = kind
+        )
+    }
+
     fun isSupported(id: String): Boolean =
-        id in supportedIds
+        parseId(id) != null
+
+    /**
+     * Offline-Pakete, die beim App-Start tatsächlich relevant sind.
+     *
+     * - Deutschland bleibt als Bootstrap/Fallback enthalten.
+     * - Weitere Länder werden automatisch aus dem gecachten
+     *   Katalog aufgenommen, sobald sie installiert, bekannt
+     *   oder als Pending-Installation vorgemerkt sind.
+     */
+    fun startupIds(context: Context): List<String> {
+        val result = linkedSetOf<String>()
+        result += bootstrapIds
+
+        val cached =
+            GitHubMapCatalog.readCached(context)
+                .getOrNull()
+                .orEmpty()
+
+        cached
+            .filter { isSupported(it.id) }
+            .forEach { pkg ->
+                val relevant =
+                    runCatching {
+                        target(context, pkg).isFile
+                    }.getOrDefault(false) ||
+                    OfflineMapVersions.version(
+                        context,
+                        pkg.id
+                    ) != null ||
+                    OfflineMapVersions.hash(
+                        context,
+                        pkg.id
+                    ) != null ||
+                    OfflineMapPending.pending(
+                        context,
+                        pkg.id
+                    ) != null
+
+                if (relevant) {
+                    result += pkg.id
+                }
+            }
+
+        return result.toList()
+    }
+
+    fun isBootstrap(id: String): Boolean =
+        id in bootstrapIds
 
     fun validate(pkg: RemoteMapPackage) {
-        require(pkg.id in supportedIds)
-        require(pkg.country == "de")
-
-        when (pkg.id) {
-            "de-map" -> {
-                require(pkg.kind == "map")
-                require(pkg.fileName == "germany.pmtiles")
-            }
-
-            "de-routing" -> {
-                require(pkg.kind == "routing")
-                require(pkg.fileName == "valhalla_tiles.tar")
-            }
-
-            "de-charging" -> {
-                require(pkg.kind == "charging")
-                require(pkg.fileName == "charging-stations.pmtiles")
-            }
+        val parsed = requireNotNull(
+            parseId(pkg.id)
+        ) {
+            "Ungültige Offline-Paket-ID: ${pkg.id}"
         }
+
+        require(pkg.country == parsed.country) {
+            "Paket-ID und country stimmen nicht überein: " +
+                "${pkg.id} / ${pkg.country}"
+        }
+
+        require(pkg.kind == parsed.kind) {
+            "Paket-ID und kind stimmen nicht überein: " +
+                "${pkg.id} / ${pkg.kind}"
+        }
+
+        require(
+            pkg.fileName.matches(
+                Regex("[A-Za-z0-9._-]+")
+            )
+        ) {
+            "Ungültiger Dateiname: ${pkg.fileName}"
+        }
+
+        require(
+            pkg.fileName != "." &&
+                pkg.fileName != ".."
+        )
     }
 
-    fun target(
-        context: Context,
-        id: String
-    ): File {
-        require(id in supportedIds)
-
-        return when (id) {
-            "de-map" ->
-                File(
-                    context.getExternalFilesDir(null)
-                        ?: error("Kartenspeicher fehlt"),
-                    "germany.pmtiles"
-                )
-
-            "de-routing" ->
-                File(
-                    context.filesDir,
-                    "routing/valhalla_tiles.tar"
-                )
-
-            "de-charging" ->
-                File(
-                    context.getExternalFilesDir(null)
-                        ?: error("Kartenspeicher fehlt"),
-                    "charging-stations.pmtiles"
-                )
-
-            else -> error("Unbekanntes Offline-Paket")
-        }
-    }
-
+    /**
+     * Ziel anhand des vollständigen Katalogpakets.
+     *
+     * Deutschland bleibt vorerst an seinen bisherigen Orten,
+     * damit bestehende Installationen ohne Migration weiterlaufen.
+     *
+     * Neue Länder liegen paketweise getrennt und können dadurch
+     * identische Dateinamen wie "valhalla_tiles.tar" verwenden.
+     */
     fun target(
         context: Context,
         pkg: RemoteMapPackage
     ): File {
         validate(pkg)
-        return target(context, pkg.id)
+
+        if (pkg.country == "de") {
+            return legacyGermanTarget(
+                context = context,
+                kind = pkg.kind,
+                fileName = pkg.fileName
+            )
+        }
+
+        return when (pkg.kind) {
+            "map",
+            "charging" -> {
+                val root =
+                    context.getExternalFilesDir(null)
+                        ?: error(
+                            "Kartenspeicher fehlt"
+                        )
+
+                File(
+                    root,
+                    "offline/${pkg.country}/${pkg.fileName}"
+                )
+            }
+
+            "routing" ->
+                File(
+                    context.filesDir,
+                    "routing/${pkg.country}/${pkg.fileName}"
+                )
+
+            else ->
+                error(
+                    "Unbekannter Pakettyp: ${pkg.kind}"
+                )
+        }
     }
+
+    /**
+     * Übergangsfunktion für Code, der momentan nur eine Paket-ID
+     * besitzt. Das Paket wird zuerst aus dem gecachten Katalog
+     * aufgelöst.
+     *
+     * Für den bestehenden Deutschlandbestand gibt es zusätzlich
+     * einen Legacy-Fallback.
+     */
+    fun target(
+        context: Context,
+        id: String
+    ): File {
+        val parsed = requireNotNull(
+            parseId(id)
+        ) {
+            "Ungültige Offline-Paket-ID: $id"
+        }
+
+        GitHubMapCatalog.readCached(context)
+            .getOrNull()
+            ?.firstOrNull { it.id == id }
+            ?.let {
+                return target(context, it)
+            }
+
+        if (parsed.country == "de") {
+            return legacyGermanTarget(
+                context = context,
+                kind = parsed.kind,
+                fileName = null
+            )
+        }
+
+        error(
+            "Kein Katalogeintrag für Offline-Paket $id"
+        )
+    }
+
+    private fun legacyGermanTarget(
+        context: Context,
+        kind: String,
+        fileName: String?
+    ): File =
+        when (kind) {
+            "map" ->
+                File(
+                    context.getExternalFilesDir(null)
+                        ?: error(
+                            "Kartenspeicher fehlt"
+                        ),
+                    fileName ?: "germany.pmtiles"
+                )
+
+            "routing" ->
+                File(
+                    context.filesDir,
+                    "routing/" +
+                        (fileName ?: "valhalla_tiles.tar")
+                )
+
+            "charging" ->
+                File(
+                    context.getExternalFilesDir(null)
+                        ?: error(
+                            "Kartenspeicher fehlt"
+                        ),
+                    fileName
+                        ?: "charging-stations.pmtiles"
+                )
+
+            else ->
+                error(
+                    "Unbekannter Pakettyp: $kind"
+                )
+        }
 }

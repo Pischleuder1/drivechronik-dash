@@ -76,12 +76,11 @@ class OfflineMapUpdateTest {
         )
 
         assertEquals("TEST_VERSION_A", target.readText())
-        assertEquals("TEST_VERSION_C", backup.readText())
+        assertFalse(backup.exists())
         assertFalse(archived.exists())
 
         // LOW_SPACE_TEST: Update darf nichts verändern.
         val beforeMap = target.readBytes()
-        val beforeBackup = backup.readBytes()
 
         val contentD = "TEST_VERSION_D"
         val verifiedD = File(context.cacheDir, "update-D.verified")
@@ -101,7 +100,7 @@ class OfflineMapUpdateTest {
             }
             assertTrue(failure.isFailure)
             assertArrayEquals(beforeMap, target.readBytes())
-            assertArrayEquals(beforeBackup, backup.readBytes())
+            assertFalse(backup.exists())
             assertFalse(archived.exists())
             assertNull(OfflineMapJournal.read(target))
             assertFalse(File(dir, "germany.pmtiles.new").exists())
@@ -128,8 +127,7 @@ class OfflineMapUpdateTest {
         OfflineMapInstaller.recover(context, target, "de-map")
 
         assertEquals("TEST_VERSION_A", target.readText())
-        assertTrue(backup.isFile)
-        assertEquals("TEST_VERSION_C", backup.readText())
+        assertFalse(backup.exists())
         assertNull(OfflineMapJournal.read(target))
         assertFalse(File(dir, "germany.pmtiles.new").exists())
 
