@@ -20,16 +20,12 @@ internal object OfflineMapStatus {
         pkg: RemoteMapPackage
     ): File? {
         if (pkg.country != "de") return null
+        if (!OfflinePackageSupport.isSupported(pkg.id)) return null
 
-        return when (pkg.kind) {
-            "map" -> context.getExternalFilesDir(null)
-                ?.resolve("germany.pmtiles")
-            "routing" -> File(
-                context.filesDir,
-                "routing/valhalla_tiles.tar"
-            )
-            else -> null
-        }
+        return OfflinePackageSupport.target(
+            context,
+            pkg.id
+        )
     }
 
     suspend fun check(

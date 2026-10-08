@@ -49,13 +49,17 @@ internal fun NavigationMap(
     modifier: Modifier = Modifier,
     routePoints: List<RoutePoint> = emptyList(),
     routeGeneration: Int = 0,
-    phoneState: State<Location?>
+    phoneState: State<Location?>,
+    onChargingStationClick: (ChargingStationSelection) -> Unit = {}
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     val compassHeading = rememberCompassHeading()
     val currentCompass by rememberUpdatedState(compassHeading)
     val currentRoutePoints by rememberUpdatedState(routePoints)
+    val currentChargingStationClick by rememberUpdatedState(
+        onChargingStationClick
+    )
     // Gemeinsames Navigations-GPS
     val mapState = remember {
         mutableStateOf<MapLibreMap?>(null)
@@ -283,6 +287,154 @@ internal fun NavigationMap(
                         )
                         teslaChargingLayer.minZoom = 8f
                         it.addLayer(teslaChargingLayer)
+
+                        map.addOnMapClickListener { latLng ->
+                            val screenPoint =
+                                map.projection.toScreenLocation(latLng)
+
+                            /*
+                             * Nicht nur exakt den berührten Pixel prüfen.
+                             * Gerade die kleineren Ladepunkt-Symbole sind
+                             * sonst auf dem Display schwer zuverlässig
+                             * zu treffen.
+                             *
+                             * 28 dp Radius = ca. 56 x 56 dp Trefferfläche.
+                             */
+                            val density =
+                                context.resources.displayMetrics.density
+                            val radiusPx = 28f * density
+
+                            val touchArea = android.graphics.RectF(
+                                screenPoint.x - radiusPx,
+                                screenPoint.y - radiusPx,
+                                screenPoint.x + radiusPx,
+                                screenPoint.y + radiusPx
+                            )
+
+                            val features = map.queryRenderedFeatures(
+                                touchArea,
+                                "charging-tesla-layer",
+                                "charging-fast-layer",
+                                "charging-normal-layer"
+                            )
+
+                            /*
+                             * Liegen mehrere Stationen im Trefferbereich,
+                             * nehmen wir diejenige, deren Kartenposition
+                             * dem tatsächlichen Finger-Tipp am nächsten ist.
+                             */
+                            val feature = features
+                                .mapNotNull { candidate ->
+                                    val point =
+                                        candidate.geometry() as? Point
+                                            ?: return@mapNotNull null
+
+                                    val candidateScreen =
+                                        map.projection.toScreenLocation(
+                                            LatLng(
+                                                point.latitude(),
+                                                point.longitude()
+                                            )
+                                        )
+
+                                    val dx =
+                                        candidateScreen.x - screenPoint.x
+                                    val dy =
+                                        candidateScreen.y - screenPoint.y
+
+                                    candidate to
+                                        (dx * dx + dy * dy)
+                                }
+                                .minByOrNull { it.second }
+                                ?.first
+                                ?: return@addOnMapClickListener false
+
+                            val geometry = feature.geometry() as? Point
+                                ?: return@addOnMapClickListener false
+
+                            fun stringProperty(name: String): String? =
+                                if (feature.hasProperty(name)) {
+                                    feature.getStringProperty(name)
+                                        ?.takeIf { value ->
+                                            value.isNotBlank() &&
+                                                value != "null"
+                                        }
+                                } else {
+                                    null
+                                }
+
+                            fun boolProperty(name: String): Boolean =
+                                if (feature.hasProperty(name)) {
+                                    runCatching {
+                                        feature.getBooleanProperty(name)
+                                    }.getOrDefault(false)
+                                } else {
+                                    false
+                                }
+
+                            fun intProperty(name: String): Int? =
+                                if (feature.hasProperty(name)) {
+                                    runCatching {
+                                        feature.getNumberProperty(name)
+                                            ?.toInt()
+                                    }.getOrNull()
+                                } else {
+                                    null
+                                }
+
+                            fun doubleProperty(name: String): Double? =
+                                if (feature.hasProperty(name)) {
+                                    runCatching {
+                                        feature.getNumberProperty(name)
+                                            ?.toDouble()
+                                    }.getOrNull()
+                                } else {
+                                    null
+                                }
+
+                            val supercharger =
+                                boolProperty("is_supercharger")
+                            val fast =
+                                boolProperty("is_fast")
+
+                            val stationName =
+                                stringProperty("name")
+                                    ?: if (supercharger) {
+                                        "Tesla Supercharger"
+                                    } else if (fast) {
+                                        "Schnellladestation"
+                                    } else {
+                                        "Ladestation"
+                                    }
+
+                            currentChargingStationClick(
+                                ChargingStationSelection(
+                                    lat = geometry.latitude(),
+                                    lon = geometry.longitude(),
+                                    name = stationName,
+                                    operators =
+                                        stringProperty("operators"),
+                                    chargingPoints =
+                                        intProperty("charging_points"),
+                                    maxPowerKw =
+                                        doubleProperty("max_power_kw"),
+                                    connectors =
+                                        stringProperty("connectors"),
+                                    street =
+                                        stringProperty("street"),
+                                    houseNumber =
+                                        stringProperty("house_number"),
+                                    postcode =
+                                        stringProperty("postcode"),
+                                    city =
+                                        stringProperty("city"),
+                                    supercharger = supercharger,
+                                    fast = fast
+                                )
+                            )
+
+                            true
+                        }
                     }
 
                     it.addImage(

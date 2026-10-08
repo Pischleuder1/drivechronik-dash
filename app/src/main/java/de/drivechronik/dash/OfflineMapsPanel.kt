@@ -309,15 +309,18 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                                                     "Start-Intent fehlt"
                                                 )
 
-                                        launchIntent.addFlags(
-                                            Intent.FLAG_ACTIVITY_NEW_TASK or
-                                                Intent.FLAG_ACTIVITY_CLEAR_TASK
-                                        )
+                                        val component =
+                                            launchIntent.component
+                                                ?: error(
+                                                    "Start-Komponente fehlt"
+                                                )
 
-                                        (context as? Activity)
-                                            ?.finishAffinity()
+                                        val restartIntent =
+                                            Intent.makeRestartActivityTask(
+                                                component
+                                            )
 
-                                        context.startActivity(launchIntent)
+                                        context.startActivity(restartIntent)
 
                                         return@launch
                                     } catch (e: Exception) {

@@ -10,13 +10,22 @@ import androidx.compose.ui.platform.LocalContext
 import de.drivechronik.dash.routing.calculateOfflineRoute
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import kotlinx.coroutines.delay
 import de.drivechronik.dash.routing.OfflineRoute
+import de.drivechronik.dash.routing.RoutePoint
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,6 +34,7 @@ import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 
 private val navigationCurve = GenericShape { size, _ ->
     val w = size.width
@@ -62,6 +72,14 @@ internal fun NavigationLayoutPlaceholder(
 
     var manualRouteGeneration by remember {
         mutableIntStateOf(0)
+    }
+
+    var selectedChargingStation by remember {
+        mutableStateOf<ChargingStationSelection?>(null)
+    }
+
+    var chargingRouteLoading by remember {
+        mutableStateOf(false)
     }
 
     val (phoneState, _, _) =
@@ -102,7 +120,10 @@ internal fun NavigationLayoutPlaceholder(
             modifier = Modifier.fillMaxSize(),
             routePoints = routePoints?.points.orEmpty(),
             routeGeneration = manualRouteGeneration,
-            phoneState = phoneState
+            phoneState = phoneState,
+            onChargingStationClick = { station ->
+                selectedChargingStation = station
+            }
         )
         } else {
             androidx.compose.material3.Text(
@@ -228,6 +249,331 @@ internal fun NavigationLayoutPlaceholder(
             )
         }
 
+        selectedChargingStation?.let { station ->
+            ChargingStationMenu(
+                station = station,
+                loading = chargingRouteLoading,
+                onClose = {
+                    if (!chargingRouteLoading) {
+                        selectedChargingStation = null
+                    }
+                },
+                onNavigate = {
+                    if (chargingRouteLoading) {
+                        return@ChargingStationMenu
+                    }
+
+                    val origin =
+                        currentNavigationFix(phoneState.value)?.point
+
+                    if (origin == null) {
+                        Toast.makeText(
+                            context,
+                            "Navigation nicht möglich: GPS fehlt",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        return@ChargingStationMenu
+                    }
+
+                    chargingRouteLoading = true
+
+                    scope.launch {
+                        val destination = RoutePoint(
+                            lat = station.lat,
+                            lon = station.lon
+                        )
+
+                        val result = calculateOfflineRoute(
+                            context,
+                            origin,
+                            destination
+                        )
+
+                        result.onSuccess { route ->
+                            NavigationSimulation.stop()
+                            manualRouteGeneration++
+                            NavigationHintState.clear()
+                            NavigationSummaryState.updateDestination(
+                                station.name
+                            )
+                            routePoints = route
+                            selectedChargingStation = null
+                        }.onFailure {
+                            Toast.makeText(
+                                context,
+                                "Route zur Ladestation konnte " +
+                                    "nicht berechnet werden",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+
+                        chargingRouteLoading = false
+                    }
+                }
+            )
+        }
+
+    }
+}
+
+
+@Composable
+private fun ChargingStationMenu(
+    station: ChargingStationSelection,
+    loading: Boolean,
+    onNavigate: () -> Unit,
+    onClose: () -> Unit
+) {
+    val cardColor = Color(0xFF21364B)
+    val scrollState = rememberScrollState()
+
+    val streetText = listOfNotNull(
+        station.street?.takeIf { it.isNotBlank() },
+        station.houseNumber?.takeIf { it.isNotBlank() }
+    ).joinToString(" ")
+
+    val cityText = listOfNotNull(
+        station.postcode?.takeIf { it.isNotBlank() },
+        station.city?.takeIf { it.isNotBlank() }
+    ).joinToString(" ")
+
+    val powerText = station.maxPowerKw?.let { power ->
+        if (power % 1.0 == 0.0) {
+            "${power.toInt()} kW"
+        } else {
+            String.format(
+                java.util.Locale.GERMANY,
+                "%.1f kW",
+                power
+            )
+        }
+    }
+
+    val typeText = when {
+        station.supercharger -> "Supercharger"
+        station.fast -> "Schnelllader"
+        else -> "Ladestation"
+    }
+
+    val infoItems = buildList {
+        station.operators
+            ?.takeIf { it.isNotBlank() }
+            ?.let {
+                add("Betreiber" to it)
+            }
+
+        station.chargingPoints?.let {
+            add("Ladepunkte" to it.toString())
+        }
+
+        streetText
+            .takeIf { it.isNotBlank() }
+            ?.let {
+                add("Adresse" to it)
+            }
+
+        cityText
+            .takeIf { it.isNotBlank() }
+            ?.let {
+                add("Ort" to it)
+            }
+
+        powerText?.let {
+            add("Leistung" to it)
+        }
+
+        station.connectors
+            ?.takeIf { it.isNotBlank() }
+            ?.let {
+                add("Anschlüsse" to it)
+            }
+
+        add("Typ" to typeText)
+    }
+
+    androidx.compose.material3.AlertDialog(
+        modifier = Modifier
+            .fillMaxWidth(0.78f)
+            .widthIn(max = 760.dp),
+
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false
+        ),
+
+        onDismissRequest = {
+            if (!loading) {
+                onClose()
+            }
+        },
+
+        /*
+         * Kopfbereich:
+         * oben nur der Typ, darunter der konkrete Standort.
+         */
+        title = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text =
+                        if (station.supercharger)
+                            "Tesla Supercharger"
+                        else if (station.fast)
+                            "Schnellladestation"
+                        else
+                            "Ladestation",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                if (
+                    station.name.isNotBlank() &&
+                    station.name != "Tesla Supercharger"
+                ) {
+                    Text(
+                        text = station.name,
+                        fontSize = 15.sp,
+                        color = Color(0xFFB7C3CF)
+                    )
+                }
+            }
+        },
+
+        /*
+         * Nur dieser Mittelteil scrollt.
+         * Die beiden Buttons bleiben fest unten.
+         */
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 320.dp)
+                    .verticalScroll(scrollState),
+                verticalArrangement =
+                    Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "INFORMATIONEN",
+                    color =
+                        androidx.compose.material3.MaterialTheme
+                            .colorScheme.primary,
+                    style =
+                        androidx.compose.material3.MaterialTheme
+                            .typography.labelMedium
+                )
+
+                infoItems.chunked(2).forEach { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(10.dp)
+                    ) {
+                        rowItems.forEach { (label, value) ->
+                            ChargingStationInfoCard(
+                                label = label,
+                                value = value,
+                                color = cardColor,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        /*
+                         * Bei ungerader Anzahl bleibt die
+                         * letzte Karte genau eine halbe
+                         * Dialogbreite breit.
+                         */
+                        if (rowItems.size == 1) {
+                            Spacer(
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                if (loading) {
+                    Spacer(Modifier.height(2.dp))
+
+                    Text(
+                        text = "Route wird berechnet …",
+                        color =
+                            androidx.compose.material3.MaterialTheme
+                                .colorScheme.primary,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        },
+
+        confirmButton = {
+            androidx.compose.material3.TextButton(
+                enabled = !loading,
+                onClick = onNavigate
+            ) {
+                Text(
+                    if (loading)
+                        "Route wird berechnet …"
+                    else
+                        "Dorthin navigieren"
+                )
+            }
+        },
+
+        dismissButton = {
+            androidx.compose.material3.TextButton(
+                enabled = !loading,
+                onClick = onClose
+            ) {
+                Text("Schließen")
+            }
+        }
+    )
+}
+
+
+@Composable
+private fun ChargingStationInfoCard(
+    label: String,
+    value: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    OutlinedCard(
+        modifier = modifier,
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = color
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = 10.dp
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = label.uppercase(
+                    java.util.Locale.GERMANY
+                ),
+                color =
+                    androidx.compose.material3.MaterialTheme
+                        .colorScheme.primary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+
+            Text(
+                text = value,
+                color = Color.White,
+                fontSize = 15.sp,
+                lineHeight = 19.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2
+            )
+        }
     }
 }
 
