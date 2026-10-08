@@ -84,6 +84,9 @@ internal fun NavigationSimulationControls(
                         }
                     } else {
                         NavigationSettingsHome(
+                            route = route,
+                            onStop = onStop,
+                            close = { open = false },
                             onDeveloperMode = {
                                 developerMode = true
                             }
@@ -115,49 +118,6 @@ private fun NavigationSimulationMenu(onStop: () -> Unit,
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("GPS-SIMULATOR", fontSize = 12.sp)
-
-        if (!sim.active) {
-            Button(
-                onClick = {
-                    route?.let { sim.start(it) }
-                    close()
-                },
-                enabled = route != null,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("SIM START")
-            }
-        } else {
-            Row(
-                horizontalArrangement =
-                    Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = { sim.togglePause() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(if (sim.paused) "WEITER" else "PAUSE")
-                }
-                Button(
-                    onClick = { sim.changeSpeed() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("${sim.speedKmh} km/h")
-                }
-                Button(
-                    onClick = {
-                        onStop()
-                        close()
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("STOPP")
-                }
-            }
-        }
-
-
         if (searchError) {
             Text(
                 "Keine geeignete Alternativstraße gefunden.",
@@ -166,8 +126,11 @@ private fun NavigationSimulationMenu(onStop: () -> Unit,
             )
         }
 
-        HorizontalDivider()
-        Text("NAVIGATIONSTESTS", fontSize = 12.sp)
+        Text(
+            "NAVIGATIONSTESTS",
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 12.sp
+        )
 
         Row(
             horizontalArrangement =
@@ -179,9 +142,15 @@ private fun NavigationSimulationMenu(onStop: () -> Unit,
                     close()
                 },
                 enabled = sim.active && !sim.gpsOutage,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp),
+                contentPadding = PaddingValues(
+                    horizontal = 8.dp,
+                    vertical = 0.dp
+                )
             ) {
-                Text("Abbiegung", fontSize = 12.sp)
+                Text("Abbiegung", fontSize = 11.sp)
             }
 
             Button(
@@ -214,22 +183,35 @@ private fun NavigationSimulationMenu(onStop: () -> Unit,
                 enabled = sim.active && !sim.paused &&
                     !sim.gpsOutage && !searching &&
                     route != null,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp),
+                contentPadding = PaddingValues(
+                    horizontal = 8.dp,
+                    vertical = 0.dp
+                )
             ) {
                 Text(
                     if (searching) "Suche..." else "Fehlfahrt",
-                    fontSize = 12.sp
+                    fontSize = 11.sp
                 )
             }
 
             Button(
                 onClick = { sim.toggleGpsOutage() },
                 enabled = sim.active,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp),
+                contentPadding = PaddingValues(
+                    horizontal = 6.dp,
+                    vertical = 0.dp
+                )
             ) {
                 Text(
-                    if (sim.gpsOutage) "GPS einschalten"
-                    else "GPS ausschalten"
+                    if (sim.gpsOutage) "GPS ein"
+                    else "GPS aus",
+                    fontSize = 11.sp
                 )
             }
         }

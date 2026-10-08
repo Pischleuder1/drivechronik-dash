@@ -8,9 +8,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 internal fun NavigationSettingsHome(
+    route: de.drivechronik.dash.routing.OfflineRoute?,
+    onStop: () -> Unit,
+    close: () -> Unit,
     onDeveloperMode: () -> Unit
 ) {
     val context = LocalContext.current
@@ -75,6 +79,97 @@ internal fun NavigationSettingsHome(
                 },
                 leadingContent = { Text("⇢") }
             )
+        }
+
+        Text(
+            "FAHRTSIMULATION",
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelMedium
+        )
+
+        val sim = NavigationSimulation
+
+        OutlinedCard(
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = Color(0xFF21364B)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (!sim.active) {
+                Button(
+                    onClick = {
+                        route?.let { sim.start(it) }
+                        close()
+                    },
+                    enabled = route != null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                        .height(36.dp),
+                    contentPadding = PaddingValues(
+                        horizontal = 12.dp,
+                        vertical = 0.dp
+                    )
+                ) {
+                    Text("SIM START", fontSize = 12.sp)
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(6.dp)
+                ) {
+                    Button(
+                        onClick = { sim.togglePause() },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp),
+                        contentPadding = PaddingValues(
+                            horizontal = 6.dp,
+                            vertical = 0.dp
+                        )
+                    ) {
+                        Text(
+                            if (sim.paused) "WEITER" else "PAUSE",
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    Button(
+                        onClick = { sim.changeSpeed() },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp),
+                        contentPadding = PaddingValues(
+                            horizontal = 6.dp,
+                            vertical = 0.dp
+                        )
+                    ) {
+                        Text(
+                            "${sim.speedKmh} km/h",
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            onStop()
+                            close()
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp),
+                        contentPadding = PaddingValues(
+                            horizontal = 6.dp,
+                            vertical = 0.dp
+                        )
+                    ) {
+                        Text("STOPP", fontSize = 11.sp)
+                    }
+                }
+            }
         }
 
         HorizontalDivider()

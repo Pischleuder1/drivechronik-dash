@@ -359,7 +359,33 @@ internal fun NavigationMap(
         var nearTurn = false
         var lastFrame = 0L
         var lastCameraUpdate = 0L
+        var lastSimulationTick = 0L
+
         while (true) {
+            val simulationNow =
+                android.os.SystemClock.elapsedRealtime()
+
+            if (NavigationSimulation.active) {
+                val simulationDt =
+                    if (lastSimulationTick == 0L) {
+                        0.05
+                    } else {
+                        ((simulationNow - lastSimulationTick) / 1000.0)
+                            .coerceIn(0.0, 0.25)
+                    }
+
+                lastSimulationTick = simulationNow
+
+                if (!NavigationSimulation.paused &&
+                    !NavigationSimulation.gpsOutage) {
+                    NavigationSimulation.advance(simulationDt)
+                }
+
+                // Beim Simulator immer automatisch dem Fahrzeug folgen.
+                centered = true
+            } else {
+                lastSimulationTick = 0L
+            }
             val gps = if (NavigationSimulation.active) {
                         NavigationSimulation.fix
                             ?.takeUnless {
@@ -413,7 +439,16 @@ internal fun NavigationMap(
                 }
             }
 
-            val liveFix = currentNavigationFix(phoneState.value)
+            val liveFix =
+                if (NavigationSimulation.active) {
+                    NavigationSimulation.fix
+                        ?.takeUnless {
+                            NavigationSimulation.gpsOutage
+                        }
+                } else {
+                    currentNavigationFix(phoneState.value)
+                }
+
             val cameraGps = liveFix?.let {
                 it.point.lat to it.point.lon
             } ?: if (NavigationSimulation.active) {
