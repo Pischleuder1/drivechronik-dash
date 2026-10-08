@@ -11,28 +11,9 @@ internal object OfflineMapInstaller {
     internal fun target(
         context: Context,
         pkg: RemoteMapPackage
-    ): File {
-        require(pkg.country == "de")
+    ): File =
+        OfflinePackageSupport.target(context, pkg)
 
-        return when (pkg.kind) {
-            "map" -> {
-                check(pkg.fileName == "germany.pmtiles")
-                File(
-                    context.getExternalFilesDir(null)
-                        ?: error("Kartenspeicher fehlt"),
-                    "germany.pmtiles"
-                )
-            }
-            "routing" -> {
-                check(pkg.fileName == "valhalla_tiles.tar")
-                File(
-                    context.filesDir,
-                    "routing/valhalla_tiles.tar"
-                )
-            }
-            else -> error("Unbekannter Pakettyp")
-        }
-    }
 
     internal fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")

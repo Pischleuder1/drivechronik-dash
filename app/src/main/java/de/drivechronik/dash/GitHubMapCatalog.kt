@@ -97,7 +97,7 @@ internal object GitHubMapCatalog {
                     val result = (0 until packages.length()).map { i ->
                         val item = packages.getJSONObject(i)
                         val kind = item.getString("kind")
-                        require(kind == "map" || kind == "routing")
+                        require(kind == "map" || kind == "routing" || kind == "charging")
                         val size = item.getLong("sizeBytes")
                         require(size > 0L)
 
@@ -133,7 +133,7 @@ internal object GitHubMapCatalog {
                 (0 until items.length()).map { i ->
                     val item = items.getJSONObject(i)
                     val kind = item.getString("kind")
-                    require(kind == "map" || kind == "routing")
+                    require(kind == "map" || kind == "routing" || kind == "charging")
                     RemoteMapPackage(
                         id = item.getString("id"),
                         country = item.getString("country"),
@@ -162,7 +162,7 @@ internal object GitHubMapCatalog {
         (0 until items.length()).map { i ->
             val item = items.getJSONObject(i)
             val kind = item.getString("kind")
-            require(kind == "map" || kind == "routing")
+            require(kind == "map" || kind == "routing" || kind == "charging")
             RemoteMapPackage(
                 id = item.getString("id"),
                 country = item.getString("country"),

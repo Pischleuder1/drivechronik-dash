@@ -190,18 +190,14 @@ class MainActivity : ComponentActivity() {
 
         OfflineStartupGate.begin()
         lifecycleScope.launch {
-            for (id in listOf("de-map", "de-routing")) {
+            for (id in OfflinePackageSupport.supportedIds) {
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
-                        val target = if (id == "de-map") {
-                            getExternalFilesDir(null)
-                                ?.resolve("germany.pmtiles")
-                                ?: error("Kartenspeicher fehlt")
-                        } else {
-                            filesDir.resolve(
-                                "routing/valhalla_tiles.tar"
+                        val target =
+                            OfflinePackageSupport.target(
+                                this@MainActivity,
+                                id
                             )
-                        }
 
                         OfflineMapInstaller.recover(
                             this@MainActivity, target, id
@@ -217,15 +213,24 @@ class MainActivity : ComponentActivity() {
                                 "Update fehlgeschlagen: $id",
                                 failure
                             )
+
                             val known = OfflineMapVersions.hash(
                                 this@MainActivity, id
                             )
-                            check(
-                                target.isFile && known != null &&
-                                    OfflineMapInstaller.sha256(target)
-                                        .equals(known, true)
-                            ) {
-                                "Keine geprüfte Altversion: $id"
+
+                            // Bei map/routing muss eine gültige
+                            // Altversion vorhanden sein.
+                            // Charging ist optional.
+                            if (id != "de-charging") {
+                                check(
+                                    target.isFile &&
+                                        known != null &&
+                                        OfflineMapInstaller
+                                            .sha256(target)
+                                            .equals(known, true)
+                                ) {
+                                    "Keine geprüfte Altversion: $id"
+                                }
                             }
                         }
 
@@ -236,10 +241,18 @@ class MainActivity : ComponentActivity() {
                 }
 
                 result.onSuccess {
-                    if (id == "de-map") {
-                        OfflineStartupGate.mapSuccess()
-                    } else {
-                        OfflineStartupGate.routingSuccess()
+                    when (id) {
+                        "de-map" ->
+                            OfflineStartupGate.mapSuccess()
+
+                        "de-routing" ->
+                            OfflineStartupGate.routingSuccess()
+
+                        "de-charging" ->
+                            android.util.Log.i(
+                                "OfflineMaps",
+                                "Charging-Overlay geprüft"
+                            )
                     }
                 }.onFailure { failure ->
                     android.util.Log.e(
@@ -247,12 +260,24 @@ class MainActivity : ComponentActivity() {
                         "Startprüfung fehlgeschlagen: $id",
                         failure
                     )
+
                     val message = failure.message
                         ?: "Offlineprüfung fehlgeschlagen"
-                    if (id == "de-map") {
-                        OfflineStartupGate.mapFailure(message)
-                    } else {
-                        OfflineStartupGate.routingFailure(message)
+
+                    when (id) {
+                        "de-map" ->
+                            OfflineStartupGate.mapFailure(message)
+
+                        "de-routing" ->
+                            OfflineStartupGate.routingFailure(message)
+
+                        "de-charging" ->
+                            android.util.Log.w(
+                                "OfflineMaps",
+                                "Charging-Overlay nicht verfügbar; " +
+                                    "Navigation bleibt nutzbar",
+                                failure
+                            )
                     }
                 }
             }

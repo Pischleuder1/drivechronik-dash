@@ -5,36 +5,33 @@ import android.content.Context
 internal object OfflineInstalledIntegrity {
 
     fun verify(context: Context) {
-        verify(context, "de-map")
-        verify(context, "de-routing")
+        OfflinePackageSupport.supportedIds.forEach { id ->
+            verify(context, id)
+        }
     }
 
-    fun verify(context: Context, id: String) {
-        require(id == "de-map" || id == "de-routing")
-        val items = listOf(
-            "de-map" to context.getExternalFilesDir(null)
-                ?.resolve("germany.pmtiles"),
-            "de-routing" to context.filesDir
-                .resolve("routing/valhalla_tiles.tar")
-        )
+    fun verify(
+        context: Context,
+        id: String
+    ) {
+        require(OfflinePackageSupport.isSupported(id))
 
-        for ((packageId, file) in items.filter { it.first == id }) {
-            val expected = OfflineMapVersions.hash(context, packageId)
+        val file = OfflinePackageSupport.target(context, id)
+        val expected = OfflineMapVersions.hash(context, id)
 
-            // Alte, manuell installierte Dateien ohne
-            // gespeicherte Prüfsumme nicht verändern.
-            if (expected == null) continue
+        // Alte, manuell installierte Dateien ohne gespeicherte
+        // Prüfsumme nicht verändern.
+        if (expected == null) return
 
-            check(file?.isFile == true) {
-                "Installierte Datei fehlt: $packageId"
-            }
+        check(file.isFile) {
+            "Installierte Datei fehlt: $id"
+        }
 
-            check(
-                OfflineMapInstaller.sha256(file)
-                    .equals(expected, true)
-            ) {
-                "Integritätsprüfung fehlgeschlagen: $packageId"
-            }
+        check(
+            OfflineMapInstaller.sha256(file)
+                .equals(expected, true)
+        ) {
+            "Integritätsprüfung fehlgeschlagen: $id"
         }
     }
 }

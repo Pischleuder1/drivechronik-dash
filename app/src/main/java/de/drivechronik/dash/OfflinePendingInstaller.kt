@@ -10,7 +10,7 @@ internal object OfflinePendingInstaller {
         context: Context,
         id: String
     ): Boolean = withContext(Dispatchers.IO) {
-        require(id == "de-map" || id == "de-routing")
+        require(OfflinePackageSupport.isSupported(id))
 
         // Ohne Vormerkung nichts verändern.
         if (OfflineMapPending.pending(context, id) == null) {

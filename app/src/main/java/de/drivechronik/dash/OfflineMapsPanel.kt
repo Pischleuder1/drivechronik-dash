@@ -6,8 +6,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.app.Activity
+import android.content.Intent
 import java.io.File
 import java.util.Locale
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,6 +32,7 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
     val downloadScope = rememberCoroutineScope()
     var downloadingId by remember { mutableStateOf<String?>(null) }
     var downloadInfo by remember { mutableStateOf("") }
+    var restartCountdown by remember { mutableStateOf<Int?>(null) }
 
     var downloadResults by remember {
         mutableStateOf<Map<String, String>>(emptyMap())
@@ -168,10 +172,11 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                 )
                 items.forEach { item ->
                     val status = installedStatus[item.id]
-                    val type = if (item.kind == "map") {
-                        "PMTiles"
-                    } else {
-                        "Valhalla"
+                    val type = when (item.kind) {
+                        "map" -> "PMTiles"
+                        "routing" -> "Valhalla"
+                        "charging" -> "Ladestationen"
+                        else -> item.kind
                     }
                     val state = when (status) {
                         MapInstallStatus.CURRENT -> "✓ Aktuell"
@@ -248,8 +253,7 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                                             val verified =
                                                 OfflineMapAssembler.assemble(context, item)
 
-                                            if (item.id == "de-map" ||
-                                                item.id == "de-routing") {
+                                            if (OfflinePackageSupport.isSupported(item.id)) {
                                                 OfflineMapPending.mark(
                                                     context, item, verified
                                                 )
@@ -260,8 +264,7 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
 
                                         val installed =
                                             withContext(Dispatchers.IO) {
-                                                if (item.id == "de-map" ||
-                                                    item.id == "de-routing") {
+                                                if (OfflinePackageSupport.isSupported(item.id)) {
                                                     OfflinePendingInstaller.process(
                                                         context, item.id
                                                     )
@@ -279,8 +282,44 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                                                 (item.id to MapInstallStatus.CURRENT)
 
                                         downloadInfo = "Installiert"
-                                        downloadResults = downloadResults +
-                                            (item.id to "✓ Installiert")
+
+                                        for (seconds in 5 downTo 1) {
+                                            restartCountdown = seconds
+                                            downloadResults =
+                                                downloadResults +
+                                                    (
+                                                        item.id to
+                                                            "✓ Installiert · " +
+                                                            "Neustart in " +
+                                                            "$seconds Sekunden, " +
+                                                            "um Änderungen " +
+                                                            "zu übernehmen"
+                                                    )
+                                            delay(1000L)
+                                        }
+
+                                        restartCountdown = null
+
+                                        val launchIntent =
+                                            context.packageManager
+                                                .getLaunchIntentForPackage(
+                                                    context.packageName
+                                                )
+                                                ?: error(
+                                                    "Start-Intent fehlt"
+                                                )
+
+                                        launchIntent.addFlags(
+                                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                        )
+
+                                        (context as? Activity)
+                                            ?.finishAffinity()
+
+                                        context.startActivity(launchIntent)
+
+                                        return@launch
                                     } catch (e: Exception) {
                                         downloadInfo =
                                             "Fehler: ${e.message ?: "Download"}"

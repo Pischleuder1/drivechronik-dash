@@ -230,7 +230,7 @@ internal fun NavigationMap(
                             iconAllowOverlap(false),
                             iconIgnorePlacement(false)
                         )
-                        normalChargingLayer.minZoom = 13f
+                        normalChargingLayer.minZoom = 12f
                         it.addLayer(normalChargingLayer)
 
                         // Andere Schnelllader.
@@ -256,7 +256,7 @@ internal fun NavigationMap(
                             iconAllowOverlap(false),
                             iconIgnorePlacement(false)
                         )
-                        fastChargingLayer.minZoom = 11f
+                        fastChargingLayer.minZoom = 10f
                         it.addLayer(fastChargingLayer)
 
                         // Tesla Supercharger.

@@ -8,7 +8,7 @@ internal object OfflinePendingResolver {
         context: Context,
         id: String
     ): Pair<RemoteMapPackage, File>? {
-        require(id == "de-map" || id == "de-routing")
+        require(OfflinePackageSupport.isSupported(id))
 
         val sha = OfflineMapPending.pending(context, id)
             ?: return null
@@ -25,14 +25,7 @@ internal object OfflinePendingResolver {
             } ?: error("Vormerkung passt nicht zum Katalog")
 
         check(pkg.sha256.matches(Regex("[a-fA-F0-9]{64}")))
-        check(
-            (id == "de-map" &&
-                pkg.kind == "map" &&
-                pkg.fileName == "germany.pmtiles") ||
-            (id == "de-routing" &&
-                pkg.kind == "routing" &&
-                pkg.fileName == "valhalla_tiles.tar")
-        )
+        OfflinePackageSupport.validate(pkg)
 
         val base = context.getExternalFilesDir(null)
             ?: error("Kartenspeicher fehlt")
