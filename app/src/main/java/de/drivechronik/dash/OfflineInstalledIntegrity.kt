@@ -19,13 +19,16 @@ internal object OfflineInstalledIntegrity {
         val file = OfflinePackageSupport.target(context, id)
         val expected = OfflineMapVersions.hash(context, id)
 
-        // Alte, manuell installierte Dateien ohne gespeicherte
-        // Prüfsumme nicht verändern.
-        if (expected == null) return
-
+        // Auch bei alten/manuellen Installationen ohne gespeicherte
+        // Prüfsumme muss die eigentliche Datei vorhanden sein.
         check(file.isFile) {
             "Installierte Datei fehlt: $id"
         }
+
+        // Ohne bekannte Prüfsumme können wir die Datei nicht gegen
+        // einen gespeicherten Hash prüfen, akzeptieren sie aber als
+        // vorhandenen Legacy-Bestand.
+        if (expected == null) return
 
         check(
             OfflineMapInstaller.sha256(file)

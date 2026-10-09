@@ -1,5 +1,25 @@
 # Changelog – drivechronik-dash
 
+
+## [0.4.1] – 2026-10-09
+
+### Geändert
+
+- Online-Routing wieder als primärer Routingweg hergestellt.
+- „Autobahn vermeiden“ nutzt jetzt Online-Valhalla mit `use_highways = 0.0`.
+- Für „Autobahn vermeiden“ sind keine Offline-Routingdaten mehr erforderlich.
+- OSRM bleibt für normales Online-Routing und als Fallback erhalten.
+- Offline-Valhalla bleibt optionaler Fallback, falls installiert.
+- Fehlerhafte wiederholte Neuberechnungen im Stand behoben.
+- GPS-Fallback bei manueller Routenneuberechnung verbessert.
+- Wetterposition wird während der Navigation zuverlässiger aktualisiert.
+- Open-Meteo-URL korrigiert.
+- Startprüfung für Offline-Routing korrigiert:
+  fehlende Routingdateien werden nicht mehr fälschlich als verfügbar markiert.
+- Deutschland-Legacy-Fallback für bestehende Offline-Dateien robuster gemacht.
+- Veraltete OSRM-Alternativenlogik für Autobahnvermeidung entfernt.
+- Diagnose-Logging mit vollständigen Routing-Koordinaten entfernt.
+
 ## [0.4.0] – 2026-10-09
 
 ### Offline-Karten und Routing

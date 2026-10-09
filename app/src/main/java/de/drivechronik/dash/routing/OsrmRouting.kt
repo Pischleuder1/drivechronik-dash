@@ -42,15 +42,31 @@ suspend fun calculateRoute(
         start.lon, start.lat, destination.lon, destination.lat
     )
 
+
     var connection: HttpURLConnection? = null
     try {
         connection = URL(url).openConnection() as HttpURLConnection
+        connection.setRequestProperty(
+            "User-Agent",
+            "DriveChronik-Dash/0.4.0 (Android; contact: pischleuder@gmx.de)"
+        )
+        connection.setRequestProperty(
+            "Accept",
+            "application/json"
+        )
         connection.connectTimeout = 15000
         connection.readTimeout = 15000
         if (connection.responseCode != 200) {
+            val errorBody = runCatching {
+                connection.errorStream
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+            }.getOrNull()
+
             android.util.Log.w(
                 "DashRouting",
-                "OSRM HTTP " + connection.responseCode
+                "OSRM HTTP " + connection.responseCode +
+                    " BODY=" + errorBody
             )
             return@withContext null
         }
@@ -67,7 +83,9 @@ suspend fun calculateRoute(
         if (json.optString("code") != "Ok")
             return@withContext null
 
-        val route = json.getJSONArray("routes").getJSONObject(0)
+        val routes = json.getJSONArray("routes")
+        val route = routes.getJSONObject(0)
+
         val coords = route.getJSONObject("geometry")
             .getJSONArray("coordinates")
 
@@ -95,10 +113,10 @@ suspend fun calculateRoute(
         }
 
         DrivingRoute(
-            route.getDouble("distance"),
-            route.getDouble("duration"),
-            points,
-            steps
+            distanceM = route.getDouble("distance"),
+            durationS = route.getDouble("duration"),
+            points = points,
+            steps = steps
         )
     } catch (e: Exception) {
         android.util.Log.w(

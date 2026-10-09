@@ -36,7 +36,7 @@ internal fun NavigationGuidance(
     val tracker = remember(route, manualRouteGeneration) { RouteTracking() }
     val coordinator = remember(context, manualRouteGeneration) {
         RerouteCoordinator(route) { start, target ->
-            calculateOfflineRoute(
+            calculatePreferredRoute(
                 context,
                 start,
                 target,

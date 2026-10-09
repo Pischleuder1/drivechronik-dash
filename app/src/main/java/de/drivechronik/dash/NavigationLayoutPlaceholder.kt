@@ -1,5 +1,7 @@
 package de.drivechronik.dash
 
+import de.drivechronik.dash.routing.calculatePreferredRoute
+
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
@@ -178,6 +180,9 @@ internal fun NavigationLayoutPlaceholder(
                     if (previous != null) {
                         val origin =
                             currentNavigationFix(phoneState.value)?.point
+                                ?: weatherCoordinates(phoneState.value)?.let {
+                                    RoutePoint(it.first, it.second)
+                                }
                         val target = previous.destination
                             ?: previous.points.lastOrNull()
 
@@ -189,7 +194,7 @@ internal fun NavigationLayoutPlaceholder(
                             ).show()
                         } else {
                             scope.launch {
-                                val result = calculateOfflineRoute(
+                                val result = calculatePreferredRoute(
                                     context, origin, target
                                 )
                                 if (request != highwayRequest ||
@@ -283,7 +288,7 @@ internal fun NavigationLayoutPlaceholder(
                             lon = station.lon
                         )
 
-                        val result = calculateOfflineRoute(
+                        val result = calculatePreferredRoute(
                             context,
                             origin,
                             destination

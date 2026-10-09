@@ -2,7 +2,7 @@
 
 Lokales Android-Dashboard für Tesla-Fahrzeuge.
 
-**Aktuelle Version: 0.4.0**
+**Aktuelle Version: 0.4.1**
 
 ## Projektbeschreibung
 

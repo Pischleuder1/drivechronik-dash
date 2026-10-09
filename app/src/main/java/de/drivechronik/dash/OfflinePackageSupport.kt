@@ -155,11 +155,34 @@ internal object OfflinePackageSupport {
         validate(pkg)
 
         if (pkg.country == "de") {
-            return legacyGermanTarget(
+            val catalogTarget = legacyGermanTarget(
                 context = context,
                 kind = pkg.kind,
                 fileName = pkg.fileName
             )
+
+            if (catalogTarget.isFile) {
+                return catalogTarget
+            }
+
+            val legacyTarget = legacyGermanTarget(
+                context = context,
+                kind = pkg.kind,
+                fileName = null
+            )
+
+            if (legacyTarget.isFile) {
+                android.util.Log.i(
+                    "OfflineMaps",
+                    "Deutschland Legacy-Fallback: " +
+                        legacyTarget.absolutePath
+                )
+                return legacyTarget
+            }
+
+            // Noch nichts installiert:
+            // aktueller Katalogpfad bleibt das Downloadziel.
+            return catalogTarget
         }
 
         return when (pkg.kind) {

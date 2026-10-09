@@ -72,8 +72,8 @@ class OffRouteDetector {
 
         confirmed = misses >= 3 &&
             nowMillis - firstMissMillis >= 2000L &&
-            (distance > 30.0 ||
-                headingMismatch && movedMeters >= 10.0)
+            movedMeters >= 10.0 &&
+            (distance > 30.0 || headingMismatch)
         return confirmed
     }
 }

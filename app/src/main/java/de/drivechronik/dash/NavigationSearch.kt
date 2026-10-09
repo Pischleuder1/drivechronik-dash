@@ -208,7 +208,7 @@ val command = spoken
                             scope.launch {
                                 val gps = weatherCoordinates(phoneState.value)
                                 val route = gps?.let {
-                                    calculateOfflineRoute(
+                                    calculatePreferredRoute(
                                         context,
                                         RoutePoint(it.first, it.second),
                                         target.point
