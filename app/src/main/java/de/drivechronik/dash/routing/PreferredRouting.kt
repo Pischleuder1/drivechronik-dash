@@ -177,12 +177,21 @@ private fun DrivingRoute.toOfflineRoute(
         }
     }
 
+    val motorwayRefs =
+        steps.flatMap { step ->
+            Regex("""\bA\s*(\d{1,3})\b""")
+                .findAll(step.roadRef)
+                .map { "A${it.groupValues[1]}" }
+                .toList()
+        }.toSet()
+
     return OfflineRoute(
         points = routePoints,
         distanceKm = distanceM / 1000.0,
         durationSeconds = durationS,
         maneuvers = maneuvers,
-        destination = destination
+        destination = destination,
+        motorwayRefs = motorwayRefs
     )
 }
 

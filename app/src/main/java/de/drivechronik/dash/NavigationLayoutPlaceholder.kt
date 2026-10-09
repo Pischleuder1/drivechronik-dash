@@ -76,6 +76,68 @@ internal fun NavigationLayoutPlaceholder(
         mutableIntStateOf(0)
     }
 
+    /*
+     * Verkehrsdaten gehören zur aktiven Route und nicht
+     * in die GPS-Schleife. Sobald eine Route vorhanden ist,
+     * sofort prüfen und anschließend alle 60 Sekunden.
+     */
+    LaunchedEffect(routePoints) {
+        val activeRoute = routePoints
+
+        if (activeRoute == null) {
+            TrafficEventState.clear()
+            return@LaunchedEffect
+        }
+
+        android.util.Log.i(
+            "DriveChronikTraffic",
+            "Traffic-Monitor gestartet: " +
+                "points=${activeRoute.points.size} " +
+                "maneuvers=${activeRoute.maneuvers.size}"
+        )
+
+        while (true) {
+            android.util.Log.i(
+                "DriveChronikTraffic",
+                "Traffic-Abfrage gestartet"
+            )
+
+            val result =
+                AutobahnTrafficProvider.loadForRoute(
+                    activeRoute
+                )
+
+            result.onSuccess { events ->
+                TrafficEventState.update(events)
+
+                android.util.Log.i(
+                    "DriveChronikTraffic",
+                    "Treffer auf Route: ${events.size}"
+                )
+
+                events.forEach { event ->
+                    android.util.Log.i(
+                        "DriveChronikTraffic",
+                        "${event.type} " +
+                            "${event.road} " +
+                            "blocked=${event.blocked} " +
+                            "title=${event.title}"
+                    )
+                }
+            }.onFailure {
+                android.util.Log.w(
+                    "DriveChronikTraffic",
+                    "Verkehrsdaten fehlgeschlagen: " +
+                        it.javaClass.simpleName +
+                        ": " +
+                        (it.message ?: "")
+                )
+            }
+
+            delay(60_000L)
+        }
+    }
+
     var selectedChargingStation by remember {
         mutableStateOf<ChargingStationSelection?>(null)
     }

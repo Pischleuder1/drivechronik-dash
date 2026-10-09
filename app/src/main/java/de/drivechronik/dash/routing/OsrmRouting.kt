@@ -11,6 +11,7 @@ data class RoutePoint(val lat: Double, val lon: Double)
 
 data class RouteStep(
     val road: String,
+    val roadRef: String,
     val type: String,
     val direction: String,
     val distanceM: Double,
@@ -141,6 +142,7 @@ suspend fun calculateRoute(
 
                 steps += RouteStep(
                     road = step.optString("name"),
+                    roadRef = step.optString("ref"),
                     type = maneuver.optString("type"),
                     direction = maneuver.optString("modifier"),
                     distanceM = step.getDouble("distance"),

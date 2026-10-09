@@ -23,7 +23,8 @@ data class OfflineRoute(
     val distanceKm: Double,
     val durationSeconds: Double,
     val maneuvers: List<RouteManeuver>,
-    val destination: RoutePoint? = null
+    val destination: RoutePoint? = null,
+    val motorwayRefs: Set<String> = emptySet()
 )
 
 suspend fun calculateOfflineRoute(

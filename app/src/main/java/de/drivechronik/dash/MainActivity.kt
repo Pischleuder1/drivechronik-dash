@@ -1272,6 +1272,12 @@ modifier =
                 )
         )
 
+        TrafficEventOverlay(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 18.dp)
+        )
+
         NavigationTurnPopup(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
