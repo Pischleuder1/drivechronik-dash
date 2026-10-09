@@ -2,7 +2,7 @@
 
 Lokales Android-Dashboard für Tesla-Fahrzeuge.
 
-**Aktuelle Version: 0.3.0**
+**Aktuelle Version: 0.4.0**
 
 ## Projektbeschreibung
 
@@ -131,6 +131,7 @@ APK installieren:
 - 0.1.0 – Basis-Dashboard und BLE-Grundlagen
 - 0.2.0 – Navigation und signiertes Release
 - 0.3.0 – 3D-Tacho und Leistungsanzeige
+- 0.4.0 – Mehrländer-Offlinedaten, Dänemark, Ladeinfrastruktur und verbesserte Navigation
 
 Weitere Details enthält CHANGELOG.md.
 

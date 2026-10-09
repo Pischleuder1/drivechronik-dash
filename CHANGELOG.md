@@ -1,10 +1,42 @@
 # Changelog – drivechronik-dash
 
+## [0.4.0] – 2026-10-09
+
+### Offline-Karten und Routing
+- Länderunabhängige Offline-Paketarchitektur
+- Unterstützung mehrerer Länderpakete
+- Deutschland und Dänemark als getrennte Karten- und Routingpakete
+- Automatische Erkennung installierter Offline-Pakete
+- Länderweise Aktivierung von Karte und Routing
+- Downloadbare Karten-, Routing- und Ladeinfrastruktur-Pakete
+- GitHub-basierter Paketkatalog
+- Update-Erkennung für Offline-Daten
+- Fortschrittsanzeige und verbesserte Paketverwaltung
+
+### Navigation
+- Online-Routing bleibt primärer Routingweg
+- Offline-Valhalla als Fallback
+- Überarbeitete Navigations- und Kamera-Logik
+- Verbesserte Simulation und Routenführung
+- Große Abbiegeeinblendung bei 500 m
+- Zweite Abbiegeeinblendung bei 125 m
+- Einblenddauer jeweils 3 Sekunden
+- Verbesserte Kreisverkehrdarstellung
+- Stabileres automatisches Rerouting
+
+### Karten und Ladeinfrastruktur
+- Offline-Karten auf PMTiles-Basis
+- Separate Ladeinfrastruktur-Ebene
+- Antippbare Ladestationen
+- Verbesserte Offline-Paketstatusanzeige
+- Automatisierte Erstellung von Dänemark-Karten und Valhalla-Routing
+
+
 ## [0.3.0] – 2026-10-04
 
 ### Erweiterte Navigation – Kreisverkehre (2026-10-06)
 - Große, animierte Abbiegehinweise rechts vom Tacho
-- Warnhinweise bei 300 m und 75 m
+- Große Abbiegehinweise bei 500 m und 125 m
 - Strukturierte Fahranweisungen mit kräftigen Richtungspfeilen
 - Offline-OSM-Kreisverkehrdaten für Deutschland
 - Automatische Zuordnung von Einfahrt und Ausfahrt zur Valhalla-Route

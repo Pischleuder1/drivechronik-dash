@@ -59,7 +59,7 @@ internal fun NavigationTurnPopup(
 
     LaunchedEffect(hint?.id, phase) {
         if (phase > 0) {
-            delay(4_000L)
+            delay(3_000L)
             popupVisible = false
         }
     }
