@@ -1,5 +1,9 @@
 package de.drivechronik.dash
 
+import androidx.compose.foundation.layout.fillMaxHeight
+
+import androidx.compose.foundation.layout.fillMaxWidth
+
 import android.location.Location
 
 import androidx.compose.runtime.*
@@ -26,6 +30,7 @@ import kotlinx.coroutines.delay
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.style.sources.VectorSource
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.layers.PropertyFactory.*
 import org.maplibre.android.style.expressions.Expression
@@ -116,7 +121,7 @@ internal fun NavigationMap(
                         ?.isFile == true
 
                 val chargingUri =
-                    if (offlineEnabled && chargingFile?.isFile == true) {
+                    if (chargingFile?.isFile == true) {
                         "pmtiles://file://" +
                             chargingFile.absolutePath
                     } else {
@@ -173,6 +178,26 @@ internal fun NavigationMap(
                 }
 
                 map.setStyle(styleBuilder) {
+                    /*
+                     * Ladeinfrastruktur ist unabhängig von der
+                     * verwendeten Basiskarte.
+                     *
+                     * Beim Offline-Style ist die Source bereits
+                     * im Style-JSON enthalten. Beim Online-Style
+                     * wird sie hier nachträglich ergänzt.
+                     */
+                    if (
+                        chargingUri != null &&
+                        it.getSource("charging") == null
+                    ) {
+                        it.addSource(
+                            VectorSource(
+                                "charging",
+                                chargingUri
+                            )
+                        )
+                    }
+
                     it.addSource(
                         GeoJsonSource(
                             "dash-route",
@@ -785,13 +810,20 @@ internal fun NavigationMap(
                     // Stufenlose Geschwindigkeitskurve.
                     val cruisingZoom = when {
                     speedKmh <= 30.0 -> 16.0
+
                     speedKmh <= 50.0 ->
-                        16.0 - (speedKmh - 30.0) / 20.0
-                    speedKmh <= 80.0 ->
-                        15.0 - (speedKmh - 50.0) / 30.0
-                    speedKmh <= 100.0 ->
-                        14.0 - (speedKmh - 80.0) / 20.0
-                    else -> 13.0
+                        16.0 -
+                            (speedKmh - 30.0) / 20.0
+
+                    speedKmh <= 70.0 ->
+                        15.0 -
+                            (speedKmh - 50.0) * 1.5 / 20.0
+
+                    speedKmh <= 90.0 ->
+                        13.5 -
+                            (speedKmh - 70.0) * 1.5 / 20.0
+
+                    else -> 12.0
                 }
 
                 val targetZoom = when {
@@ -800,6 +832,23 @@ internal fun NavigationMap(
                     else -> cruisingZoom
                 }
 
+
+                /*
+                 * Die Karte läuft optisch unter den rechten KPI-Bereich.
+                 * Für die Navigationskamera zählt aber nur der freie
+                 * Kartenbereich links davon.
+                 *
+                 * Dadurch bleibt die Fahrzeugposition unabhängig von
+                 * Zoom und Fahrtrichtung stabil im sichtbaren Bereich.
+                 */
+                if (mapView.width > 0) {
+                    map.setPadding(
+                        (mapView.width * 0.14f).toInt(),
+                        0,
+                        (mapView.width * 0.506f).toInt(),
+                        0
+                    )
+                }
 
                 val camera = map.cameraPosition
                 val now = android.os.SystemClock.elapsedRealtime()
@@ -832,6 +881,7 @@ internal fun NavigationMap(
                     ) / Math.pow(2.0, zoom)
 
                 val ahead = previewPixels * metersPerPixel
+
                 val directionRad =
                     Math.toRadians(camera.bearing)
 
@@ -841,9 +891,11 @@ internal fun NavigationMap(
 
                 val followLon = cameraGps.second +
                     ahead * kotlin.math.sin(directionRad) /
-                    (111320.0 * kotlin.math.cos(
-                        Math.toRadians(cameraGps.first)
-                    ).coerceAtLeast(0.01))
+                    (
+                        111320.0 * kotlin.math.cos(
+                            Math.toRadians(cameraGps.first)
+                        ).coerceAtLeast(0.01)
+                    )
 
                 val lat = target.latitude +
                     (followLat - target.latitude) *
@@ -937,9 +989,15 @@ internal fun NavigationMap(
 
         Box(
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(12.dp)
-                .size(44.dp)
+                .align(Alignment.BottomStart)
+                .fillMaxWidth(0.494f)
+                .fillMaxHeight()
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .size(44.dp)
                 .clip(CircleShape)
                 .background(Color(0xFF172B40))
                 .clickable {
@@ -975,13 +1033,14 @@ internal fun NavigationMap(
                         }
                     }
                 },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "◎",
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "◎",
                 color = Color(0xFF70C8FF),
-                fontSize = 27.sp
-            )
+                    fontSize = 27.sp
+                )
+            }
         }
     }
 }

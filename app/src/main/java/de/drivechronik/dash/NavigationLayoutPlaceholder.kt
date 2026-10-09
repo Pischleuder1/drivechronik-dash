@@ -300,10 +300,15 @@ internal fun NavigationLayoutPlaceholder(
 
         Box(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 10.dp, end = 8.dp)
+                .align(Alignment.TopStart)
+                .fillMaxWidth(0.56f)
         ) {
-            NavigationSearch(
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 10.dp, end = 8.dp)
+            ) {
+                NavigationSearch(
                 onRoute = { route ->
                     NavigationSimulation.stop()
                     manualRouteGeneration++
@@ -312,8 +317,9 @@ internal fun NavigationLayoutPlaceholder(
                 },
                 onStop = stopNavigation,
                 navigationActive = routePoints != null,
-                phoneState = phoneState
-            )
+                    phoneState = phoneState
+                )
+            }
         }
 
         selectedChargingStation?.let { station ->

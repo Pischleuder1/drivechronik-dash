@@ -1155,12 +1155,22 @@ modifier =
                         .background(DashLine)
             )
 
-            // Navigation zwischen Tacho und Reisedaten.
+            /*
+             * Navigation + rechter KPI-Bereich.
+             *
+             * Die Karte läuft bis unter die rechte Spalte.
+             * Die KPI-Fläche liegt halbtransparent darüber.
+             */
             androidx.compose.foundation.layout.BoxWithConstraints(
                 modifier = Modifier
-                    .weight(1.15f)
+                    .weight(2.33f)
                     .fillMaxHeight()
             ) {
+
+                /*
+                 * Gemeinsame Kartenfläche:
+                 * 1.15 Navigation + 1.18 rechter KPI-Bereich.
+                 */
                 NavigationLayoutPlaceholder(
                     nightMode = rememberAutomaticSolarNightMode(),
                     modifier = Modifier
@@ -1168,98 +1178,113 @@ modifier =
                         .requiredWidth(maxWidth + 45.dp)
                         .fillMaxHeight()
                 )
-            }
-
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .fillMaxHeight()
-                    .background(DashLine)
-            )
-
-
-
-            /*
-             * Rechte Seite:
-             * nur Leistung und Reichweite
-             */
-            Column(
-                modifier =
-                    Modifier
-                        .weight(1.18f)
-                        .fillMaxHeight()
-                        .padding(
-                            start = 6.dp,
-                            top = 7.dp,
-                            bottom = 7.dp
-                        ),
-                verticalArrangement =
-                    Arrangement.spacedBy(6.dp)
-            ) {
 
                 Row(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                    horizontalArrangement =
-                        Arrangement.spacedBy(6.dp)
+                    modifier = Modifier.fillMaxSize()
                 ) {
 
-
-
-
+                    /*
+                     * Sichtbarer Hauptbereich der Navigation.
+                     */
+                    Spacer(
+                        modifier = Modifier
+                            .weight(1.15f)
+                            .fillMaxHeight()
+                    )
 
                     Box(
                         modifier = Modifier
-                            .weight(1f)
+                            .width(1.dp)
                             .fillMaxHeight()
-                    ) {
-                    KpiCard(
-                        title = "REICHWEITE",
-                        value =
-                            state.rangeKm.toString(),
-                        unit = "km",
+                            .background(DashLine)
+                    )
+
+                    /*
+                     * Rechte KPI-Seite.
+                     *
+                     * Nur der Hintergrund ist transparent.
+                     * Texte, Symbole und Werte bleiben vollständig
+                     * deckend.
+                     */
+                    Column(
                         modifier =
                             Modifier
-                                                                .fillMaxSize()
-                    )
-                    }
-                }
+                                .weight(1.18f)
+                                .fillMaxHeight()
+                                .background(
+                                    DashBackground.copy(
+                                        alpha = 0.68f
+                                    )
+                                )
+                                .padding(
+                                    start = 0.dp,
+                                    top = 7.dp,
+                                    bottom = 7.dp
+                                ),
+                        verticalArrangement =
+                            Arrangement.spacedBy(6.dp)
+                    ) {
 
+                        Row(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(6.dp)
+                        ) {
 
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                            ) {
+                                KpiCard(
+                                    title = "REICHWEITE",
+                                    value =
+                                        state.rangeKm.toString(),
+                                    unit = "km",
+                                    modifier =
+                                        Modifier.fillMaxSize()
+                                )
+                            }
+                        }
 
+                        val offlineSummary =
+                            NavigationSummaryState.text
 
-                val offlineSummary = NavigationSummaryState.text
+                        if (offlineSummary != null) {
+                            OfflineNavigationPanel(
+                                summary = offlineSummary,
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            state.navigation?.let { navigation ->
+                                NavigationPanel(
+                                    navigation = navigation,
+                                    modifier =
+                                        Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
 
-                if (offlineSummary != null) {
-                    OfflineNavigationPanel(
-                        summary = offlineSummary,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
-                    state.navigation?.let { navigation ->
-                        NavigationPanel(
-                            navigation = navigation,
-                            modifier = Modifier.fillMaxWidth()
+                        VehicleStatusBar(
+                            leftIndicator =
+                                state.leftIndicator,
+                            rightIndicator =
+                                state.rightIndicator,
+                            lowBeam =
+                                state.lowBeam,
+                            highBeam =
+                                state.highBeam,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(64.dp)
                         )
                     }
                 }
-
-                VehicleStatusBar(
-                    leftIndicator =
-                        state.leftIndicator,
-                    rightIndicator =
-                        state.rightIndicator,
-                    lowBeam =
-                        state.lowBeam,
-                    highBeam =
-                        state.highBeam,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(64.dp)
-                )
             }
         }
 
