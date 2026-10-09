@@ -1275,7 +1275,7 @@ modifier =
         NavigationTurnPopup(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .fillMaxWidth(0.60f)
+                .fillMaxWidth(0.30f)
                 .padding(end = 8.dp)
         )
         }

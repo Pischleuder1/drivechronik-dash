@@ -1,6 +1,20 @@
 # Changelog – drivechronik-dash
 
 
+
+## [0.4.2] – 2026-10-09
+
+### Geändert
+
+- Kreisverkehrsanzeige in der Live-Navigation wiederhergestellt.
+- OSRM-Ausfahrtnummern werden nun übernommen und angezeigt.
+- OSRM-Kreisverkehrsmanöver verwenden wieder eine eindeutige Ausfahrtsgeometrie.
+- Die echte Kreisverkehrsgrafik mit passendem Ausfahrtspfeil funktioniert wieder.
+- Kreisverkehrslogik bleibt kompatibel mit OSRM online, Valhalla online und Valhalla offline.
+- Fahranweisungs-Popup schmaler und höher gestaltet.
+- Navigations-Popup rechts auf rund 30 % der Bildschirmbreite begrenzt.
+- Die darunterliegende Navigationskarte bleibt dadurch deutlich besser sichtbar.
+
 ## [0.4.1] – 2026-10-09
 
 ### Geändert

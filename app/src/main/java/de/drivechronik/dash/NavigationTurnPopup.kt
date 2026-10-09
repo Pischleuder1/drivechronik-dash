@@ -78,35 +78,59 @@ internal fun NavigationTurnPopup(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 245.dp)
+                    .heightIn(min = 390.dp)
                     .padding(bottom = 12.dp),
                 shape = RoundedCornerShape(18.dp),
                 color = Color(0xFF3A3F46),
                 shadowElevation = 12.dp
             ) {
-                Row(
+                Column(
                     modifier = Modifier.padding(
-                        horizontal = 24.dp,
-                        vertical = 28.dp
+                        horizontal = 20.dp,
+                        vertical = 24.dp
                     ),
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Top
                 ) {
-                    val exitNumber =
-                        if (isRoundaboutInstruction(
-                                hint.type, hint.instruction
-                            ))
-                            extractRoundaboutExit(hint.instruction)
-                        else null
+                    val isRoundabout =
+                        isRoundaboutInstruction(
+                            hint.type,
+                            hint.instruction
+                        )
 
                     val graphic =
-                        NavigationHintState.roundaboutGraphic
-                            ?.takeIf { it.hintId == hint.id }
+                        if (isRoundabout)
+                            NavigationHintState.roundaboutGraphic
+                                ?.takeIf { it.hintId == hint.id }
+                        else
+                            null
 
-                    if (exitNumber != null && graphic != null) {
+                    val announcedExitNumber =
+                        if (isRoundabout)
+                            extractRoundaboutExit(
+                                hint.instruction
+                            )
+                        else
+                            null
+
+                    /*
+                     * Die echte Kreisverkehr-Geometrie hat Vorrang.
+                     *
+                     * Dadurch funktioniert die Ausfahrtsanzeige
+                     * unabhängig vom Routinganbieter:
+                     * - OSRM online
+                     * - Valhalla online
+                     * - Valhalla offline
+                     *
+                     * Nur wenn keine Geometrie verfügbar ist,
+                     * verwenden wir weiterhin die Nummer aus
+                     * dem Ansagetext.
+                     */
+                    if (graphic != null) {
                         RealRoundaboutIndicator(graphic)
-                    } else if (exitNumber != null) {
+                    } else if (announcedExitNumber != null) {
                         NavigationRoundaboutIndicator(
-                            exitNumber = exitNumber,
+                            exitNumber = announcedExitNumber,
                             modifier = Modifier
                         )
                     } else {
@@ -116,12 +140,13 @@ internal fun NavigationTurnPopup(
                         )
                     }
 
-                    Spacer(Modifier.width(26.dp))
+                    Spacer(Modifier.height(18.dp))
 
                     Column(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalArrangement =
-                            Arrangement.spacedBy(7.dp)
+                            Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.Start
                     ) {
                         Text(
                             text = String.format(

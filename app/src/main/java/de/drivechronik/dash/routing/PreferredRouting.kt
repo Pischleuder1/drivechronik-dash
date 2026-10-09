@@ -144,7 +144,11 @@ private fun DrivingRoute.toOfflineRoute(
     }
 
     val maneuvers = steps.mapNotNull { step ->
-        val index = nearestShapeIndex(step.point)
+        val beginIndex =
+            nearestShapeIndex(step.point)
+
+        val endIndex =
+            nearestShapeIndex(step.endPoint)
 
         val type = osrmToValhallaType(
             step.type,
@@ -154,7 +158,8 @@ private fun DrivingRoute.toOfflineRoute(
         val instruction = osrmInstruction(
             step.type,
             step.direction,
-            step.road
+            step.road,
+            step.exitNumber
         )
 
         if (instruction.isBlank()) {
@@ -165,8 +170,9 @@ private fun DrivingRoute.toOfflineRoute(
                 type = type,
                 distanceKm = step.distanceM / 1000.0,
                 durationSeconds = 0.0,
-                beginShapeIndex = index,
-                endShapeIndex = index
+                beginShapeIndex = beginIndex,
+                endShapeIndex =
+                    maxOf(beginIndex, endIndex)
             )
         }
     }
@@ -221,7 +227,8 @@ private fun osrmToValhallaType(
 private fun osrmInstruction(
     type: String,
     modifier: String,
-    road: String
+    road: String,
+    exitNumber: Int? = null
 ): String {
 
     val t = type.lowercase()
@@ -236,7 +243,12 @@ private fun osrmInstruction(
         t == "rotary" ||
         t == "roundabout turn"
     ) {
-        return "In den Kreisverkehr einfahren$target"
+        return if (exitNumber != null) {
+            "In den Kreisverkehr einfahren und die " +
+                "$exitNumber. Ausfahrt$target nehmen"
+        } else {
+            "In den Kreisverkehr einfahren$target"
+        }
     }
 
     if (t == "depart") {
