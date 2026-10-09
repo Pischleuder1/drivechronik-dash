@@ -30,6 +30,30 @@ der Fahrzeug- und Navigationsdaten.
 - Kartenansicht bis unter den KPI-Bereich
 - Anzeigen für Blinker und Fahrzeugbeleuchtung
 
+## Screenshots
+
+### Dashboard
+
+![DriveChronik Dashboard](docs/screenshots/screen1.png)
+
+### Navigation
+
+![DriveChronik Navigation](docs/screenshots/screen2.png)
+
+### Ladeinfrastruktur
+
+![Ladepunkte auf der Karte](docs/screenshots/screen3.png)
+
+### Verkehrsinformationen
+
+![Live-Verkehrsinformationen](docs/screenshots/screen4.png)
+
+### Weitere Ansichten
+
+![DriveChronik Ansicht 5](docs/screenshots/screen5.png)
+
+![DriveChronik Ansicht 6](docs/screenshots/screen6.png)
+
 ## Tesla-Bluetooth
 
 - Lokaler BLE-Scan
