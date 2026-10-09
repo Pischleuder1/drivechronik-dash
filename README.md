@@ -32,27 +32,17 @@ der Fahrzeug- und Navigationsdaten.
 
 ## Screenshots
 
-### Dashboard
+![DriveChronik](docs/screenshots/screen1.png)
 
-![DriveChronik Dashboard](docs/screenshots/screen1.png)
+![DriveChronik](docs/screenshots/screen2.png)
 
-### Navigation
+![DriveChronik](docs/screenshots/screen3.png)
 
-![DriveChronik Navigation](docs/screenshots/screen2.png)
+![DriveChronik](docs/screenshots/screen4.png)
 
-### Ladeinfrastruktur
+![DriveChronik](docs/screenshots/screen5.png)
 
-![Ladepunkte auf der Karte](docs/screenshots/screen3.png)
-
-### Verkehrsinformationen
-
-![Live-Verkehrsinformationen](docs/screenshots/screen4.png)
-
-### Weitere Ansichten
-
-![DriveChronik Ansicht 5](docs/screenshots/screen5.png)
-
-![DriveChronik Ansicht 6](docs/screenshots/screen6.png)
+![DriveChronik](docs/screenshots/screen6.png)
 
 ## Tesla-Bluetooth
 
