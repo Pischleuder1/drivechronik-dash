@@ -1,5 +1,7 @@
 package de.drivechronik.dash
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import de.drivechronik.dash.routing.calculatePreferredRoute
 
 import android.widget.Toast
@@ -142,12 +144,142 @@ internal fun NavigationLayoutPlaceholder(
         mutableStateOf<ChargingStationSelection?>(null)
     }
 
-    var chargingRouteLoading by remember {
+    var selectedTrafficEvent by remember {
+        mutableStateOf<TrafficEvent?>(null)
+    }
+
+    
+    /*
+     * Automatische Verkehrswarnung:
+     * - je Ereignis nur einmal
+     * - automatische Popups schließen nach 6 Sekunden
+     */
+    var autoShownTrafficEventIds by remember {
+        mutableStateOf<Set<String>>(emptySet())
+    }
+
+    var autoTrafficPopupId by remember {
+        mutableStateOf<String?>(null)
+    }
+var chargingRouteLoading by remember {
         mutableStateOf(false)
     }
 
     val (phoneState, _, _) =
         rememberPhoneWeatherLocation(navigation = true)
+
+
+    /*
+     * Bei einer bewusst neu gestarteten Route darf jedes
+     * Verkehrsereignis wieder einmal automatisch erscheinen.
+     */
+    LaunchedEffect(manualRouteGeneration) {
+        autoShownTrafficEventIds = emptySet()
+        autoTrafficPopupId = null
+    }
+
+    /*
+     * Automatisches Verkehrs-Popup ca. 2 km vor dem Ereignis.
+     *
+     * TrafficEventState enthält bereits nur die zur Route
+     * passenden Autobahn-Ereignisse.
+     */
+    LaunchedEffect(routePoints, manualRouteGeneration) {
+        if (routePoints == null) {
+            return@LaunchedEffect
+        }
+
+        while (true) {
+            if (
+                selectedTrafficEvent == null &&
+                selectedChargingStation == null
+            ) {
+                val position =
+                    if (NavigationSimulation.active) {
+                        NavigationSimulation.fix
+                            ?.takeUnless {
+                                NavigationSimulation.gpsOutage
+                            }
+                            ?.point
+                    } else {
+                        currentNavigationFix(
+                            phoneState.value
+                        )?.point
+                    }
+
+                if (position != null) {
+                    val nearest =
+                        TrafficEventState.events
+                            .asSequence()
+                            .filterNot { event ->
+                                event.id in autoShownTrafficEventIds
+                            }
+                            .map { event ->
+                                val result = FloatArray(1)
+
+                                android.location.Location.distanceBetween(
+                                    position.lat,
+                                    position.lon,
+                                    event.lat,
+                                    event.lon,
+                                    result
+                                )
+
+                                event to result[0].toDouble()
+                            }
+                            .filter { (_, distanceMeters) ->
+                                distanceMeters <= 2_000.0
+                            }
+                            .minByOrNull { (_, distanceMeters) ->
+                                distanceMeters
+                            }
+
+                    if (nearest != null) {
+                        val (event, distanceMeters) = nearest
+
+                        autoShownTrafficEventIds =
+                            autoShownTrafficEventIds + event.id
+
+                        autoTrafficPopupId = event.id
+                        selectedTrafficEvent = event
+
+                        android.util.Log.i(
+                            "DriveChronikTraffic",
+                            "Auto-Popup ${event.id} bei " +
+                                "${distanceMeters.toInt()} m"
+                        )
+                    }
+                }
+            }
+
+            delay(500L)
+        }
+    }
+
+    /*
+     * Nur automatisch geöffnete Verkehrspopups nach
+     * sechs Sekunden wieder schließen.
+     *
+     * Manuell geöffnete Popups bleiben offen.
+     */
+    LaunchedEffect(autoTrafficPopupId) {
+        val eventId =
+            autoTrafficPopupId
+                ?: return@LaunchedEffect
+
+        delay(6_000L)
+
+        if (
+            autoTrafficPopupId == eventId &&
+            selectedTrafficEvent?.id == eventId
+        ) {
+            selectedTrafficEvent = null
+        }
+
+        if (autoTrafficPopupId == eventId) {
+            autoTrafficPopupId = null
+        }
+    }
 
     LaunchedEffect(NavigationSimulation.active) {
         while (NavigationSimulation.active) {
@@ -187,6 +319,10 @@ internal fun NavigationLayoutPlaceholder(
             phoneState = phoneState,
             onChargingStationClick = { station ->
                 selectedChargingStation = station
+            },
+            onTrafficEventClick = { event ->
+                autoTrafficPopupId = null
+                selectedTrafficEvent = event
             }
         )
         } else {
@@ -322,6 +458,16 @@ internal fun NavigationLayoutPlaceholder(
             }
         }
 
+        selectedTrafficEvent?.let { event ->
+            TrafficEventPopup(
+                event = event,
+                onClose = {
+                    autoTrafficPopupId = null
+                    selectedTrafficEvent = null
+                }
+            )
+        }
+
         selectedChargingStation?.let { station ->
             ChargingStationMenu(
                 station = station,
@@ -386,6 +532,189 @@ internal fun NavigationLayoutPlaceholder(
             )
         }
 
+    }
+}
+
+
+@Composable
+private fun TrafficEventPopup(
+    event: TrafficEvent,
+    onClose: () -> Unit
+) {
+    val accent =
+        when {
+            event.blocked ||
+                event.type == TrafficEventType.CLOSURE ->
+                Color(0xFFE84C4C)
+
+            event.type == TrafficEventType.ROADWORK ->
+                Color(0xFFFF9800)
+
+            else ->
+                Color(0xFFFFC107)
+        }
+
+    val symbol =
+        when {
+            event.blocked ||
+                event.type == TrafficEventType.CLOSURE ->
+                "⛔"
+
+            event.type == TrafficEventType.ROADWORK ->
+                "🚧"
+
+            else ->
+                "⚠"
+        }
+
+    val typeLabel =
+        when {
+            event.blocked ||
+                event.type == TrafficEventType.CLOSURE ->
+                "SPERRUNG"
+
+            event.type == TrafficEventType.ROADWORK ->
+                "BAUSTELLE"
+
+            else ->
+                "VERKEHRSHINWEIS"
+        }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onClose,
+        properties =
+            androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false
+            )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.material3.Surface(
+                modifier =
+                    Modifier
+                        .fillMaxWidth(0.58f),
+                shape =
+                    androidx.compose.foundation.shape.RoundedCornerShape(
+                        16.dp
+                    ),
+                color = Color(0xF21A2B3D),
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp
+            ) {
+                androidx.compose.foundation.layout.Column(
+                    modifier =
+                        Modifier.padding(
+                            horizontal = 18.dp,
+                            vertical = 14.dp
+                        )
+                ) {
+                    androidx.compose.foundation.layout.Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = symbol,
+                            fontSize = 28.sp
+                        )
+
+                        androidx.compose.foundation.layout.Spacer(
+                            modifier = Modifier.size(10.dp)
+                        )
+
+                        androidx.compose.foundation.layout.Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = typeLabel,
+                                color = accent,
+                                fontSize = 13.sp,
+                                fontWeight =
+                                    androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+
+                            if (event.road.isNotBlank()) {
+                                Text(
+                                    text = event.road,
+                                    color = Color(0xFFB8D9F0),
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "×",
+                            color = Color.White,
+                            fontSize = 30.sp,
+                            modifier =
+                                Modifier
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        onClose()
+                                    }
+                                    .padding(
+                                        horizontal = 10.dp,
+                                        vertical = 2.dp
+                                    )
+                        )
+                    }
+
+                    androidx.compose.foundation.layout.Spacer(
+                        modifier = Modifier.size(10.dp)
+                    )
+
+                    Text(
+                        text = event.title,
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight =
+                            androidx.compose.ui.text.font.FontWeight.SemiBold
+                    )
+
+                    if (event.subtitle.isNotBlank()) {
+                        androidx.compose.foundation.layout.Spacer(
+                            modifier = Modifier.size(6.dp)
+                        )
+
+                        Text(
+                            text = event.subtitle,
+                            color = Color(0xFFD7E3EC),
+                            fontSize = 14.sp,
+                            lineHeight = 19.sp
+                        )
+                    }
+
+                    if (event.blocked) {
+                        androidx.compose.foundation.layout.Spacer(
+                            modifier = Modifier.size(10.dp)
+                        )
+
+                        androidx.compose.material3.Surface(
+                            shape =
+                                androidx.compose.foundation.shape.RoundedCornerShape(
+                                    8.dp
+                                ),
+                            color = Color(0x33E84C4C)
+                        ) {
+                            Text(
+                                text = "GESPERRT",
+                                color = Color(0xFFFF7070),
+                                fontSize = 13.sp,
+                                fontWeight =
+                                    androidx.compose.ui.text.font.FontWeight.Bold,
+                                modifier =
+                                    Modifier.padding(
+                                        horizontal = 10.dp,
+                                        vertical = 6.dp
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

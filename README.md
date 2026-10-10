@@ -2,7 +2,7 @@
 
 Lokales Android-Dashboard und Navigationssystem für Tesla-Fahrzeuge.
 
-**Aktuelle Version: 0.5.2**
+**Aktuelle Version: 0.5.3**
 
 ## Projektbeschreibung
 
@@ -254,7 +254,7 @@ automatisch zu löschen.
 - **0.4.2** – Verbesserte Kreisverkehrs- und Abbiegeführung
 - **0.5.0** – Live-Verkehrsinformationen für Autobahnen
 - **0.5.1** – Ladepunkte auf Online-Karten und überarbeitetes Karten-/KPI-Layout
-- **0.5.2** – Verkehrs-Replay sowie Blinker- und Lichtanzeigen direkt im Tacho
+- **0.5.3** – Verkehrs-Replay sowie Blinker- und Lichtanzeigen direkt im Tacho
 
 Weitere technische Details und Änderungen enthält:
 

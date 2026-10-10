@@ -88,6 +88,8 @@ internal object NavigationSimulation {
         speedKmh = when (speedKmh) {
             30 -> 60
             60 -> 90
+            90 -> 180
+            180 -> 240
             else -> 30
         }
     }

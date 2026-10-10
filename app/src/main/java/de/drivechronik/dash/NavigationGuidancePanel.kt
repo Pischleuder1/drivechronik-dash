@@ -29,9 +29,33 @@ internal fun NavigationGuidancePanel(
         it.distanceAlongRouteMeters + remaining
     } ?: route.distanceKm * 1000.0
 
-    val minutes = if (total > 0.0) {
-        route.durationSeconds * remaining / total / 60.0
-    } else 0.0
+    val minutes =
+        if (
+            NavigationSimulation.active &&
+            NavigationSimulation.speedKmh > 0
+        ) {
+            /*
+             * Simulation:
+             * Restzeit direkt aus verbleibender Strecke
+             * und gewählter Simulationsgeschwindigkeit.
+             */
+            val metersPerSecond =
+                NavigationSimulation.speedKmh / 3.6
+
+            remaining / metersPerSecond / 60.0
+        } else if (total > 0.0) {
+            /*
+             * Echte Navigation:
+             * weiterhin die von der Route berechnete
+             * Fahrzeit proportional zur Reststrecke.
+             */
+            route.durationSeconds *
+                remaining /
+                total /
+                60.0
+        } else {
+            0.0
+        }
 
     val eta = SimpleDateFormat("HH:mm", Locale.GERMANY)
         .format(Date(System.currentTimeMillis() +

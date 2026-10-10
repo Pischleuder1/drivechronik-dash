@@ -1,6 +1,24 @@
 # Changelog – drivechronik-dash
 
 
+## [0.5.3] – 2026-10-10
+
+### Hinzugefügt
+
+- Verkehrsmeldungen werden dauerhaft als typabhängige Marker direkt auf der Navigationskarte angezeigt.
+- Verkehrssymbole können angetippt werden und öffnen ein zentriertes Detail-Popup über dem gesamten Dashboard.
+- Verkehrswarnungen auf der aktiven Route erscheinen automatisch ab etwa 2 km Entfernung und schließen nach 6 Sekunden.
+- Automatische Verkehrswarnungen werden pro Ereignis nur einmal eingeblendet.
+- Fahrtrichtungsfilter für Autobahn-Verkehrsmeldungen ergänzt, damit eindeutig erkannte Gegenfahrbahn-Ereignisse ausgeblendet werden.
+- Simulationsgeschwindigkeiten um 180 km/h und 240 km/h erweitert.
+
+### Geändert
+
+- Restzeit und Ankunftszeit der Navigation berücksichtigen in der Simulation die aktuell gewählte Simulationsgeschwindigkeit.
+- Kartenzoom für hohe Simulationsgeschwindigkeiten erweitert.
+- Live-Navigation verwendet ab 120 km/h den weiten Autobahn-Zoom 10.0.
+- Manuell geöffnete Verkehrspopups bleiben unabhängig vom 6-Sekunden-Autotimer geöffnet.
+
 ## [0.5.2] – 2026-10-10
 
 ### Navigation und Verkehr

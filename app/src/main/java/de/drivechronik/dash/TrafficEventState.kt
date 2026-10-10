@@ -18,7 +18,9 @@ internal data class TrafficEvent(
     val subtitle: String = "",
     val lat: Double,
     val lon: Double,
-    val blocked: Boolean = false
+    val blocked: Boolean = false,
+    val geometry: List<de.drivechronik.dash.routing.RoutePoint> =
+        emptyList()
 )
 
 internal object TrafficEventState {

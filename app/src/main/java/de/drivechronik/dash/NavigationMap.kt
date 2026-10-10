@@ -55,7 +55,8 @@ internal fun NavigationMap(
     routePoints: List<RoutePoint> = emptyList(),
     routeGeneration: Int = 0,
     phoneState: State<Location?>,
-    onChargingStationClick: (ChargingStationSelection) -> Unit = {}
+    onChargingStationClick: (ChargingStationSelection) -> Unit = {},
+    onTrafficEventClick: (TrafficEvent) -> Unit = {}
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
@@ -67,6 +68,14 @@ internal fun NavigationMap(
     val currentRoutePoints by rememberUpdatedState(routePoints)
     val currentChargingStationClick by rememberUpdatedState(
         onChargingStationClick
+    )
+
+    val currentTrafficEventClick by rememberUpdatedState(
+        onTrafficEventClick
+    )
+
+    val currentTrafficEvents by rememberUpdatedState(
+        TrafficEventState.events
     )
     // Gemeinsames Navigations-GPS
     val mapState = remember {
@@ -221,6 +230,166 @@ internal fun NavigationMap(
                             lineOpacity(0.95f)
                         )
                     )
+
+                    /*
+                     * Verkehrsereignisse auf der Navigationskarte.
+                     *
+                     * Es wird ausschließlich der bereits von der
+                     * Autobahn-API gefilterte TrafficEventState verwendet.
+                     */
+                    it.addSource(
+                        GeoJsonSource(
+                            "dash-traffic",
+                            FeatureCollection.fromFeatures(
+                                emptyArray<Feature>()
+                            )
+                        )
+                    )
+
+                    it.addImage(
+                        "dash-traffic-roadwork",
+                        trafficRoadworkBitmap()
+                    )
+                    it.addImage(
+                        "dash-traffic-warning",
+                        trafficWarningBitmap()
+                    )
+                    it.addImage(
+                        "dash-traffic-closure",
+                        trafficClosureBitmap()
+                    )
+
+                    val roadworkTrafficLayer =
+                        SymbolLayer(
+                            "dash-traffic-roadwork-layer",
+                            "dash-traffic"
+                        ).withFilter(
+                            Expression.eq(
+                                Expression.get("eventType"),
+                                Expression.literal("roadwork")
+                            )
+                        ).withProperties(
+                            iconImage("dash-traffic-roadwork"),
+                            iconSize(0.68f),
+                            iconAllowOverlap(true),
+                            iconIgnorePlacement(true)
+                        )
+
+                    val warningTrafficLayer =
+                        SymbolLayer(
+                            "dash-traffic-warning-layer",
+                            "dash-traffic"
+                        ).withFilter(
+                            Expression.eq(
+                                Expression.get("eventType"),
+                                Expression.literal("warning")
+                            )
+                        ).withProperties(
+                            iconImage("dash-traffic-warning"),
+                            iconSize(0.68f),
+                            iconAllowOverlap(true),
+                            iconIgnorePlacement(true)
+                        )
+
+                    val closureTrafficLayer =
+                        SymbolLayer(
+                            "dash-traffic-closure-layer",
+                            "dash-traffic"
+                        ).withFilter(
+                            Expression.eq(
+                                Expression.get("eventType"),
+                                Expression.literal("closure")
+                            )
+                        ).withProperties(
+                            iconImage("dash-traffic-closure"),
+                            iconSize(0.68f),
+                            iconAllowOverlap(true),
+                            iconIgnorePlacement(true)
+                        )
+
+                    roadworkTrafficLayer.minZoom = 7f
+                    warningTrafficLayer.minZoom = 7f
+                    closureTrafficLayer.minZoom = 7f
+
+                    it.addLayer(roadworkTrafficLayer)
+                    it.addLayer(warningTrafficLayer)
+                    it.addLayer(closureTrafficLayer)
+
+                    /*
+                     * Traffic-Symbole antippbar machen.
+                     *
+                     * Große Trefferfläche, damit die Symbole während
+                     * der Fahrt zuverlässig getroffen werden können.
+                     */
+                    map.addOnMapClickListener { latLng ->
+                        val screenPoint =
+                            map.projection.toScreenLocation(latLng)
+
+                        val density =
+                            context.resources.displayMetrics.density
+
+                        val radiusPx = 30f * density
+
+                        val touchArea =
+                            android.graphics.RectF(
+                                screenPoint.x - radiusPx,
+                                screenPoint.y - radiusPx,
+                                screenPoint.x + radiusPx,
+                                screenPoint.y + radiusPx
+                            )
+
+                        val features =
+                            map.queryRenderedFeatures(
+                                touchArea,
+                                "dash-traffic-closure-layer",
+                                "dash-traffic-roadwork-layer",
+                                "dash-traffic-warning-layer"
+                            )
+
+                        val feature =
+                            features
+                                .mapNotNull { candidate ->
+                                    val point =
+                                        candidate.geometry() as? Point
+                                            ?: return@mapNotNull null
+
+                                    val candidateScreen =
+                                        map.projection.toScreenLocation(
+                                            LatLng(
+                                                point.latitude(),
+                                                point.longitude()
+                                            )
+                                        )
+
+                                    val dx =
+                                        candidateScreen.x - screenPoint.x
+                                    val dy =
+                                        candidateScreen.y - screenPoint.y
+
+                                    candidate to
+                                        (dx * dx + dy * dy)
+                                }
+                                .minByOrNull { it.second }
+                                ?.first
+                                ?: return@addOnMapClickListener false
+
+                        val eventId =
+                            if (feature.hasProperty("id")) {
+                                feature.getStringProperty("id")
+                            } else {
+                                null
+                            }
+
+                        val event =
+                            currentTrafficEvents.firstOrNull {
+                                it.id == eventId
+                            }
+                                ?: return@addOnMapClickListener false
+
+                        currentTrafficEventClick(event)
+
+                        true
+                    }
 
                     listOf(
                         Triple("dash-start", "#20B66A", 8f),
@@ -581,6 +750,54 @@ internal fun NavigationMap(
         }
     }
 
+    val trafficEvents = TrafficEventState.events
+
+    LaunchedEffect(trafficEvents, mapState.value) {
+        val source =
+            mapState.value
+                ?.style
+                ?.getSourceAs<GeoJsonSource>("dash-traffic")
+                ?: return@LaunchedEffect
+
+        val features = trafficEvents.map { event ->
+            Feature.fromGeometry(
+                Point.fromLngLat(event.lon, event.lat)
+            ).apply {
+                addStringProperty("id", event.id)
+                addStringProperty("road", event.road)
+                addStringProperty("title", event.title)
+                addStringProperty("subtitle", event.subtitle)
+
+                val eventType =
+                    if (event.blocked) {
+                        "closure"
+                    } else {
+                        when (event.type) {
+                            TrafficEventType.ROADWORK ->
+                                "roadwork"
+
+                            TrafficEventType.WARNING ->
+                                "warning"
+
+                            TrafficEventType.CLOSURE ->
+                                "closure"
+                        }
+                    }
+
+                addStringProperty(
+                    "eventType",
+                    eventType
+                )
+            }
+        }
+
+        source.setGeoJson(
+            FeatureCollection.fromFeatures(
+                features.toTypedArray()
+            )
+        )
+    }
+
     LaunchedEffect(routePoints, mapState.value) {
         mapState.value?.style
             ?.getSourceAs<GeoJsonSource>("dash-route")
@@ -813,27 +1030,68 @@ internal fun NavigationMap(
 
                 if (centered || NavigationSimulation.active) {
                     // Stufenlose Geschwindigkeitskurve.
-                    val cruisingZoom = when {
-                    speedKmh <= 30.0 -> 16.0
+                    val cruisingZoom =
+                        if (
+                            !NavigationSimulation.active &&
+                            speedKmh >= 120.0
+                        ) {
+                            /*
+                             * Live-Fahrt:
+                             * ab 120 km/h denselben weiten
+                             * Autobahn-Zoom wie im 240-km/h-Test.
+                             */
+                            10.0
+                        } else {
+                            when {
+                                speedKmh <= 30.0 -> 16.0
 
-                    speedKmh <= 50.0 ->
-                        16.0 -
-                            (speedKmh - 30.0) / 20.0
+                                speedKmh <= 50.0 ->
+                                    16.0 -
+                                        (speedKmh - 30.0) / 20.0
 
-                    speedKmh <= 70.0 ->
-                        15.0 -
-                            (speedKmh - 50.0) * 1.5 / 20.0
+                                speedKmh <= 70.0 ->
+                                    15.0 -
+                                        (speedKmh - 50.0) *
+                                            1.5 / 20.0
 
-                    speedKmh <= 90.0 ->
-                        13.5 -
-                            (speedKmh - 70.0) * 1.5 / 20.0
+                                speedKmh <= 90.0 ->
+                                    13.5 -
+                                        (speedKmh - 70.0) *
+                                            1.5 / 20.0
 
-                    else -> 12.0
-                }
+                                speedKmh <= 180.0 ->
+                                    12.0 -
+                                        (speedKmh - 90.0) *
+                                            1.2 / 90.0
+
+                                speedKmh <= 240.0 ->
+                                    10.8 -
+                                        (speedKmh - 180.0) *
+                                            0.8 / 60.0
+
+                                else -> 10.0
+                            }
+                        }
 
                 val targetZoom = when {
                     currentRoutePoints.size < 2 -> 15.5
-                    nearTurn -> 16.0
+
+                    /*
+                     * Bei normaler Fahrt weiterhin nah an
+                     * Abbiegevorgängen heranzoomen.
+                     *
+                     * Die hohen Simulationsgeschwindigkeiten
+                     * 180/240 km/h sind Testmodi und sollen
+                     * nicht durch nearTurn wieder auf Zoom 16
+                     * gezwungen werden.
+                     */
+                    nearTurn &&
+                        (
+                            !NavigationSimulation.active ||
+                            speedKmh <= 90.0
+                        ) ->
+                        16.0
+
                     else -> cruisingZoom
                 }
 
@@ -1094,4 +1352,201 @@ internal fun NavigationMap(
             }
         }
     }
+}
+
+
+/*
+ * -------------------------------------------------------------------------
+ * Verkehrs-Symbole
+ * -------------------------------------------------------------------------
+ */
+
+private fun trafficWarningBitmap(): android.graphics.Bitmap {
+    val size = 64
+    val bitmap = android.graphics.Bitmap.createBitmap(
+        size,
+        size,
+        android.graphics.Bitmap.Config.ARGB_8888
+    )
+    val canvas = android.graphics.Canvas(bitmap)
+
+    val triangle = android.graphics.Path().apply {
+        moveTo(32f, 5f)
+        lineTo(60f, 56f)
+        lineTo(4f, 56f)
+        close()
+    }
+
+    val fill = android.graphics.Paint(
+        android.graphics.Paint.ANTI_ALIAS_FLAG
+    ).apply {
+        color = android.graphics.Color.rgb(255, 193, 7)
+        style = android.graphics.Paint.Style.FILL
+    }
+
+    val stroke = android.graphics.Paint(
+        android.graphics.Paint.ANTI_ALIAS_FLAG
+    ).apply {
+        color = android.graphics.Color.rgb(30, 30, 30)
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 5f
+        strokeJoin = android.graphics.Paint.Join.ROUND
+    }
+
+    canvas.drawPath(triangle, fill)
+    canvas.drawPath(triangle, stroke)
+
+    val symbol = android.graphics.Paint(
+        android.graphics.Paint.ANTI_ALIAS_FLAG
+    ).apply {
+        color = android.graphics.Color.BLACK
+        style = android.graphics.Paint.Style.FILL
+        strokeCap = android.graphics.Paint.Cap.ROUND
+    }
+
+    canvas.drawRoundRect(
+        29f, 20f, 35f, 40f,
+        3f, 3f,
+        symbol
+    )
+    canvas.drawCircle(32f, 47f, 3.5f, symbol)
+
+    return bitmap
+}
+
+
+private fun trafficClosureBitmap(): android.graphics.Bitmap {
+    val size = 64
+    val bitmap = android.graphics.Bitmap.createBitmap(
+        size,
+        size,
+        android.graphics.Bitmap.Config.ARGB_8888
+    )
+    val canvas = android.graphics.Canvas(bitmap)
+
+    val red = android.graphics.Paint(
+        android.graphics.Paint.ANTI_ALIAS_FLAG
+    ).apply {
+        color = android.graphics.Color.rgb(220, 45, 45)
+        style = android.graphics.Paint.Style.FILL
+    }
+
+    val white = android.graphics.Paint(
+        android.graphics.Paint.ANTI_ALIAS_FLAG
+    ).apply {
+        color = android.graphics.Color.WHITE
+        style = android.graphics.Paint.Style.FILL
+    }
+
+    val border = android.graphics.Paint(
+        android.graphics.Paint.ANTI_ALIAS_FLAG
+    ).apply {
+        color = android.graphics.Color.rgb(120, 0, 0)
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 3f
+    }
+
+    canvas.drawCircle(32f, 32f, 27f, red)
+    canvas.drawCircle(32f, 32f, 27f, border)
+
+    canvas.drawRoundRect(
+        13f, 26f, 51f, 38f,
+        4f, 4f,
+        white
+    )
+
+    return bitmap
+}
+
+
+private fun trafficRoadworkBitmap(): android.graphics.Bitmap {
+    val size = 64
+    val bitmap = android.graphics.Bitmap.createBitmap(
+        size,
+        size,
+        android.graphics.Bitmap.Config.ARGB_8888
+    )
+    val canvas = android.graphics.Canvas(bitmap)
+
+    val triangle = android.graphics.Path().apply {
+        moveTo(32f, 5f)
+        lineTo(60f, 56f)
+        lineTo(4f, 56f)
+        close()
+    }
+
+    val orange = android.graphics.Paint(
+        android.graphics.Paint.ANTI_ALIAS_FLAG
+    ).apply {
+        color = android.graphics.Color.rgb(255, 145, 0)
+        style = android.graphics.Paint.Style.FILL
+    }
+
+    val outline = android.graphics.Paint(
+        android.graphics.Paint.ANTI_ALIAS_FLAG
+    ).apply {
+        color = android.graphics.Color.rgb(30, 30, 30)
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 5f
+        strokeJoin = android.graphics.Paint.Join.ROUND
+    }
+
+    canvas.drawPath(triangle, orange)
+    canvas.drawPath(triangle, outline)
+
+    val black = android.graphics.Paint(
+        android.graphics.Paint.ANTI_ALIAS_FLAG
+    ).apply {
+        color = android.graphics.Color.BLACK
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 4.5f
+        strokeCap = android.graphics.Paint.Cap.ROUND
+        strokeJoin = android.graphics.Paint.Join.ROUND
+    }
+
+    /*
+     * Stark vereinfachtes Baustellen-Piktogramm:
+     * Kopf, Körper/Arm, Schaufel und Erdhaufen.
+     */
+    canvas.drawCircle(
+        27f,
+        25f,
+        4f,
+        android.graphics.Paint(
+            android.graphics.Paint.ANTI_ALIAS_FLAG
+        ).apply {
+            color = android.graphics.Color.BLACK
+            style = android.graphics.Paint.Style.FILL
+        }
+    )
+
+    canvas.drawLine(28f, 30f, 35f, 41f, black)
+    canvas.drawLine(31f, 33f, 42f, 29f, black)
+    canvas.drawLine(34f, 40f, 27f, 48f, black)
+    canvas.drawLine(35f, 40f, 44f, 47f, black)
+
+    // Schaufelstiel
+    canvas.drawLine(41f, 28f, 47f, 45f, black)
+
+    // Schaufelblatt
+    val shovel = android.graphics.Path().apply {
+        moveTo(43f, 44f)
+        lineTo(50f, 43f)
+        lineTo(48f, 50f)
+        close()
+    }
+    canvas.drawPath(
+        shovel,
+        android.graphics.Paint(
+            android.graphics.Paint.ANTI_ALIAS_FLAG
+        ).apply {
+            color = android.graphics.Color.BLACK
+            style = android.graphics.Paint.Style.FILL
+        }
+    )
+
+    // Erdhaufen
+    canvas.drawLine(16f, 49f, 29f, 49f, black)
+
+    return bitmap
 }
