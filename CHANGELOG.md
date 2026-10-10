@@ -1,6 +1,25 @@
 # Changelog – drivechronik-dash
 
 
+## [0.5.4] – 2026-10-10
+
+### Hinzugefügt
+
+- Zwei getrennte Verkehrseinstellungen:
+  - automatische Verkehrswarnungen ein-/ausschalten
+  - Verkehrsmarker auf der Karte ein-/ausschalten
+- Verkehrseinstellungen werden dauerhaft gespeichert.
+- Direkter Geschwindigkeitsumschalter während der Navigation-Simulation.
+- Deutliche Kennzeichnung „Simulation“ im Tachobereich.
+
+### Verbessert
+
+- Gegenfahrbahnfilter für Autobahn-Verkehrsmeldungen erweitert.
+- API-Geometrien der Verkehrsmeldungen werden für die Richtungsprüfung ausgewertet.
+- Zusätzlicher Richtungsvergleich über Routenfortschritt und Fahrtrichtungswinkel.
+- Mehrere Baustellenmeldungen auf derselben Autobahn innerhalb von 3 km entlang der Route werden zu einem Hinweis zusammengefasst.
+- Simulationsanzeige aus der Kartenfläche entfernt und oberhalb des Tachos platziert.
+
 ## [0.5.3] – 2026-10-10
 
 ### Hinzugefügt

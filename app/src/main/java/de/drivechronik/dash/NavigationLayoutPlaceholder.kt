@@ -63,6 +63,8 @@ internal fun NavigationLayoutPlaceholder(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    TrafficDisplaySettings.ensureLoaded(context)
     var avoidHighways by remember {
         mutableStateOf(NavigationHighwaySetting.enabled(context))
     }
@@ -191,6 +193,7 @@ var chargingRouteLoading by remember {
 
         while (true) {
             if (
+                TrafficDisplaySettings.autoPopupsEnabled &&
                 selectedTrafficEvent == null &&
                 selectedChargingStation == null
             ) {
@@ -262,6 +265,28 @@ var chargingRouteLoading by remember {
      *
      * Manuell geöffnete Popups bleiben offen.
      */
+    /*
+     * Wird die automatische Einblendung abgeschaltet,
+     * ein gerade automatisch geöffnetes Popup sofort
+     * schließen. Manuell geöffnete Popups bleiben bestehen.
+     */
+    LaunchedEffect(
+        TrafficDisplaySettings.autoPopupsEnabled
+    ) {
+        if (
+            !TrafficDisplaySettings.autoPopupsEnabled &&
+            autoTrafficPopupId != null
+        ) {
+            val eventId = autoTrafficPopupId
+
+            if (selectedTrafficEvent?.id == eventId) {
+                selectedTrafficEvent = null
+            }
+
+            autoTrafficPopupId = null
+        }
+    }
+
     LaunchedEffect(autoTrafficPopupId) {
         val eventId =
             autoTrafficPopupId
@@ -338,7 +363,10 @@ var chargingRouteLoading by remember {
         Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(top = 10.dp, start = 8.dp),
+                .padding(
+                    top = 10.dp,
+                    start = 8.dp
+                ),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -415,6 +443,40 @@ var chargingRouteLoading by remember {
                     }
                 }
             )
+        }
+
+        /*
+         * Während einer aktiven Fahrsimulation:
+         *
+         * - oben links klarer Simulation-Hinweis
+         * - unten links direkter Geschwindigkeitsumschalter
+         */
+        if (NavigationSimulation.active) {
+
+            Button(
+                onClick = {
+                    NavigationSimulation.changeSpeed()
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(
+                        start = 8.dp,
+                        bottom = 12.dp
+                    )
+                    .height(40.dp),
+                contentPadding =
+                    PaddingValues(
+                        horizontal = 14.dp,
+                        vertical = 0.dp
+                    )
+            ) {
+                Text(
+                    text =
+                        "${NavigationSimulation.speedKmh} km/h",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         NavigationGuidance(

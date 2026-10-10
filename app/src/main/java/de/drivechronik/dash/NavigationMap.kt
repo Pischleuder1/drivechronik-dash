@@ -750,9 +750,20 @@ internal fun NavigationMap(
         }
     }
 
-    val trafficEvents = TrafficEventState.events
+    TrafficDisplaySettings.ensureLoaded(context)
 
-    LaunchedEffect(trafficEvents, mapState.value) {
+    val trafficEvents =
+        if (TrafficDisplaySettings.showMarkers) {
+            TrafficEventState.events
+        } else {
+            emptyList()
+        }
+
+    LaunchedEffect(
+        trafficEvents,
+        TrafficDisplaySettings.showMarkers,
+        mapState.value
+    ) {
         val source =
             mapState.value
                 ?.style

@@ -19,6 +19,9 @@ internal fun NavigationSettingsHome(
     initialMapsOpen: Boolean = false
 ) {
     val context = LocalContext.current
+
+    TrafficDisplaySettings.ensureLoaded(context)
+
     var mapsOpen by remember(initialMapsOpen) {
         mutableStateOf(initialMapsOpen)
     }
@@ -81,6 +84,87 @@ internal fun NavigationSettingsHome(
                     Text("Über das Autobahnschild schalten")
                 },
                 leadingContent = { Text("⇢") }
+            )
+        }
+
+        Text(
+            "VERKEHR",
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelMedium
+        )
+
+        OutlinedCard(
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = Color(0xFF21364B)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            ListItem(
+                colors = ListItemDefaults.colors(
+                    containerColor = Color(0xFF21364B)
+                ),
+                headlineContent = {
+                    Text(
+                        "Verkehrswarnungen automatisch einblenden"
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        "Hinweis ca. 2 km vor dem Ereignis"
+                    )
+                },
+                leadingContent = {
+                    Text("⚠")
+                },
+                trailingContent = {
+                    Switch(
+                        checked =
+                            TrafficDisplaySettings
+                                .autoPopupsEnabled,
+                        onCheckedChange = { enabled ->
+                            TrafficDisplaySettings
+                                .setAutoPopups(
+                                    context,
+                                    enabled
+                                )
+                        }
+                    )
+                }
+            )
+
+            HorizontalDivider()
+
+            ListItem(
+                colors = ListItemDefaults.colors(
+                    containerColor = Color(0xFF21364B)
+                ),
+                headlineContent = {
+                    Text(
+                        "Verkehrsmarker auf Karte anzeigen"
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        "Baustellen, Warnungen und Sperrungen"
+                    )
+                },
+                leadingContent = {
+                    Text("●")
+                },
+                trailingContent = {
+                    Switch(
+                        checked =
+                            TrafficDisplaySettings
+                                .showMarkers,
+                        onCheckedChange = { enabled ->
+                            TrafficDisplaySettings
+                                .setShowMarkers(
+                                    context,
+                                    enabled
+                                )
+                        }
+                    )
+                }
             )
         }
 

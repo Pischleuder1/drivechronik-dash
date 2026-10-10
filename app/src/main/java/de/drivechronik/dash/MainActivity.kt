@@ -1141,6 +1141,34 @@ modifier =
                     )
 
 
+                    if (NavigationSimulation.active) {
+                        Text(
+                            text = "Simulation",
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier =
+                                Modifier
+                                    .align(
+                                        Alignment.TopStart
+                                    )
+                                    .padding(
+                                        start = 8.dp,
+                                        top = 6.dp
+                                    )
+                                    .background(
+                                        Color(0xDD142B40),
+                                        RoundedCornerShape(
+                                            8.dp
+                                        )
+                                    )
+                                    .padding(
+                                        horizontal = 10.dp,
+                                        vertical = 5.dp
+                                    )
+                        )
+                    }
+
                     PowerRing(
                         powerKw = state.powerKw,
                         modifier = Modifier
