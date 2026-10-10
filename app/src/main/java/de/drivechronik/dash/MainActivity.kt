@@ -4650,9 +4650,12 @@ private fun NavigationPanel(
             Text(
                 text = destination,
                 color = DashText,
-                fontSize = 20.sp,
+                fontSize = 18.sp,
+                lineHeight = 20.sp,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 1
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
         }
 
@@ -4766,9 +4769,11 @@ private fun OfflineNavigationPanel(
             Text(
                 text = NavigationSummaryState.destination ?: "Navigationsziel",
                 color = DashText,
-                fontSize = 20.sp,
+                fontSize = 18.sp,
+                lineHeight = 20.sp,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
         }

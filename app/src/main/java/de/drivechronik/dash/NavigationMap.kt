@@ -89,7 +89,8 @@ internal fun NavigationMap(
 
     val mapView = remember(
         context,
-        activeCountry
+        activeCountry,
+        nightMode
     ) {
         MapLibre.getInstance(context.applicationContext)
         MapView(
@@ -173,7 +174,11 @@ internal fun NavigationMap(
                     Style.Builder().fromJson(styleJson)
                 } else {
                     Style.Builder().fromUri(
-                        "https://tiles.openfreemap.org/styles/liberty"
+                        if (nightMode) {
+                            "https://tiles.openfreemap.org/styles/dark"
+                        } else {
+                            "https://tiles.openfreemap.org/styles/liberty"
+                        }
                     )
                 }
 
