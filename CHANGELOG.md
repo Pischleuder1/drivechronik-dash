@@ -1,6 +1,27 @@
 # Changelog – drivechronik-dash
 
 
+## [0.5.2] – 2026-10-10
+
+### Navigation und Verkehr
+- Manueller Replay-Button für vorhandene Verkehrsmeldungen ergänzt.
+- Verkehrs-Hinweis kann nach dem automatischen Ausblenden erneut für 6 Sekunden angezeigt werden.
+- Verkehrsbutton rechts neben der Routenübersicht angeordnet und an der Mikrofon-Achse ausgerichtet.
+- Online-Karte berücksichtigt den Nachtmodus jetzt zuverlässig.
+- Navigationsziel im rechten Bereich kann zweizeilig dargestellt werden.
+
+### Tacho und Fahrzeugstatus
+- Blinkeranzeigen direkt in den Tacho integriert.
+- Blinker auf Höhe des Drehpunkts der Tachonadel positioniert.
+- Abblendlicht und Fernlicht direkt neben der digitalen Geschwindigkeitsanzeige integriert.
+- Licht- und Blinkeranzeigen kompakter und näher zur Tachomitte ausgerichtet.
+- Inaktive Blinker- und Lichtanzeigen werden vollständig ausgeblendet.
+- Separate Fahrzeugstatusleiste im rechten KPI-Bereich entfernt.
+- Bestehende Tesla-artige Farben beibehalten:
+  Blinker grün, Abblendlicht grün, Fernlicht blau.
+
+
+
 
 ## [0.4.2] – 2026-10-09
 

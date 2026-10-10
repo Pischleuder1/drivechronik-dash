@@ -1087,6 +1087,18 @@ private fun DashboardContent(
                         usableCapacityKwh =
                             state.usableCapacityKwh,
 
+                        leftIndicator =
+                            state.leftIndicator,
+
+                        rightIndicator =
+                            state.rightIndicator,
+
+                        lowBeam =
+                            state.lowBeam,
+
+                        highBeam =
+                            state.highBeam,
+
                                                 gear = state.gear,
 modifier =
                             Modifier
@@ -1269,20 +1281,6 @@ modifier =
                             }
                         }
 
-                        VehicleStatusBar(
-                            leftIndicator =
-                                state.leftIndicator,
-                            rightIndicator =
-                                state.rightIndicator,
-                            lowBeam =
-                                state.lowBeam,
-                            highBeam =
-                                state.highBeam,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(64.dp)
-                        )
                     }
                 }
             }
@@ -3670,6 +3668,10 @@ private fun Speedometer(
     speedLimit: Int,
     remainingKwh: Float,
     usableCapacityKwh: Float,
+    leftIndicator: Boolean,
+    rightIndicator: Boolean,
+    lowBeam: Boolean,
+    highBeam: Boolean,
     gear: String = "D",
     modifier: Modifier = Modifier
 ) {
@@ -4190,6 +4192,78 @@ private fun Speedometer(
                         )
             )
 
+
+            /*
+             * Blinker oben im Tacho.
+             */
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(
+                        x = gaugeSize * (-0.31f) + 30.dp,
+                        y = 0.dp
+                    )
+                    .size(width = 34.dp, height = 26.dp)
+            ) {
+                TeslaTurnIndicator(
+                    left = true,
+                    active = leftIndicator,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(
+                        x = gaugeSize * 0.31f - 30.dp,
+                        y = 0.dp
+                    )
+                    .size(width = 34.dp, height = 26.dp)
+            ) {
+                TeslaTurnIndicator(
+                    left = false,
+                    active = rightIndicator,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            /*
+             * Licht links und rechts neben der Geschwindigkeit.
+             */
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(
+                        x = gaugeSize * (-0.22f) + 30.dp,
+                        y = gaugeSize * 0.25f
+                    )
+                    .size(width = 28.dp, height = 23.dp)
+            ) {
+                TeslaBeamIndicator(
+                    dipped = true,
+                    active = lowBeam,
+                    activeColor = Color(0xFF55C878),
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(
+                        x = gaugeSize * 0.22f - 30.dp,
+                        y = gaugeSize * 0.25f
+                    )
+                    .size(width = 28.dp, height = 23.dp)
+            ) {
+                TeslaBeamIndicator(
+                    dipped = false,
+                    active = highBeam,
+                    activeColor = Color(0xFF4A90FF),
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
             /*
              * digitale Geschwindigkeit
@@ -4873,7 +4947,7 @@ private fun TeslaBeamIndicator(
         if (active)
             activeColor
         else
-            Color(0xFF303338)
+            Color.Transparent
 
     Box(
         modifier =
@@ -4994,7 +5068,7 @@ private fun TeslaTurnIndicator(
         if (active)
             Color(0xFF45D177)
         else
-            Color(0xFF303338)
+            Color.Transparent
 
     Box(
         modifier = modifier.fillMaxHeight(),
