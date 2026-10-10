@@ -28,6 +28,23 @@
         android:windowSoftInputMode="adjustResize"
         android:theme="@style/Theme.DriveChronikDash">
         <activity
+            android:name=".NavigationImportActivity"
+            android:exported="true"
+            android:screenOrientation="sensorLandscape">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="drivechronikdash"
+                    android:host="navigation"
+                    android:pathPrefix="/import" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="sensorLandscape">

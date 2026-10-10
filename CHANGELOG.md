@@ -1,5 +1,24 @@
 # Changelog – drivechronik-dash
 
+## [0.5.5] – 2026-10-10
+
+### Hinzugefügt
+
+- Import kompletter Navigationspläne aus DriveChronik über einen Android-Deep-Link.
+- Importierte Reisepläne können mehrere Lade- und Zwischenziele sowie ein Endziel enthalten.
+- Automatische abschnittsweise Navigation durch alle importierten Zwischenziele bis zum Endziel.
+- Ziel-SOC importierter Ladestopps wird im Übernahme-Dialog angezeigt.
+- Kompletter importierter Reiseplan wird zusätzlich als rote gestrichelte Linie auf der Karte dargestellt.
+- Alle Zwischenziele und das Endziel werden als rote Punkte auf der Gesamtplan-Linie markiert.
+
+### Verbessert
+
+- Import-Dialog verbreitert und für längere Reisepläne scrollbar gemacht.
+- Alle Teilziele und das endgültige Reiseziel werden vor der Übernahme vollständig angezeigt.
+- Aktiver Navigationsabschnitt bleibt unabhängig von der Gesamtplanung als blaue Route sichtbar.
+- Manueller Navigationsabbruch beendet auch einen aktiven importierten DriveChronik-Reiseplan.
+
+
 
 ## [0.5.4] – 2026-10-10
 

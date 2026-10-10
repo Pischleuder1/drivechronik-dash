@@ -53,6 +53,8 @@ internal fun NavigationMap(
     nightMode: Boolean = false,
     modifier: Modifier = Modifier,
     routePoints: List<RoutePoint> = emptyList(),
+    planRoutePoints: List<RoutePoint> = emptyList(),
+    planStopPoints: List<RoutePoint> = emptyList(),
     routeGeneration: Int = 0,
     phoneState: State<Location?>,
     onChargingStationClick: (ChargingStationSelection) -> Unit = {},
@@ -211,6 +213,63 @@ internal fun NavigationMap(
                             )
                         )
                     }
+
+                    /*
+                     * Gesamtplan aus DriveChronik.
+                     * Dünner und dezenter als der aktuell
+                     * navigierte blaue Streckenabschnitt.
+                     */
+                    it.addSource(
+                        GeoJsonSource(
+                            "dash-plan-route",
+                            FeatureCollection.fromFeatures(
+                                emptyArray<Feature>()
+                            )
+                        )
+                    )
+
+                    it.addLayer(
+                        LineLayer(
+                            "dash-plan-route-layer",
+                            "dash-plan-route"
+                        ).withProperties(
+                            lineColor("#E53935"),
+                            lineWidth(3f),
+                            lineOpacity(0.70f),
+                            lineDasharray(
+                                arrayOf(
+                                    2f,
+                                    1.5f
+                                )
+                            )
+                        )
+                    )
+
+                    /*
+                     * Zwischenziele und Endziel des
+                     * importierten DriveChronik-Plans.
+                     */
+                    it.addSource(
+                        GeoJsonSource(
+                            "dash-plan-stops",
+                            FeatureCollection.fromFeatures(
+                                emptyArray<Feature>()
+                            )
+                        )
+                    )
+
+                    it.addLayer(
+                        CircleLayer(
+                            "dash-plan-stops-layer",
+                            "dash-plan-stops"
+                        ).withProperties(
+                            circleColor("#E53935"),
+                            circleRadius(7f),
+                            circleStrokeColor("#FFFFFF"),
+                            circleStrokeWidth(2f),
+                            circleOpacity(0.95f)
+                        )
+                    )
 
                     it.addSource(
                         GeoJsonSource(
@@ -807,6 +866,61 @@ internal fun NavigationMap(
                 features.toTypedArray()
             )
         )
+    }
+
+    LaunchedEffect(
+        planStopPoints,
+        mapState.value
+    ) {
+        val features =
+            planStopPoints.map { point ->
+                Feature.fromGeometry(
+                    Point.fromLngLat(
+                        point.lon,
+                        point.lat
+                    )
+                )
+            }
+
+        mapState.value?.style
+            ?.getSourceAs<GeoJsonSource>(
+                "dash-plan-stops"
+            )
+            ?.setGeoJson(
+                FeatureCollection.fromFeatures(
+                    features.toTypedArray()
+                )
+            )
+    }
+
+    LaunchedEffect(
+        planRoutePoints,
+        mapState.value
+    ) {
+        mapState.value?.style
+            ?.getSourceAs<GeoJsonSource>(
+                "dash-plan-route"
+            )
+            ?.setGeoJson(
+                if (planRoutePoints.size >= 2) {
+                    FeatureCollection.fromFeature(
+                        Feature.fromGeometry(
+                            LineString.fromLngLats(
+                                planRoutePoints.map {
+                                    Point.fromLngLat(
+                                        it.lon,
+                                        it.lat
+                                    )
+                                }
+                            )
+                        )
+                    )
+                } else {
+                    FeatureCollection.fromFeatures(
+                        emptyArray<Feature>()
+                    )
+                }
+            )
     }
 
     LaunchedEffect(routePoints, mapState.value) {

@@ -76,6 +76,18 @@ internal fun NavigationLayoutPlaceholder(
         mutableStateOf<OfflineRoute?>(null)
     }
 
+    var importedPlanRoutePoints by remember {
+        mutableStateOf<List<RoutePoint>>(
+            emptyList()
+        )
+    }
+
+    var importedPlanStopPoints by remember {
+        mutableStateOf<List<RoutePoint>>(
+            emptyList()
+        )
+    }
+
     var manualRouteGeneration by remember {
         mutableIntStateOf(0)
     }
@@ -323,10 +335,256 @@ var chargingRouteLoading by remember {
 
     val stopNavigation = {
         NavigationSimulation.stop()
+        NavigationImportState.stopActive()
         manualRouteGeneration++
         NavigationHintState.clear()
         NavigationSummaryState.clearDestination()
+        importedPlanRoutePoints = emptyList()
+        importedPlanStopPoints = emptyList()
         routePoints = null
+    }
+
+    fun navigateToImportedTarget(
+        target: ImportedNavigationStop
+    ) {
+        val origin =
+            currentNavigationFix(
+                phoneState.value
+            )?.point
+                ?: weatherCoordinates(
+                    phoneState.value
+                )?.let {
+                    RoutePoint(
+                        it.first,
+                        it.second
+                    )
+                }
+
+        if (origin == null) {
+            Toast.makeText(
+                context,
+                "Navigation nicht möglich: GPS fehlt",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            return
+        }
+
+        val destination =
+            RoutePoint(
+                lat = target.lat,
+                lon = target.lon
+            )
+
+        scope.launch {
+            val result =
+                calculatePreferredRoute(
+                    context,
+                    origin,
+                    destination
+                )
+
+            result.onSuccess { route ->
+                NavigationSimulation.stop()
+
+                manualRouteGeneration++
+
+                NavigationHintState.clear()
+
+                NavigationSummaryState
+                    .updateDestination(
+                        target.name
+                    )
+
+                routePoints = route
+
+                Toast.makeText(
+                    context,
+                    "Navigation: ${target.name}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }.onFailure {
+                Toast.makeText(
+                    context,
+                    "Route zu ${target.name} " +
+                        "konnte nicht berechnet werden",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+
+    NavigationImportState.pendingPlan?.let { plan ->
+
+        androidx.compose.material3.AlertDialog(
+            modifier = Modifier
+                .fillMaxWidth(0.76f),
+            properties =
+                androidx.compose.ui.window.DialogProperties(
+                    usePlatformDefaultWidth = false
+                ),
+            onDismissRequest = {
+                NavigationImportState.clear()
+            },
+            title = {
+                Text(
+                    "Route aus DriveChronik"
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 430.dp)
+                        .verticalScroll(
+                            rememberScrollState()
+                        ),
+                    verticalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        plan.name,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    if (plan.stops.isNotEmpty()) {
+                        Text(
+                            "${plan.stops.size} Ladestopp" +
+                                if (
+                                    plan.stops.size == 1
+                                ) {
+                                    ""
+                                } else {
+                                    "s"
+                                }
+                        )
+
+                        plan.stops.forEachIndexed {
+                                index,
+                                stop ->
+
+                            Text(
+                                "${index + 1}. " +
+                                    stop.name +
+                                    (
+                                        stop.targetSoc
+                                            ?.let {
+                                                " · Ziel ${it}%"
+                                            }
+                                            ?: ""
+                                    )
+                            )
+                        }
+                    } else {
+                        Text(
+                            "Keine Ladestopps"
+                        )
+                    }
+
+                    Text(
+                        "Ziel: ${plan.destination.name}"
+                    )
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        NavigationImportState
+                            .activate(plan)
+
+                        val origin =
+                            currentNavigationFix(
+                                phoneState.value
+                            )?.point
+                                ?: weatherCoordinates(
+                                    phoneState.value
+                                )?.let {
+                                    RoutePoint(
+                                        it.first,
+                                        it.second
+                                    )
+                                }
+
+                        importedPlanRoutePoints =
+                            buildList {
+                                origin?.let {
+                                    add(it)
+                                }
+
+                                plan.stops.forEach {
+                                    add(
+                                        RoutePoint(
+                                            lat = it.lat,
+                                            lon = it.lon
+                                        )
+                                    )
+                                }
+
+                                add(
+                                    RoutePoint(
+                                        lat =
+                                            plan.destination.lat,
+                                        lon =
+                                            plan.destination.lon
+                                    )
+                                )
+                            }
+
+                        importedPlanStopPoints =
+                            buildList {
+                                plan.stops.forEach {
+                                    add(
+                                        RoutePoint(
+                                            lat = it.lat,
+                                            lon = it.lon
+                                        )
+                                    )
+                                }
+
+                                add(
+                                    RoutePoint(
+                                        lat =
+                                            plan.destination.lat,
+                                        lon =
+                                            plan.destination.lon
+                                    )
+                                )
+                            }
+
+                        val target =
+                            NavigationImportState
+                                .currentTarget()
+
+                        if (target == null) {
+                            Toast.makeText(
+                                context,
+                                "DriveChronik-Plan enthält kein Ziel",
+                                Toast.LENGTH_LONG
+                            ).show()
+
+                            NavigationImportState
+                                .stopActive()
+                        } else {
+                            navigateToImportedTarget(
+                                target
+                            )
+                        }
+                    }
+                ) {
+                    Text("Übernehmen")
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        NavigationImportState.clear()
+                    }
+                ) {
+                    Text("Abbrechen")
+                }
+            }
+        )
     }
 
     Box(
@@ -340,6 +598,8 @@ var chargingRouteLoading by remember {
             nightMode = nightMode,
             modifier = Modifier.fillMaxSize(),
             routePoints = routePoints?.points.orEmpty(),
+            planRoutePoints = importedPlanRoutePoints,
+            planStopPoints = importedPlanStopPoints,
             routeGeneration = manualRouteGeneration,
             phoneState = phoneState,
             onChargingStationClick = { station ->
@@ -491,7 +751,42 @@ var chargingRouteLoading by remember {
             },
             onArrived = { arrived ->
                 if (routePoints === arrived) {
-                    stopNavigation()
+
+                    val activePlan =
+                        NavigationImportState
+                            .activePlan
+
+                    if (activePlan == null) {
+                        stopNavigation()
+                    } else {
+                        val nextTarget =
+                            NavigationImportState
+                                .advanceTarget()
+
+                        if (nextTarget == null) {
+                            Toast.makeText(
+                                context,
+                                "DriveChronik-Ziel erreicht",
+                                Toast.LENGTH_LONG
+                            ).show()
+
+                            stopNavigation()
+                        } else {
+                            /*
+                             * Alte Route sofort entfernen,
+                             * damit onArrived während der
+                             * Neuberechnung nicht mehrfach
+                             * ausgelöst wird.
+                             */
+                            routePoints = null
+
+                            NavigationHintState.clear()
+
+                            navigateToImportedTarget(
+                                nextTarget
+                            )
+                        }
+                    }
                 }
             }
         )
