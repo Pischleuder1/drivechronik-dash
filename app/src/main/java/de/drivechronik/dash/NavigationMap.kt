@@ -995,13 +995,59 @@ internal fun NavigationMap(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .fillMaxWidth(0.494f)
+                .fillMaxWidth(0.56f)
                 .fillMaxHeight()
         ) {
+            /*
+             * Verkehrsmeldung erneut anzeigen.
+             * Der Button bleibt sichtbar, ist aber ohne Meldungen gedimmt.
+             */
+            val hasTrafficEvents =
+                TrafficEventState.events.isNotEmpty()
+
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(12.dp)
+                    .padding(
+                        end = 8.dp,
+                        bottom = 12.dp
+                    )
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (hasTrafficEvents) {
+                            Color(0xFF172B40)
+                        } else {
+                            Color(0xFF172B40)
+                                .copy(alpha = 0.45f)
+                        }
+                    )
+                    .clickable(
+                        enabled = hasTrafficEvents
+                    ) {
+                        TrafficEventState.requestReplay()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "⚠",
+                    color =
+                        if (hasTrafficEvents) {
+                            Color(0xFFFFC66D)
+                        } else {
+                            Color(0xFF6F7C87)
+                        },
+                    fontSize = 23.sp
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(
+                        end = 60.dp,
+                        bottom = 12.dp
+                    )
                     .size(44.dp)
                 .clip(CircleShape)
                 .background(Color(0xFF172B40))

@@ -40,7 +40,10 @@ internal fun TrafficEventOverlay(
         mutableStateOf(true)
     }
 
-    LaunchedEffect(event.id) {
+    LaunchedEffect(
+        event.id,
+        TrafficEventState.replayGeneration
+    ) {
         visible = true
         delay(6_000L)
         visible = false

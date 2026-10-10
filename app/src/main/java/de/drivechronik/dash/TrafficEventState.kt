@@ -28,6 +28,15 @@ internal object TrafficEventState {
     var lastUpdatedAt by mutableStateOf<Long?>(null)
         private set
 
+    var replayGeneration by mutableStateOf(0)
+        private set
+
+    fun requestReplay() {
+        if (events.isNotEmpty()) {
+            replayGeneration++
+        }
+    }
+
     fun update(value: List<TrafficEvent>) {
         events = value
         lastUpdatedAt = System.currentTimeMillis()
