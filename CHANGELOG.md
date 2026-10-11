@@ -1,5 +1,19 @@
 # Changelog – drivechronik-dash
 
+## [0.5.6] – 2026-10-11
+
+### Behoben
+
+- Die Navigationssimulation fährt importierte Reisepläne mit mehreren Zwischenzielen jetzt ohne erneutes Drücken von SIM START vollständig ab.
+- Automatischer Übergang zum nächsten Navigationsabschnitt nach Erreichen eines Zwischenziels.
+- Zuverlässigere Ankunftserkennung bei simulierten Fahrten.
+
+### Verbessert
+
+- Der nächste Navigationsabschnitt wird erst nach erfolgreicher Routenberechnung aktiviert.
+- Bei fehlgeschlagener Berechnung kann der nächste Abschnitt erneut angefordert werden.
+- Die Navigation wird nach Erreichen des endgültigen Reiseziels automatisch beendet.
+
 ## [0.5.5] – 2026-10-10
 
 ### Hinzugefügt

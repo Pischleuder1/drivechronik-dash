@@ -138,9 +138,15 @@ internal fun NavigationGuidance(
                         arrivalSince = 0L
                     }
 
-                    if (arrivalCount >= 3 &&
+                    val simulationArrived =
+                        NavigationSimulation.active &&
+                        NavigationSimulation.paused &&
+                        fix.source == "simulator" &&
+                        meters[0] <= 25f
+
+                    if (simulationArrived || (arrivalCount >= 3 &&
                         now - arrivalSince >= 2_000L
-                    ) {
+                    )) {
                         rerouteJob?.cancel()
                         NavigationHintState.clear()
                         onArrived(route)

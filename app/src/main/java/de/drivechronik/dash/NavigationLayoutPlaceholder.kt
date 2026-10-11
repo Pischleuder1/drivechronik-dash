@@ -72,6 +72,10 @@ internal fun NavigationLayoutPlaceholder(
         mutableIntStateOf(0)
     }
 
+    var routeCalculationRunning by remember { mutableStateOf(false) }
+
+    var retryTarget by remember { mutableStateOf<ImportedNavigationStop?>(null) }
+
     var routePoints by remember {
         mutableStateOf<OfflineRoute?>(null)
     }
@@ -336,6 +340,7 @@ var chargingRouteLoading by remember {
     val stopNavigation = {
         NavigationSimulation.stop()
         NavigationImportState.stopActive()
+        retryTarget = null
         manualRouteGeneration++
         NavigationHintState.clear()
         NavigationSummaryState.clearDestination()
@@ -345,8 +350,11 @@ var chargingRouteLoading by remember {
     }
 
     fun navigateToImportedTarget(
-        target: ImportedNavigationStop
+        target: ImportedNavigationStop,
+        advanceOnSuccess: Boolean = false
     ) {
+        if (routeCalculationRunning) return
+        routeCalculationRunning = true
         val origin =
             currentNavigationFix(
                 phoneState.value
@@ -361,6 +369,8 @@ var chargingRouteLoading by remember {
                 }
 
         if (origin == null) {
+            if (advanceOnSuccess) retryTarget = target
+            routeCalculationRunning = false
             Toast.makeText(
                 context,
                 "Navigation nicht möglich: GPS fehlt",
@@ -377,6 +387,7 @@ var chargingRouteLoading by remember {
             )
 
         scope.launch {
+            try {
             val result =
                 calculatePreferredRoute(
                     context,
@@ -385,7 +396,22 @@ var chargingRouteLoading by remember {
                 )
 
             result.onSuccess { route ->
-                NavigationSimulation.stop()
+                if (advanceOnSuccess) {
+                    val advanced = NavigationImportState.advanceToExpectedTarget(target)
+                    if (!advanced) {
+                        android.util.Log.w("DriveChronikNavigation", "Etappenziel verändert")
+                        return@onSuccess
+                    }
+                }
+
+                val continueSimulation =
+                    NavigationSimulation.active
+
+                if (continueSimulation) {
+                    NavigationSimulation.start(route)
+                } else {
+                    NavigationSimulation.stop()
+                }
 
                 manualRouteGeneration++
 
@@ -397,6 +423,7 @@ var chargingRouteLoading by remember {
                     )
 
                 routePoints = route
+                retryTarget = null
 
                 Toast.makeText(
                     context,
@@ -404,12 +431,16 @@ var chargingRouteLoading by remember {
                     Toast.LENGTH_SHORT
                 ).show()
             }.onFailure {
+                if (advanceOnSuccess) retryTarget = target
                 Toast.makeText(
                     context,
                     "Route zu ${target.name} " +
                         "konnte nicht berechnet werden",
                     Toast.LENGTH_LONG
                 ).show()
+            }
+            } finally {
+                routeCalculationRunning = false
             }
         }
     }
@@ -739,6 +770,20 @@ var chargingRouteLoading by remember {
             }
         }
 
+        retryTarget?.let { target ->
+            Button(
+                onClick = {
+                    navigateToImportedTarget(
+                        target,
+                        advanceOnSuccess = true
+                    )
+                },
+                enabled = !routeCalculationRunning
+            ) {
+                Text("Nächste Etappe erneut berechnen")
+            }
+        }
+
         NavigationGuidance(
             routePoints,
             manualRouteGeneration = manualRouteGeneration,
@@ -761,7 +806,7 @@ var chargingRouteLoading by remember {
                     } else {
                         val nextTarget =
                             NavigationImportState
-                                .advanceTarget()
+                                .nextTarget()
 
                         if (nextTarget == null) {
                             Toast.makeText(
@@ -778,12 +823,11 @@ var chargingRouteLoading by remember {
                              * Neuberechnung nicht mehrfach
                              * ausgelöst wird.
                              */
-                            routePoints = null
-
                             NavigationHintState.clear()
 
                             navigateToImportedTarget(
-                                nextTarget
+                                nextTarget,
+                                advanceOnSuccess = true
                             )
                         }
                     }

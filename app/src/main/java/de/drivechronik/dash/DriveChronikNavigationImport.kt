@@ -65,6 +65,18 @@ internal object NavigationImportState {
             )
     }
 
+    fun nextTarget(): ImportedNavigationStop? {
+        val plan = activePlan ?: return null
+        return (plan.stops + plan.destination)
+            .getOrNull(activeTargetIndex + 1)
+    }
+
+    fun advanceToExpectedTarget(expected: ImportedNavigationStop): Boolean {
+        if (nextTarget() != expected) return false
+        advanceTarget()
+        return true
+    }
+
     fun advanceTarget():
         ImportedNavigationStop? {
 
