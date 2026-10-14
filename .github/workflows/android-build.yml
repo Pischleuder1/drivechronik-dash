@@ -1,4 +1,4 @@
-name: Android APK Build
+name: Android Release APK
 
 on:
   workflow_dispatch:
@@ -7,13 +7,13 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  android-build:
-    name: Build and Test Android APK
+  android-release:
+    name: Build signed Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -44,23 +44,60 @@ jobs:
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --console=plain
 
-      - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --console=plain
+      - name: Restore release signing
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$STORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
 
-      - name: Prepare APK artifact
+          mkdir -p "$HOME/.config/drivechronik-dash"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode             > "$HOME/.config/drivechronik-dash/release.keystore"
+
+          {
+            printf 'storeFile=%s\n' "$HOME/.config/drivechronik-dash/release.keystore"
+            printf 'storePassword=%s\n' "$STORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+          } > "$HOME/.config/drivechronik-dash/release-signing.properties"
+
+          chmod 600 "$HOME/.config/drivechronik-dash/release.keystore"
+          chmod 600 "$HOME/.config/drivechronik-dash/release-signing.properties"
+
+      - name: Build signed release APK
+        run: ./gradlew :app:assembleRelease --console=plain
+
+      - name: Prepare release APK
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p dist
           VERSION=$(grep -m1 "versionName =" app/build.gradle.kts | cut -d '"' -f2)
           test -n "$VERSION"
-          cp app/build/outputs/apk/debug/app-debug.apk \
-             "dist/DriveChronik-Dash-v${VERSION}-debug.apk"
-          sha256sum dist/*.apk > dist/SHA256SUMS.txt
+          cp app/build/outputs/apk/release/app-release.apk             "dist/DriveChronik-Dash-v${VERSION}.apk"
+          cd dist
+          sha256sum *.apk > SHA256SUMS.txt
 
-      - name: Upload APK artifact
+      - name: Upload release APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: drivechronik-dash-debug-apk
+          name: drivechronik-dash-release-apk
           path: dist/
           retention-days: 30
           if-no-files-found: error
+
+      - name: Publish GitHub Release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.apk
+            dist/SHA256SUMS.txt
+          fail_on_unmatched_files: true
