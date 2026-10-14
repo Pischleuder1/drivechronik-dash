@@ -1,5 +1,21 @@
 # Changelog – drivechronik-dash
 
+## [0.5.7] – 2026-10-14
+
+### Verbessert
+
+- Abbiegehinweise bleiben ab 125 m bis zum Manöver sichtbar.
+- Nach erkanntem Manöverende bleibt der Hinweis noch 1 Sekunde vollständig sichtbar.
+- Anschließend wird das Abbiege-Popup über 2 Sekunden sanft ausgeblendet.
+- Die Vorankündigung bei 500 m bleibt auf 3 Sekunden begrenzt.
+- Unmittelbar aufeinanderfolgende Abbiegungen erhalten Vorrang bei der Anzeige.
+
+### Behoben
+
+- Vorzeitiges Verschwinden von Abbiegehinweisen beim Manöverwechsel.
+- Fehlende Nachlaufsteuerung beim letzten Manöver einer Route.
+- Vorzeitiger Abbruch der Ausblendanimation durch nicht synchronisierte Zeitsteuerung.
+
 ## [0.5.6] – 2026-10-11
 
 ### Behoben

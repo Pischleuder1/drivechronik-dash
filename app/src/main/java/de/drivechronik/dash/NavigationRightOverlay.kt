@@ -32,6 +32,9 @@ internal object NavigationHintState {
         private set
     private var sequence = 0L
 
+    var completedHintId by mutableStateOf<Long?>(null)
+        private set
+
     var roundaboutGraphic by mutableStateOf<RoundaboutGraphic?>(null)
         private set
 
@@ -49,6 +52,7 @@ internal object NavigationHintState {
 
 
     fun show(instruction: String, type: Int, distance: Double) {
+        completedHintId = null
         roundaboutGraphic = null
         hint = NavigationHint(++sequence, instruction, type, distance)
     }
@@ -64,8 +68,16 @@ internal object NavigationHintState {
         }
     }
 
+    fun completeCurrentManeuver() {
+        val current = hint ?: return
+        completedHintId = current.id
+        hint = null
+        roundaboutGraphic = null
+    }
+
     fun clear(id: Long? = null) {
         if (id == null || hint?.id == id) {
+            completedHintId = null
             hint = null
             roundaboutGraphic = null
         }

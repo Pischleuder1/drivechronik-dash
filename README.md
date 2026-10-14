@@ -2,7 +2,7 @@
 
 Lokales Android-Dashboard und Navigationssystem für Tesla-Fahrzeuge.
 
-**Aktuelle Version: 0.5.6**
+**Aktuelle Version: 0.5.7**
 
 ## Projektbeschreibung
 
@@ -65,6 +65,9 @@ Android KeyStore verwaltet und nicht im Git-Repository gespeichert.
 - Kartenansicht mit MapLibre
 - Smartphone-GPS oder Tesla-BLE
 - Abbiegehinweise und Reststrecke
+- Dauerhafte Abbiegehinweise ab 125 m
+- 1 Sekunde Nachlauf nach erkanntem Manöverende
+- Sanfte Ausblendanimation über 2 Sekunden
 - Automatisches Rerouting bei Fehlfahrten
 - Fahrtrichtungsabhängige Kameraführung
 - Geschwindigkeitsabhängiger Kartenzoom

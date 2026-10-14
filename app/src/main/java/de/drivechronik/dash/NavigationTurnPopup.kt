@@ -1,6 +1,7 @@
 package de.drivechronik.dash
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,54 +24,179 @@ import java.util.Locale
 internal fun NavigationTurnPopup(
     modifier: Modifier = Modifier
 ) {
-    val hint = NavigationHintState.hint
+    val liveHint = NavigationHintState.hint
+    val completedHintId = NavigationHintState.completedHintId
+    val latestHint by rememberUpdatedState(liveHint)
 
-    var phase by remember(hint?.id) {
+    var shownHint by remember {
+        mutableStateOf<NavigationHint?>(null)
+    }
+    var shownRoundabout by remember {
+        mutableStateOf<RoundaboutGraphic?>(null)
+    }
+    var activeId by remember {
+        mutableStateOf<Long?>(null)
+    }
+    var outgoingId by remember {
+        mutableStateOf<Long?>(null)
+    }
+    var phase by remember {
         mutableIntStateOf(0)
     }
-    var popupVisible by remember(hint?.id) {
+    var popupVisible by remember {
         mutableStateOf(false)
     }
 
-    val valid = hint != null &&
-        !hint.stale &&
-        hint.distance.isFinite() &&
-        hint.distance >= 0.0
+    val liveValid = liveHint != null &&
+        !liveHint.stale &&
+        liveHint.distance.isFinite() &&
+        liveHint.distance >= 0.0
 
-    LaunchedEffect(hint?.id, hint?.distance, hint?.stale) {
-        if (!valid) {
+    LaunchedEffect(
+        liveHint?.id, liveHint?.distance,
+        liveHint?.stale, completedHintId
+    ) {
+        if (!liveValid) {
+            if (completedHintId != null &&
+                shownHint?.id == completedHintId &&
+                phase == 2 && popupVisible) {
+                // Letztes Manöver: 1 s halten, danach Fade-out.
+                outgoingId = completedHintId
+                return@LaunchedEffect
+            }
+
+            outgoingId = null
+            shownHint = null
+            shownRoundabout = null
+            activeId = null
+            phase = 0
             popupVisible = false
             return@LaunchedEffect
         }
 
-        val distance = hint!!.distance
+        val incoming = liveHint ?: return@LaunchedEffect
 
-        when {
-            distance <= 125.0 && phase < 2 -> {
+        if (activeId != incoming.id) {
+            activeId = incoming.id
+
+            if (outgoingId == null) {
+                if (phase == 2 && popupVisible &&
+                    shownHint != null && incoming.distance > 125.0) {
+                    // Manöverwechsel: alten Hinweis kurz behalten.
+                    outgoingId = shownHint?.id
+                } else {
+                    // Neuer Hinweis oder unmittelbar nächste Abbiegung.
+                    shownHint = incoming
+                    shownRoundabout = null
+                    phase = 0
+                    popupVisible = false
+                }
+            }
+        }
+
+        if (outgoingId != null) {
+            if (incoming.distance <= 125.0) {
+                // Unmittelbar folgende Abbiegung hat Vorrang.
+                outgoingId = null
+                shownHint = incoming
+                shownRoundabout = null
                 phase = 2
                 popupVisible = true
             }
-            distance <= 500.0 && phase == 0 -> {
+            return@LaunchedEffect
+        }
+
+        shownHint = incoming
+        shownRoundabout = NavigationHintState.roundaboutGraphic
+            ?.takeIf { it.hintId == incoming.id }
+
+        when {
+            incoming.distance <= 125.0 && phase < 2 -> {
+                phase = 2
+                popupVisible = true
+            }
+            incoming.distance <= 500.0 && phase == 0 -> {
                 phase = 1
                 popupVisible = true
             }
         }
     }
 
-    LaunchedEffect(hint?.id, phase) {
-        if (phase > 0) {
-            delay(3_000L)
+    // Nach erfasstem Manöverwechsel:
+    // 1 s stehen lassen, danach 1,2 s weich ausblenden.
+    LaunchedEffect(outgoingId) {
+        val endingId = outgoingId ?: return@LaunchedEffect
+
+        delay(1_000L)
+        if (outgoingId != endingId) return@LaunchedEffect
+
+        popupVisible = false
+        // Animationsinhalt bis zum Ende des Fade-outs behalten.
+        delay(2_000L)
+
+        if (outgoingId != endingId) return@LaunchedEffect
+
+        outgoingId = null
+        phase = 0
+
+        val next = latestHint
+        if (next != null && !next.stale &&
+            next.distance.isFinite() && next.distance >= 0.0) {
+            shownHint = next
+            shownRoundabout = NavigationHintState.roundaboutGraphic
+                ?.takeIf { it.hintId == next.id }
+            when {
+                next.distance <= 125.0 -> {
+                    phase = 2
+                    popupVisible = true
+                }
+                next.distance <= 500.0 -> {
+                    phase = 1
+                    popupVisible = true
+                }
+                else -> popupVisible = false
+            }
+        } else {
+            shownHint = null
+            shownRoundabout = null
             popupVisible = false
         }
     }
 
+    // Nur die 500-m-Vorankündigung auf 3 s begrenzen.
+    LaunchedEffect(activeId, phase, outgoingId) {
+        if (phase == 1 && outgoingId == null) {
+            delay(3_000L)
+            if (phase == 1 && outgoingId == null) {
+                popupVisible = false
+            }
+        }
+    }
+
+    // Während der Nachlaufphase den alten Hinweis unabhängig
+    // von der Entfernung des neuen Manövers anzeigen.
+    val valid = shownHint != null &&
+        (liveValid || outgoingId != null)
+
     AnimatedVisibility(
         visible = valid && popupVisible,
         modifier = modifier,
-        enter = slideInVertically { it } + fadeIn(),
-        exit = slideOutVertically { it } + fadeOut()
+        enter = slideInVertically(
+            animationSpec = tween(durationMillis = 300)
+        ) { it } + fadeIn(
+            animationSpec = tween(durationMillis = 300)
+        ),
+        exit = slideOutVertically(
+            animationSpec = tween(
+                durationMillis = 2000
+            )
+        ) { it / 4 } + fadeOut(
+            animationSpec = tween(
+                durationMillis = 2000
+            )
+        )
     ) {
-        if (hint != null) {
+        shownHint?.let { hint ->
             val info = remember(hint.instruction) {
                 formatManeuver(hint.instruction)
             }
@@ -100,7 +226,7 @@ internal fun NavigationTurnPopup(
 
                     val graphic =
                         if (isRoundabout)
-                            NavigationHintState.roundaboutGraphic
+                            shownRoundabout
                                 ?.takeIf { it.hintId == hint.id }
                         else
                             null

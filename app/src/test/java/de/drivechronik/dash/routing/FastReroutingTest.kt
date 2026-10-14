@@ -22,8 +22,12 @@ class FastReroutingTest {
         val offRoute = RoutePoint(52.0005, 8.0005)
 
         assertFalse(detector.update(route, offRoute, 1000))
-        assertFalse(detector.update(route, offRoute, 2000))
-        assertTrue(detector.update(route, offRoute, 3000))
+        assertFalse(detector.update(
+            route, RoutePoint(52.0005, 8.0006), 2000
+        ))
+        assertTrue(detector.update(
+            route, RoutePoint(52.0005, 8.0007), 3000
+        ))
         assertTrue(detector.confirmed)
     }
 
@@ -47,11 +51,26 @@ class FastReroutingTest {
         val onRoute = RoutePoint(52.0005, 8.0000)
 
         detector.update(route, offRoute, 1000)
-        detector.update(route, offRoute, 2000)
-        detector.update(route, offRoute, 3000)
+        detector.update(
+            route, RoutePoint(52.0005, 8.0006), 2000
+        )
+        detector.update(
+            route, RoutePoint(52.0005, 8.0007), 3000
+        )
 
         assertTrue(detector.confirmed)
         assertFalse(detector.update(route, onRoute, 4000))
+        assertFalse(detector.confirmed)
+    }
+
+    @Test
+    fun stationaryGpsDeviationDoesNotTriggerRerouting() {
+        val detector = OffRouteDetector()
+        val offRoute = RoutePoint(52.0005, 8.0005)
+
+        assertFalse(detector.update(route, offRoute, 1000))
+        assertFalse(detector.update(route, offRoute, 2000))
+        assertFalse(detector.update(route, offRoute, 3000))
         assertFalse(detector.confirmed)
     }
 

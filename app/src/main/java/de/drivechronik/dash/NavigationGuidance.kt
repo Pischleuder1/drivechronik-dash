@@ -196,10 +196,14 @@ internal fun NavigationGuidance(
                 } else {
                     NavigationHintState.updateDistance(distance)
                 }
-            } else if (offRouteDetected ||
-                progress != null) {
+            } else if (offRouteDetected) {
                 lastHintKey = ""
                 NavigationHintState.clear()
+            } else if (progress != null) {
+                // Kein weiteres Manöver: letzten Hinweis
+                // kontrolliert abschließen.
+                lastHintKey = ""
+                NavigationHintState.completeCurrentManeuver()
             } else {
                 NavigationHintState.markStale()
             }
