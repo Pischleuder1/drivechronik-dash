@@ -58,6 +58,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -422,6 +423,17 @@ private fun DriveChronikDashboard(
     demoPreview: Boolean = false,
     telemetryDiagnostics: Boolean = false
 ) {
+
+    val layoutContext = LocalContext.current.applicationContext
+
+    val layoutSettings = remember(layoutContext) {
+        DashboardLayoutSettings(layoutContext)
+    }
+
+    var dashboardLayoutMode by remember(layoutSettings) {
+        mutableStateOf(layoutSettings.load())
+    }
+
 
     /*
      * LIVE ist der Standard.
@@ -876,6 +888,7 @@ private fun DriveChronikDashboard(
     ) {
 
         DashboardContent(
+            layoutMode = dashboardLayoutMode,
             state =
                 DashboardUiState(
 
@@ -1011,6 +1024,11 @@ private fun DriveChronikDashboard(
         )
 
         DiagnosticsControlOverlay(
+            layoutMode = dashboardLayoutMode,
+            onLayoutModeChange = { selected ->
+                layoutSettings.save(selected)
+                dashboardLayoutMode = selected
+            },
             demoEnabled =
                 demoEnabled,
 
@@ -1048,7 +1066,8 @@ private fun DriveChronikDashboard(
 
 @Composable
 private fun DashboardContent(
-    state: DashboardUiState
+    state: DashboardUiState,
+    layoutMode: DashboardLayoutMode = DashboardLayoutMode.CLASSIC
 ) {
     val context = LocalContext.current
 
@@ -1086,6 +1105,17 @@ private fun DashboardContent(
                     .fillMaxSize()
         ) {
 
+            if (layoutMode == DashboardLayoutMode.TOURING) {
+
+                CompactDrivePanel(
+                    state = state,
+                    modifier = Modifier
+                        .weight(1.05f)
+                        .fillMaxHeight()
+                )
+
+            } else {
+
             /*
              * Linker Bereich:
              * Tacho + Tempolimit + Restenergie
@@ -1093,7 +1123,12 @@ private fun DashboardContent(
             Column(
                 modifier =
                     Modifier
-                        .weight(1.80f)
+                        .weight(
+                                if (layoutMode == DashboardLayoutMode.TOURING)
+                                    1.45f
+                                else
+                                    1.80f
+                            )
                         .fillMaxHeight()
             ) {
 
@@ -1212,6 +1247,9 @@ modifier =
 
             }
 
+
+            }
+
             Box(
                 modifier =
                     Modifier
@@ -1228,7 +1266,12 @@ modifier =
              */
             androidx.compose.foundation.layout.BoxWithConstraints(
                 modifier = Modifier
-                    .weight(2.33f)
+                    .weight(
+                            if (layoutMode == DashboardLayoutMode.TOURING)
+                                3.08f
+                            else
+                                2.33f
+                        )
                     .fillMaxHeight()
             ) {
 
@@ -1238,10 +1281,17 @@ modifier =
                  */
                 NavigationLayoutPlaceholder(
                     nightMode = rememberAutomaticSolarNightMode(),
-                    modifier = Modifier
-                        .offset(x = (-45).dp)
-                        .requiredWidth(maxWidth + 45.dp)
-                        .fillMaxHeight()
+                    curvedEdge =
+                        layoutMode != DashboardLayoutMode.TOURING,
+                    modifier =
+                        if (layoutMode == DashboardLayoutMode.TOURING) {
+                            Modifier.fillMaxSize()
+                        } else {
+                            Modifier
+                                .offset(x = (-45).dp)
+                                .requiredWidth(maxWidth + 45.dp)
+                                .fillMaxHeight()
+                        }
                 )
 
                 Row(
@@ -1253,7 +1303,12 @@ modifier =
                      */
                     Spacer(
                         modifier = Modifier
-                            .weight(1.15f)
+                            .weight(
+                                if (layoutMode == DashboardLayoutMode.TOURING)
+                                    2.75f
+                                else
+                                    1.15f
+                            )
                             .fillMaxHeight()
                     )
 
@@ -1271,10 +1326,24 @@ modifier =
                      * Texte, Symbole und Werte bleiben vollständig
                      * deckend.
                      */
+                    if (layoutMode == DashboardLayoutMode.TOURING) {
+                        TouringKpiPanel(
+                            state = state,
+                            offlineSummary = NavigationSummaryState.text,
+                            modifier = Modifier
+                                .weight(1.18f)
+                                .fillMaxHeight()
+                        )
+                    } else {
                     Column(
                         modifier =
                             Modifier
-                                .weight(1.18f)
+                                .weight(
+                                    if (layoutMode == DashboardLayoutMode.TOURING)
+                                        1.18f
+                                    else
+                                        1.18f
+                                )
                                 .fillMaxHeight()
                                 .background(
                                     DashBackground.copy(
@@ -1335,6 +1404,7 @@ modifier =
                         }
 
                     }
+                    }
                 }
             }
         }
@@ -1366,6 +1436,8 @@ modifier =
 
 @Composable
 private fun DiagnosticsControlOverlay(
+    layoutMode: DashboardLayoutMode,
+    onLayoutModeChange: (DashboardLayoutMode) -> Unit,
     demoEnabled: Boolean,
     onDemoEnabledChange: (Boolean) -> Unit,
     diagnosticsEnabled: Boolean,
@@ -1524,6 +1596,60 @@ private fun DiagnosticsControlOverlay(
                             10.dp
                         )
                 ) {
+
+                    Text(
+                        text = "DASHBOARD-LAYOUT",
+                        color = DashMuted,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(6.dp)
+                    ) {
+                        DashboardLayoutMode.entries.forEach { mode ->
+                            Button(
+                                onClick = {
+                                    onLayoutModeChange(mode)
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(
+                                    horizontal = 4.dp,
+                                    vertical = 8.dp
+                                ),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor =
+                                        if (layoutMode == mode)
+                                            DashBlue
+                                        else
+                                            DashPanel,
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text(
+                                    text = mode.label,
+                                    fontSize = 11.sp,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = layoutMode.description,
+                        color = DashMuted,
+                        fontSize = 12.sp
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(DashLine)
+                    )
 
                     Text(
                         text =

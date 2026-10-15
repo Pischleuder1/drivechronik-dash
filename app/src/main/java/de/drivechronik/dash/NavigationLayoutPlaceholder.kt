@@ -59,7 +59,8 @@ private val navigationCurve = GenericShape { size, _ ->
 @Composable
 internal fun NavigationLayoutPlaceholder(
     nightMode: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    curvedEdge: Boolean = true
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -621,7 +622,12 @@ var chargingRouteLoading by remember {
     Box(
         modifier = modifier
             .padding(vertical = 7.dp)
-            .clip(navigationCurve)
+            .clip(
+                if (curvedEdge)
+                    navigationCurve
+                else
+                    androidx.compose.ui.graphics.RectangleShape
+            )
             .background(Color(0xFF192B3C))
     ) {
         NavigationMap(
