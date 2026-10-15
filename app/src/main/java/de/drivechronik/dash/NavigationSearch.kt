@@ -173,17 +173,7 @@ val command = spoken
     LaunchedEffect(wakeRequest) {
         if (wakeRequest == 0) return@LaunchedEffect
 
-        if (wakeSound) {
-            val player = android.media.MediaPlayer.create(
-                context,
-                R.raw.drivechronik_wake
-            )
-            player?.setOnCompletionListener {
-                it.release()
-            }
-            player?.start()
-            kotlinx.coroutines.delay(450L)
-        }
+
         wakeSound = false
 
         // Vosk muss das Mikrofon vollständig freigeben.
