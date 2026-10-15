@@ -2,7 +2,7 @@
 
 Lokales Android-Dashboard und Navigationssystem für Tesla-Fahrzeuge.
 
-**Aktuelle Version: 0.5.7**
+**Aktuelle Version: 0.5.8**
 
 ## Projektbeschreibung
 
@@ -249,6 +249,8 @@ eine vorhandene Installation, ohne deren App-Daten
 automatisch zu löschen.
 
 ## Versionen
+
+- **0.5.8** – GitHub-Updatefunktion, verbesserte Navigationseinstellungen und bereinigte Sprachsignalisierung
 
 - **0.2.0** – Navigation und signiertes Release
 - **0.3.0** – 3D-Tacho und Leistungsanzeige

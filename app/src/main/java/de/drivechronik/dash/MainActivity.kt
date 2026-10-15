@@ -316,6 +316,31 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        lifecycleScope.launch {
+            val version = packageManager
+                .getPackageInfo(packageName, 0)
+                .versionName ?: "0.0.0"
+
+            DashUpdateChecker.check(version)
+                .onSuccess { update ->
+                    if (update != null) {
+                        android.widget.Toast.makeText(
+                            this@MainActivity,
+                            "DriveChronik Dash v${update.version} verfügbar – " +
+                                "Update über Navigationseinstellungen",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+                .onFailure { error ->
+                    android.util.Log.w(
+                        "DashUpdate",
+                        "Update-Prüfung fehlgeschlagen",
+                        error
+                    )
+                }
+        }
+
         setContent {
             DriveChronikDashTheme {
                 Surface(

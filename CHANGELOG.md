@@ -1,5 +1,26 @@
 # Changelog – drivechronik-dash
 
+## [0.5.8] – 2026-10-15
+
+### Hinzugefügt
+
+- GitHub-Versionsprüfung in den Navigationseinstellungen.
+- Manuelle Prüfung auf neue App-Versionen.
+- APK-Download mit Fortschrittsanzeige und SHA-256-Prüfung.
+- Vorbereitung der Installation über den Android-Paketinstaller.
+
+### Verbessert
+
+- Fahrtsimulation steht an erster Stelle der Navigationseinstellungen.
+- Beschreibung der bereits verfügbaren Online-Routenberechnung korrigiert.
+- Doppelten Signalton bei der Sprachsteuerung entfernt.
+
+### Hinweise
+
+- Die Installation muss durch Android bestätigt werden.
+- Eine automatische Wiederöffnung nach der Installation ist noch nicht umgesetzt.
+- Die Updatefunktion befindet sich vor der Veröffentlichung im Funktionstest.
+
 ## [0.5.7] – 2026-10-14
 
 ### Verbessert

@@ -259,6 +259,8 @@ internal fun NavigationSettingsHome(
             )
         }
 
+        DashUpdateSection(currentVersion = version)
+
         HorizontalDivider()
         Text(
             text = "Version $version",
