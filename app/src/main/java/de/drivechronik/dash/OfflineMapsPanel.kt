@@ -101,8 +101,8 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                 style = MaterialTheme.typography.titleSmall)
         }
         Text(
-            "Kartendarstellung über Internet. " +
-            "Online-Routing wird später ergänzt."
+            "Kartendarstellung und Routenberechnung über das Internet. " +
+            "Für die Online-Navigation sind keine Offline-Pakete erforderlich."
         )
 
         HorizontalDivider()
