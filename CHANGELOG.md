@@ -1,5 +1,22 @@
 # Changelog – drivechronik-dash
 
+## [0.6.1] – 2026-10-15
+
+### Fehlerbehebungen
+
+- Absturz beim Start des CLASSIC-Dashboards im
+  LIVE-Modus behoben.
+- Ungültige Energiewerte (NaN) werden vor der
+  Prozentberechnung zuverlässig abgefangen.
+- Nicht verfügbare Energiewerte werden als
+  „— kWh · — %“ statt als künstliche Nullwerte angezeigt.
+
+### Hinweise
+
+- Hotfix für Version 0.6.0.
+- Bestehende App-Daten und Einstellungen bleiben
+  bei einer regulären Aktualisierung erhalten.
+
 ## [0.6.0] – 2026-10-15
 
 ### Hinzugefügt

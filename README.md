@@ -2,7 +2,7 @@
 
 Lokales Android-Dashboard und Navigationssystem für Tesla-Fahrzeuge.
 
-**Aktuelle Version: 0.6.0**
+**Aktuelle Version: 0.6.1**
 
 ## Projektbeschreibung
 
@@ -298,6 +298,7 @@ automatisch zu löschen.
 
 ## Versionen
 
+- **0.6.1** – Hotfix: Absturz im CLASSIC-Dashboard bei fehlenden LIVE-Energiewerten behoben
 - **0.6.0** – Drei Dashboard-Layouts CLASSIC, TOURING und TECHNIK sowie verbesserte DEMO-/LIVE-Trennung
 - **0.5.9** – Funktionstest des integrierten Updates
 - **0.5.8** – GitHub-Updatefunktion, verbesserte Navigationseinstellungen und bereinigte Sprachsignalisierung

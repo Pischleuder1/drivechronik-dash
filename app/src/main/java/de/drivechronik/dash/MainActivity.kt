@@ -3871,7 +3871,11 @@ private fun Speedometer(
 
 
     val energyFraction =
-        if (usableCapacityKwh > 0f) {
+        if (
+            remainingKwh.isFinite() &&
+            usableCapacityKwh.isFinite() &&
+            usableCapacityKwh > 0f
+        ) {
             (
                 remainingKwh /
                     usableCapacityKwh
@@ -3893,13 +3897,19 @@ private fun Speedometer(
 
 
     val energyLabel =
-        String.format(
-            java.util.Locale.GERMANY,
-            "%.1f kWh · %d %%",
-            remainingKwh
-                .coerceAtLeast(0f),
-            energyPercent
-        )
+        if (remainingKwh.isFinite() &&
+            usableCapacityKwh.isFinite() &&
+            usableCapacityKwh > 0f
+        ) {
+            String.format(
+                java.util.Locale.GERMANY,
+                "%.1f kWh · %d %%",
+                remainingKwh.coerceAtLeast(0f),
+                energyPercent
+            )
+        } else {
+            "— kWh · — %"
+        }
 
 
     val isNightMode =
