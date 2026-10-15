@@ -27,6 +27,7 @@ private val TechnikBlue = Color(0xFF55B9F5)
 internal fun TechnikDashboard(
     state: DashboardUiState,
     nightMode: Boolean,
+    demoMode: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -88,7 +89,10 @@ internal fun TechnikDashboard(
                 val power = state.powerKw
                     .takeIf { it.isFinite() } ?: 0f
 
-                TechnikBidirectionalPowerBar(power)
+                TechnikBidirectionalPowerBar(
+                    powerKw = power,
+                    available = demoMode
+                )
 
             }
         }
@@ -117,14 +121,17 @@ internal fun TechnikDashboard(
                 }
 
                 Text(
-                    "$percent %",
+                    if (demoMode) "$percent %" else "— %",
                     color = TechnikBlue,
                     fontSize = 36.sp,
                     lineHeight = 40.sp
                 )
 
                 Spacer(Modifier.height(5.dp))
-                TechnikProgressBar(percent / 100f, TechnikBlue)
+                TechnikProgressBar(
+                    if (demoMode) percent / 100f else 0f,
+                    TechnikBlue
+                )
                 Spacer(Modifier.weight(1f))
 
                 Row(
@@ -134,7 +141,10 @@ internal fun TechnikDashboard(
                     Column {
                         Text("RESTENERGIE", color = TechnikMuted, fontSize = 10.sp)
                         Text(
-                            String.format(Locale.GERMANY, "%.1f kWh", remaining),
+                            if (demoMode)
+                                String.format(Locale.GERMANY, "%.1f kWh", remaining)
+                            else
+                                "— kWh",
                             color = Color.White,
                             fontSize = 15.sp
                         )
@@ -142,7 +152,7 @@ internal fun TechnikDashboard(
                     Column(horizontalAlignment = Alignment.End) {
                         Text("REICHWEITE", color = TechnikMuted, fontSize = 10.sp)
                         Text(
-                            "${state.rangeKm} km",
+                            if (demoMode) "${state.rangeKm} km" else "— km",
                             color = Color.White,
                             fontSize = 15.sp
                         )
@@ -199,7 +209,10 @@ private fun TechnikSpeedLimitSign(
 }
 
 @Composable
-private fun TechnikBidirectionalPowerBar(powerKw: Float) {
+private fun TechnikBidirectionalPowerBar(
+    powerKw: Float,
+    available: Boolean
+) {
     val power = powerKw.coerceAtLeast(0f)
     val regen = abs(powerKw.coerceAtMost(0f))
 
@@ -220,7 +233,7 @@ private fun TechnikBidirectionalPowerBar(powerKw: Float) {
             )
 
             Text(
-                "${abs(powerKw).roundToInt()} kW",
+                if (available) "${abs(powerKw).roundToInt()} kW" else "— kW",
                 color = Color.White,
                 fontSize = 19.sp
             )
@@ -252,7 +265,7 @@ private fun TechnikBidirectionalPowerBar(powerKw: Float) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(
-                            (regen / 60f).coerceIn(0f, 1f)
+                            (if (available) regen / 60f else 0f).coerceIn(0f, 1f)
                         )
                         .fillMaxHeight()
                         .background(TechnikBlue)
@@ -275,7 +288,7 @@ private fun TechnikBidirectionalPowerBar(powerKw: Float) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(
-                            (power / 120f).coerceIn(0f, 1f)
+                            (if (available) power / 120f else 0f).coerceIn(0f, 1f)
                         )
                         .fillMaxHeight()
                         .background(TechnikOrange)

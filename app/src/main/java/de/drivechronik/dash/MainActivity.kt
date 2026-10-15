@@ -889,6 +889,7 @@ private fun DriveChronikDashboard(
 
         DashboardContent(
             layoutMode = dashboardLayoutMode,
+            demoMode = demoEnabled,
             state =
                 DashboardUiState(
 
@@ -1067,7 +1068,8 @@ private fun DriveChronikDashboard(
 @Composable
 private fun DashboardContent(
     state: DashboardUiState,
-    layoutMode: DashboardLayoutMode = DashboardLayoutMode.CLASSIC
+    layoutMode: DashboardLayoutMode = DashboardLayoutMode.CLASSIC,
+    demoMode: Boolean = false
 ) {
     val context = LocalContext.current
 
@@ -1103,6 +1105,7 @@ private fun DashboardContent(
             TechnikDashboard(
                 state = state,
                 nightMode = rememberAutomaticSolarNightMode(),
+                demoMode = demoMode,
                 modifier = Modifier.fillMaxSize()
             )
         } else {
@@ -1149,7 +1152,7 @@ private fun DashboardContent(
                         speed = state.speed,
                         speedLimit = state.speedLimit,
                         remainingKwh =
-                            state.remainingKwh,
+                            if (demoMode) state.remainingKwh else Float.NaN,
 
                         usableCapacityKwh =
                             state.usableCapacityKwh,
@@ -1189,7 +1192,7 @@ modifier =
                      */
                     EnergyRing(
                         remainingKwh =
-                            state.remainingKwh,
+                            if (demoMode) state.remainingKwh else Float.NaN,
 
                         maxKwh =
                             state.usableCapacityKwh,
@@ -1237,7 +1240,7 @@ modifier =
                     }
 
                     PowerRing(
-                        powerKw = state.powerKw,
+                        powerKw = if (demoMode) state.powerKw else Float.NaN,
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(
@@ -1383,7 +1386,7 @@ modifier =
                                 KpiCard(
                                     title = "REICHWEITE",
                                     value =
-                                        state.rangeKm.toString(),
+                                        if (demoMode) state.rangeKm.toString() else "—",
                                     unit = "km",
                                     modifier =
                                         Modifier.fillMaxSize()
@@ -3410,8 +3413,8 @@ private fun EnergyRing(
 
     val percent =
         if (
-            maxKwh >
-                0.1f
+            maxKwh > 0.1f &&
+                remainingKwh.isFinite()
         ) {
 
             (
