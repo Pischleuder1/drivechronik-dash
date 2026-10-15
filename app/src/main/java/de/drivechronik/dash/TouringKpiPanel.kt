@@ -24,6 +24,7 @@ import kotlin.math.roundToInt
 internal fun TouringKpiPanel(
     state: DashboardUiState,
     offlineSummary: String?,
+    demoMode: Boolean,
     modifier: Modifier = Modifier
 ) {
     val navigation = state.navigation
@@ -37,7 +38,7 @@ internal fun TouringKpiPanel(
     ) {
         TouringKpiEntry(
             title = "REICHWEITE",
-            value = "${state.rangeKm} km"
+            value = if (demoMode) "${state.rangeKm} km" else "— km"
         )
 
         if (offlineSummary != null) {

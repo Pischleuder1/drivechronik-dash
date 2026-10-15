@@ -1119,6 +1119,7 @@ private fun DashboardContent(
 
                 CompactDrivePanel(
                     state = state,
+                    demoMode = demoMode,
                     modifier = Modifier
                         .weight(1.05f)
                         .fillMaxHeight()
@@ -1339,6 +1340,7 @@ modifier =
                     if (layoutMode == DashboardLayoutMode.TOURING) {
                         TouringKpiPanel(
                             state = state,
+                            demoMode = demoMode,
                             offlineSummary = NavigationSummaryState.text,
                             modifier = Modifier
                                 .weight(1.18f)

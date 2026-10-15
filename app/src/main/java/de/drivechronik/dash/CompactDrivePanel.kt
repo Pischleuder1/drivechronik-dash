@@ -22,6 +22,7 @@ import kotlin.math.roundToInt
 @Composable
 internal fun CompactDrivePanel(
     state: DashboardUiState,
+    demoMode: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -155,7 +156,7 @@ internal fun CompactDrivePanel(
             Spacer(Modifier.height(5.dp))
 
             Text(
-                text = "$percent %",
+                text = if (demoMode) "$percent %" else "— %",
                 color = Color.White,
                 fontSize = 27.sp,
                 fontWeight = FontWeight.Medium
