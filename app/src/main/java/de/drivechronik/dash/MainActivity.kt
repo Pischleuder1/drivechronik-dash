@@ -1099,6 +1099,13 @@ private fun DashboardContent(
         Box(
             modifier = Modifier.fillMaxSize()
         ) {
+        if (layoutMode == DashboardLayoutMode.TECHNIK) {
+            TechnikDashboard(
+                state = state,
+                nightMode = rememberAutomaticSolarNightMode(),
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
         Row(
             modifier =
                 Modifier
@@ -1407,6 +1414,8 @@ modifier =
                     }
                 }
             }
+        }
+
         }
 
         OfflineUpdateIndicator(
