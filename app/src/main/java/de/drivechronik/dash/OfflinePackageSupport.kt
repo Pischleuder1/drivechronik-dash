@@ -70,7 +70,23 @@ internal object OfflinePackageSupport {
      */
     fun startupIds(context: Context): List<String> {
         val result = linkedSetOf<String>()
-        result += bootstrapIds
+        // Deutschland nur prüfen, wenn ein Paket tatsächlich
+        // vorhanden oder als Installation bekannt ist.
+        // Fehlende Dateien mit gespeicherter Version/Prüfsumme
+        // bleiben relevant und werden weiterhin als Fehler erkannt.
+        bootstrapIds.forEach { id ->
+            val relevant =
+                runCatching {
+                    target(context, id).isFile
+                }.getOrDefault(false) ||
+                OfflineMapVersions.version(context, id) != null ||
+                OfflineMapVersions.hash(context, id) != null ||
+                OfflineMapPending.pending(context, id) != null
+
+            if (relevant) {
+                result += id
+            }
+        }
 
         val cached =
             GitHubMapCatalog.readCached(context)

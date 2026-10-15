@@ -101,15 +101,19 @@ internal fun DashUpdateSection(currentVersion: String) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        NavigationSettingsSectionHeader(title = "APP-UPDATES")
+
         Text(
-            "APP-UPDATES",
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelMedium
+            text = "Installierte Version: v$currentVersion",
+            modifier = Modifier.padding(start = 8.dp, top = 4.dp),
+            style = MaterialTheme.typography.bodyMedium
         )
 
-        Text("Installierte Version: v$currentVersion")
-
-        Text(status)
+        Text(
+            text = status,
+            modifier = Modifier.padding(start = 8.dp),
+            style = MaterialTheme.typography.bodySmall
+        )
 
         update?.let { available ->
             if (available.releaseNotes.isNotBlank()) {

@@ -1,5 +1,32 @@
 # Changelog – drivechronik-dash
 
+## [0.5.9] – 2026-10-15
+
+### Verbesserungen
+
+- Navigationseinstellungen übersichtlicher gestaltet.
+- Hauptüberschriften mit einheitlichen Rahmen versehen.
+- Unterpunkte ohne zusätzliche Kartenrahmen dargestellt.
+- Verkehrsschalter auf 75 % verkleinert.
+- Darstellung der App-Update-Informationen vereinheitlicht.
+- Kartenverwaltung an das neue Gestaltungskonzept angepasst.
+- Online-Karten, Offline-Karten, Offline-Routing und
+  GitHub-Downloads optisch vereinheitlicht.
+- Downloadpakete ohne zusätzliche Kartenrahmen dargestellt.
+
+### Fehlerbehebungen
+
+- Unnötige Fehlermeldung bei nicht installierten
+  Offlinekarten behoben.
+- Onlinekarten können auch ohne installierte
+  Offlinekartenpakete angezeigt werden.
+- Integritätsprüfung vorhandener Offlinepakete bleibt erhalten.
+
+### Hinweise
+
+- Vollständiger In-App-Update-Test von v0.5.8
+  auf v0.5.9 vorgesehen.
+
 ## [0.5.8] – 2026-10-15
 
 ### Hinzugefügt

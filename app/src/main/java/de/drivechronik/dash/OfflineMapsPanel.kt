@@ -94,36 +94,21 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
         )
 
         HorizontalDivider()
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MapInfoIcon("wifi")
-            Text("ONLINE-KARTEN",
-                style = MaterialTheme.typography.titleSmall)
-        }
+        NavigationSettingsSectionHeader(title = "ONLINE-KARTEN")
         Text(
             "Kartendarstellung und Routenberechnung über das Internet. " +
             "Für die Online-Navigation sind keine Offline-Pakete erforderlich."
         )
 
         HorizontalDivider()
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MapInfoIcon("map")
-            Text("OFFLINE-KARTEN · PMTiles",
-                style = MaterialTheme.typography.titleSmall)
-        }
+        NavigationSettingsSectionHeader(title = "OFFLINE-KARTEN · PMTiles")
         Text(
             "Zeigt Straßen und Orte ohne Internet. " +
             "Enthält keine Routenberechnung."
         )
 
         HorizontalDivider()
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MapInfoIcon("route")
-            Text("OFFLINE-ROUTING · Valhalla",
-                style = MaterialTheme.typography.titleSmall)
-        }
+        NavigationSettingsSectionHeader(title = "OFFLINE-ROUTING · Valhalla")
         Text(
             "WICHTIG: Für die vollständige Navigation ohne Internet " +
             "müssen für das jeweilige Land BEIDE Komponenten " +
@@ -137,16 +122,7 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
 
         HorizontalDivider()
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-        ) {
-            GitHubMapIcon()
-            Text(
-                "GITHUB · VERFÜGBARE DOWNLOADS",
-                style = MaterialTheme.typography.titleMedium
-            )
-        }
+        NavigationSettingsSectionHeader(title = "GITHUB · VERFÜGBARE DOWNLOADS")
 
         TextButton(onClick = { refresh++ }) {
             Text("Aktualisieren")
@@ -200,10 +176,13 @@ internal fun OfflineMapsPanel(onBack: () -> Unit) {
                     }
 
 
-                    OutlinedCard(
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.outlinedCardColors(
-                            containerColor = Color(0xFF21364B)
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF111315)
+                        ),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = 0.dp
                         )
                     ) {
                         Column(

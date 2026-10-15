@@ -624,7 +624,6 @@ var chargingRouteLoading by remember {
             .clip(navigationCurve)
             .background(Color(0xFF192B3C))
     ) {
-        if (OfflineStartupGate.mapReady) {
         NavigationMap(
             nightMode = nightMode,
             modifier = Modifier.fillMaxSize(),
@@ -641,15 +640,6 @@ var chargingRouteLoading by remember {
                 selectedTrafficEvent = event
             }
         )
-        } else {
-            androidx.compose.material3.Text(
-                text = OfflineStartupGate.mapError
-                    ?: "Offlinekarten werden geprüft …",
-                modifier = Modifier.align(
-                    androidx.compose.ui.Alignment.Center
-                )
-            )
-        }
 
         Row(
             modifier = Modifier

@@ -6,6 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,17 +44,13 @@ internal fun NavigationSettingsHome(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
 
-        Text(
-            "FAHRTSIMULATION",
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelMedium
-        )
+        NavigationSettingsSectionHeader(title = "FAHRTSIMULATION")
 
         val sim = NavigationSimulation
 
-        OutlinedCard(
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = Color(0xFF21364B)
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF111315)
             ),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -134,20 +131,18 @@ internal fun NavigationSettingsHome(
             }
         }
 
-        Text("KARTEN",
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelMedium)
+        NavigationSettingsSectionHeader(title = "KARTEN")
 
-        OutlinedCard(
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = Color(0xFF21364B)
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF111315)
             ),
             onClick = { mapsOpen = true },
             modifier = Modifier.fillMaxWidth()
         ) {
             ListItem(
                 colors = ListItemDefaults.colors(
-                    containerColor = Color(0xFF21364B)
+                    containerColor = Color(0xFF111315)
                 ),
                 headlineContent = { Text("Offline-Karten") },
                 supportingContent = {
@@ -158,17 +153,15 @@ internal fun NavigationSettingsHome(
             )
         }
 
-        Text("ROUTENOPTIONEN",
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelMedium)
+        NavigationSettingsSectionHeader(title = "ROUTENOPTIONEN")
 
-        OutlinedCard(
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = Color(0xFF21364B)
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF111315)
             ),modifier = Modifier.fillMaxWidth()) {
             ListItem(
                 colors = ListItemDefaults.colors(
-                    containerColor = Color(0xFF21364B)
+                    containerColor = Color(0xFF111315)
                 ),
                 headlineContent = { Text("Autobahn vermeiden") },
                 supportingContent = {
@@ -178,21 +171,17 @@ internal fun NavigationSettingsHome(
             )
         }
 
-        Text(
-            "VERKEHR",
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelMedium
-        )
+        NavigationSettingsSectionHeader(title = "VERKEHR")
 
-        OutlinedCard(
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = Color(0xFF21364B)
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF111315)
             ),
             modifier = Modifier.fillMaxWidth()
         ) {
             ListItem(
                 colors = ListItemDefaults.colors(
-                    containerColor = Color(0xFF21364B)
+                    containerColor = Color(0xFF111315)
                 ),
                 headlineContent = {
                     Text(
@@ -209,6 +198,7 @@ internal fun NavigationSettingsHome(
                 },
                 trailingContent = {
                     Switch(
+                        modifier = Modifier.scale(0.75f),
                         checked =
                             TrafficDisplaySettings
                                 .autoPopupsEnabled,
@@ -227,7 +217,7 @@ internal fun NavigationSettingsHome(
 
             ListItem(
                 colors = ListItemDefaults.colors(
-                    containerColor = Color(0xFF21364B)
+                    containerColor = Color(0xFF111315)
                 ),
                 headlineContent = {
                     Text(
@@ -244,6 +234,7 @@ internal fun NavigationSettingsHome(
                 },
                 trailingContent = {
                     Switch(
+                        modifier = Modifier.scale(0.75f),
                         checked =
                             TrafficDisplaySettings
                                 .showMarkers,
