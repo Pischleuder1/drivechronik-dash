@@ -2,7 +2,7 @@
 
 Lokales Android-Dashboard und Navigationssystem für Tesla-Fahrzeuge.
 
-**Aktuelle Version: 0.5.9**
+**Aktuelle Version: 0.6.0**
 
 ## Projektbeschreibung
 
@@ -17,6 +17,54 @@ Der Schwerpunkt liegt auf einer möglichst lokalen Verarbeitung
 der Fahrzeug- und Navigationsdaten.
 
 ## Dashboard
+
+Ab Version 0.6.0 stehen drei Dashboard-Layouts zur Verfügung.
+Die Auswahl erfolgt über das Service-Menü und wird
+dauerhaft gespeichert.
+
+### CLASSIC
+
+Das ursprüngliche Dashboard mit:
+
+- Plastischem digitalem 3D-Tacho
+- Dynamischem POWER-/REKUP-Ring
+- Restenergieanzeige mit fließendem Farbverlauf
+- Navigationskarte und halbtransparenter KPI-Spalte
+
+### TOURING
+
+Für eine kartenorientierte Darstellung:
+
+- Kompakter Digitaltacho
+- Fahrstufenanzeige
+- Fahrspuransicht mit Tesla-Symbol
+- Vergrößerte Kartenfläche
+- Schmale vertikale KPI-Spalte
+
+### TECHNIK
+
+Digitales Cockpit mit:
+
+- Großer digitaler Geschwindigkeitsanzeige
+- Fahrstufenanzeige
+- Gemeinsamem POWER-/REKUP-Balken
+- Batterie- und Restenergieanzeige
+- Integrierter Navigationskarte
+- Rundem Tempolimitschild auf der Karte
+
+### DEMO und LIVE
+
+Im DEMO-Modus werden simulierte Fahrzeugwerte dargestellt.
+
+Im LIVE-Modus werden vorhandene Tesla-Telemetriedaten genutzt.
+Noch nicht verifizierte Leistungs-, Batterie- und
+Reichweitenwerte erscheinen neutral als Strich statt
+als vermeintlich echte Messwerte.
+
+Die Tesla-BLE-Anbindung befindet sich weiterhin in der
+fahrzeugseitigen Verifizierung.
+
+### Allgemeine Dashboard-Funktionen
 
 - Plastischer digitaler 3D-Tacho
 - Geschwindigkeitsanzeige
@@ -250,6 +298,7 @@ automatisch zu löschen.
 
 ## Versionen
 
+- **0.6.0** – Drei Dashboard-Layouts CLASSIC, TOURING und TECHNIK sowie verbesserte DEMO-/LIVE-Trennung
 - **0.5.9** – Funktionstest des integrierten Updates
 - **0.5.8** – GitHub-Updatefunktion, verbesserte Navigationseinstellungen und bereinigte Sprachsignalisierung
 

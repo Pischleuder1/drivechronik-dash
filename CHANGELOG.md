@@ -1,5 +1,35 @@
 # Changelog – drivechronik-dash
 
+## [0.6.0] – 2026-10-15
+
+### Hinzugefügt
+
+- Drei auswählbare Dashboard-Layouts: CLASSIC, TOURING und TECHNIK.
+- TOURING mit kompaktem Digitaltacho, Fahrspuransicht und
+  vergrößerter Kartenfläche.
+- TECHNIK als eigenständiges Digital-Cockpit mit Geschwindigkeit,
+  Fahrstufe, Batterieanzeige und integrierter Navigationskarte.
+- Gemeinsamer POWER-/REKUP-Balken im TECHNIK-Layout mit
+  blauer Rekuperations- und orangefarbener Leistungsanzeige.
+- Rundes Tempolimitschild auf der Karte im TECHNIK-Layout.
+
+### Verbessert
+
+- Auswahl des Dashboard-Layouts über das Service-Menü.
+- Gespeicherte Layout-Auswahl bleibt nach dem Neustart erhalten.
+- DEMO- und LIVE-Darstellung in allen drei Layouts getrennt.
+- Nicht verfügbare oder noch nicht verifizierte Fahrzeugwerte
+  werden neutral angezeigt statt als scheinbare Messwerte.
+- Bestehendes CLASSIC-Layout und seine Darstellung beibehalten.
+
+### Hinweise
+
+- Geschwindigkeit, Fahrstufe und aktive Tesla-Navigation
+  nutzen die bereits vorhandene Live-Telemetrieanbindung.
+- Leistungs-, Batterie- und Reichweitenwerte benötigen
+  weiterhin eine Verifizierung am realen Fahrzeug.
+- DEMO-Werte sind simuliert und keine Fahrzeugmesswerte.
+
 ## [0.5.9] – 2026-10-15
 
 ### Verbesserungen
