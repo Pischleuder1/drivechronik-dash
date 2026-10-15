@@ -35,14 +35,12 @@ internal fun NavigationGuidance(
     val context = LocalContext.current
     val tracker = remember(route, manualRouteGeneration) { RouteTracking() }
     val coordinator = remember(context, manualRouteGeneration) {
-        RerouteCoordinator(route) { start, target ->
+        RerouteCoordinator(route) { start, target, heading ->
             calculatePreferredRoute(
                 context,
                 start,
                 target,
-                startHeading = if (NavigationSimulation.active)
-                    NavigationSimulation.fix?.heading
-                else null
+                startHeading = heading
             )
         }
     }

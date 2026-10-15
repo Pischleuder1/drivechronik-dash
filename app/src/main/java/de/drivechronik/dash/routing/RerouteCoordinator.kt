@@ -5,7 +5,7 @@ import kotlinx.coroutines.ensureActive
 class RerouteCoordinator(
     initialRoute: OfflineRoute,
     private val calculate: suspend (
-        RoutePoint, RoutePoint
+        RoutePoint, RoutePoint, Float?
     ) -> Result<OfflineRoute>
 ) {
     var route = initialRoute
@@ -51,7 +51,7 @@ class RerouteCoordinator(
             ?: route.points.last()
 
         val result = runCatching {
-            calculate(position, target)
+            calculate(position, target, headingDegrees)
         }.getOrElse { Result.failure(it) }
 
         // Nach einem Navigationsabbruch keine

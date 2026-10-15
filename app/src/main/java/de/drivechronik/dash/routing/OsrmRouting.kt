@@ -27,9 +27,36 @@ data class DrivingRoute(
     val steps: List<RouteStep>
 )
 
+internal fun osrmHeadingParameter(heading: Float?): String {
+    if (heading == null || !heading.isFinite()) return ""
+
+    val degrees = heading.toInt().mod(360)
+    return "&bearings=$degrees,45;"
+}
+
 suspend fun calculateRoute(
     start: RoutePoint,
-    destination: RoutePoint
+    destination: RoutePoint,
+    startHeading: Float? = null
+): DrivingRoute? {
+    val heading = startHeading?.takeIf { it.isFinite() }
+
+    if (heading != null) {
+        val directed = calculateOsrmRoute(
+            start,
+            destination,
+            heading
+        )
+        if (directed != null) return directed
+    }
+
+    return calculateOsrmRoute(start, destination, null)
+}
+
+private suspend fun calculateOsrmRoute(
+    start: RoutePoint,
+    destination: RoutePoint,
+    startHeading: Float?
 ): DrivingRoute? = withContext(Dispatchers.IO) {
     val valid = listOf(start, destination).all {
         it.lat.isFinite() && it.lon.isFinite() &&
@@ -37,12 +64,16 @@ suspend fun calculateRoute(
     }
     if (!valid) return@withContext null
 
+    val headingParameter = osrmHeadingParameter(startHeading)
+
     val url = String.format(
         Locale.US,
         "https://router.project-osrm.org/route/v1/driving/" +
             "%.6f,%.6f;%.6f,%.6f" +
-            "?overview=full&geometries=geojson&steps=true",
-        start.lon, start.lat, destination.lon, destination.lat
+            "?overview=full&geometries=geojson&steps=true%s",
+        start.lon, start.lat,
+        destination.lon, destination.lat,
+        headingParameter
     )
 
 

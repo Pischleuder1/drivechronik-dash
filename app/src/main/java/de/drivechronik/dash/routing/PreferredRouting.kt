@@ -78,7 +78,8 @@ suspend fun calculatePreferredRoute(
         runCatching {
             calculateRoute(
                 start = start,
-                destination = end
+                destination = end,
+                startHeading = startHeading
             )
         }.getOrNull()
 
