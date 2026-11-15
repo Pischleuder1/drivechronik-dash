@@ -23,7 +23,22 @@ internal data class NavigationGpsFix(
 internal fun selectNavigationGpsFix(
     tesla: NavigationGpsFix?,
     phone: NavigationGpsFix?
-): NavigationGpsFix? = tesla ?: phone
+): NavigationGpsFix? {
+    if (tesla == null) return phone
+    if (tesla.heading != null) return tesla
+
+    val phoneHeading = phone?.heading?.takeIf {
+        it.isFinite() && it in 0f..360f
+    } ?: return tesla
+
+    val differenceNanos = kotlin.math.abs(
+        tesla.timestampNanos - phone.timestampNanos
+    )
+
+    if (differenceNanos > 2_000_000_000L) return tesla
+
+    return tesla.copy(heading = phoneHeading)
+}
 
 internal fun currentNavigationFix(
     phone: Location?

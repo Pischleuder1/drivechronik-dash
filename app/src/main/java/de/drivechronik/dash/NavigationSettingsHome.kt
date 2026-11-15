@@ -44,6 +44,68 @@ internal fun NavigationSettingsHome(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
 
+
+        // Dashboard-Auswahl für CLASSIC / TOURING / TECHNIK.
+        NavigationSettingsSectionHeader(
+            title = "DASHBOARD-LAYOUT"
+        )
+
+        val selectedLayout = DashboardLayoutState.mode
+
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF111315)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(6.dp)
+                ) {
+                    DashboardLayoutMode.entries.forEach { mode ->
+                        Button(
+                            onClick = {
+                                DashboardLayoutState.select(
+                                    context,
+                                    mode
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(
+                                horizontal = 3.dp,
+                                vertical = 8.dp
+                            ),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor =
+                                    if (selectedLayout == mode)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        Color(0xFF21364B),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text(
+                                text = mode.label,
+                                fontSize = 11.sp,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = selectedLayout.description,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         NavigationSettingsSectionHeader(title = "FAHRTSIMULATION")
 
         val sim = NavigationSimulation

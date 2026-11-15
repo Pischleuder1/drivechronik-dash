@@ -426,13 +426,11 @@ private fun DriveChronikDashboard(
 
     val layoutContext = LocalContext.current.applicationContext
 
-    val layoutSettings = remember(layoutContext) {
-        DashboardLayoutSettings(layoutContext)
+    LaunchedEffect(layoutContext) {
+        DashboardLayoutState.load(layoutContext)
     }
 
-    var dashboardLayoutMode by remember(layoutSettings) {
-        mutableStateOf(layoutSettings.load())
-    }
+    val dashboardLayoutMode = DashboardLayoutState.mode
 
 
     /*
@@ -1027,8 +1025,10 @@ private fun DriveChronikDashboard(
         DiagnosticsControlOverlay(
             layoutMode = dashboardLayoutMode,
             onLayoutModeChange = { selected ->
-                layoutSettings.save(selected)
-                dashboardLayoutMode = selected
+                DashboardLayoutState.select(
+                    layoutContext,
+                    selected
+                )
             },
             demoEnabled =
                 demoEnabled,
@@ -1098,10 +1098,20 @@ private fun DashboardContent(
                     .background(DashLine)
         )
 
-        Box(
+        BoxWithConstraints(
             modifier = Modifier.fillMaxSize()
         ) {
-        if (layoutMode == DashboardLayoutMode.TECHNIK) {
+            if (layoutMode == DashboardLayoutMode.TOURING) {
+                NavigationLayoutPlaceholder(
+                    nightMode = rememberAutomaticSolarNightMode(),
+                    curvedEdge = false,
+                    controlsStartInset = maxWidth * (1.05f / 4.13f),
+                touringCamera = true,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            if (layoutMode == DashboardLayoutMode.TECHNIK) {
             TechnikDashboard(
                 state = state,
                 nightMode = rememberAutomaticSolarNightMode(),
@@ -1290,7 +1300,8 @@ modifier =
                  * Gemeinsame Kartenfläche:
                  * 1.15 Navigation + 1.18 rechter KPI-Bereich.
                  */
-                NavigationLayoutPlaceholder(
+                if (layoutMode != DashboardLayoutMode.TOURING) {
+NavigationLayoutPlaceholder(
                     nightMode = rememberAutomaticSolarNightMode(),
                     curvedEdge =
                         layoutMode != DashboardLayoutMode.TOURING,
@@ -1304,6 +1315,8 @@ modifier =
                                 .fillMaxHeight()
                         }
                 )
+                }
+
 
                 Row(
                     modifier = Modifier.fillMaxSize()
@@ -1610,60 +1623,6 @@ private fun DiagnosticsControlOverlay(
                             10.dp
                         )
                 ) {
-
-                    Text(
-                        text = "DASHBOARD-LAYOUT",
-                        color = DashMuted,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement =
-                            Arrangement.spacedBy(6.dp)
-                    ) {
-                        DashboardLayoutMode.entries.forEach { mode ->
-                            Button(
-                                onClick = {
-                                    onLayoutModeChange(mode)
-                                },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(
-                                    horizontal = 4.dp,
-                                    vertical = 8.dp
-                                ),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor =
-                                        if (layoutMode == mode)
-                                            DashBlue
-                                        else
-                                            DashPanel,
-                                    contentColor = Color.White
-                                )
-                            ) {
-                                Text(
-                                    text = mode.label,
-                                    fontSize = 11.sp,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                    }
-
-                    Text(
-                        text = layoutMode.description,
-                        color = DashMuted,
-                        fontSize = 12.sp
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(DashLine)
-                    )
 
                     Text(
                         text =
@@ -4529,7 +4488,7 @@ private fun Speedometer(
 }
 
 @Composable
-private fun SpeedLimitSign(
+internal fun SpeedLimitSign(
     limit: Int,
     modifier: Modifier = Modifier
 ) {

@@ -28,7 +28,7 @@ internal fun CompactDrivePanel(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF080B10))
+            .background(Color(0x73080B10))
             .padding(horizontal = 12.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
@@ -55,26 +55,35 @@ internal fun CompactDrivePanel(
                     color = if (active)
                         Color.White
                     else
-                        Color(0xFF59616B)
+                        Color.White.copy(alpha = 0.65f)
                 )
             }
         }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = state.speed.roundToInt().toString(),
-                fontSize = 92.sp,
-                lineHeight = 96.sp,
-                fontWeight = FontWeight.Light,
-                color = Color.White
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = state.speed.roundToInt().toString(),
+                    fontSize = 76.sp,
+                    lineHeight = 80.sp,
+                    fontWeight = FontWeight.Light,
+                    color = Color.White
+                )
+                Text(
+                    text = "km/h",
+                    fontSize = 18.sp,
+                    color = Color.White.copy(alpha = 0.90f)
+                )
+            }
 
-            Text(
-                text = "km/h",
-                fontSize = 18.sp,
-                color = Color(0xFF9A9DA2)
+            SpeedLimitSign(
+                limit = state.speedLimit
             )
         }
 
@@ -130,7 +139,7 @@ internal fun CompactDrivePanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    Color(0xFF151C25),
+                    Color(0x73151C25),
                     RoundedCornerShape(10.dp)
                 )
                 .padding(12.dp),
@@ -148,7 +157,7 @@ internal fun CompactDrivePanel(
 
             Text(
                 text = "RESTENERGIE",
-                color = Color(0xFF9A9DA2),
+                color = Color.White.copy(alpha = 0.90f),
                 fontSize = 11.sp,
                 letterSpacing = 1.sp
             )

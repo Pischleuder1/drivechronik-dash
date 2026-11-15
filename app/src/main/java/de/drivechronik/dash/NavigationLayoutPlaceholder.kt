@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
@@ -60,7 +61,9 @@ private val navigationCurve = GenericShape { size, _ ->
 internal fun NavigationLayoutPlaceholder(
     nightMode: Boolean = false,
     modifier: Modifier = Modifier,
-    curvedEdge: Boolean = true
+    curvedEdge: Boolean = true,
+    controlsStartInset: Dp = 0.dp,
+    touringCamera: Boolean = false
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -632,6 +635,7 @@ var chargingRouteLoading by remember {
     ) {
         NavigationMap(
             nightMode = nightMode,
+            touringCamera = touringCamera,
             modifier = Modifier.fillMaxSize(),
             routePoints = routePoints?.points.orEmpty(),
             planRoutePoints = importedPlanRoutePoints,
@@ -652,7 +656,7 @@ var chargingRouteLoading by remember {
                 .align(Alignment.TopStart)
                 .padding(
                     top = 10.dp,
-                    start = 8.dp
+                    start = 8.dp + controlsStartInset
                 ),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -747,7 +751,7 @@ var chargingRouteLoading by remember {
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(
-                        start = 8.dp,
+                        start = 8.dp + controlsStartInset,
                         bottom = 12.dp
                     )
                     .height(40.dp),

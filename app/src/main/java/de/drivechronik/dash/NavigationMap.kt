@@ -51,6 +51,7 @@ import org.maplibre.android.maps.Style
 @Composable
 internal fun NavigationMap(
     nightMode: Boolean = false,
+    touringCamera: Boolean = false,
     modifier: Modifier = Modifier,
     routePoints: List<RoutePoint> = emptyList(),
     planRoutePoints: List<RoutePoint> = emptyList(),
@@ -1231,9 +1232,15 @@ internal fun NavigationMap(
                  */
                 if (mapView.width > 0) {
                     map.setPadding(
-                        (mapView.width * 0.14f).toInt(),
+                        (
+                            mapView.width *
+                                if (touringCamera) 0.26f else 0.14f
+                        ).toInt(),
                         0,
-                        (mapView.width * 0.506f).toInt(),
+                        (
+                            mapView.width *
+                                if (touringCamera) 0.22f else 0.506f
+                        ).toInt(),
                         0
                     )
                 }

@@ -50,6 +50,12 @@ class RerouteCoordinator(
         val target = route.destination
             ?: route.points.last()
 
+        android.util.Log.i(
+            "DashRerouting",
+            "Reroute attempt=$attempts heading=" +
+                (headingDegrees?.toString() ?: "MISSING")
+        )
+
         val result = runCatching {
             calculate(position, target, headingDegrees)
         }.getOrElse { Result.failure(it) }

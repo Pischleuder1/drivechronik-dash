@@ -31,7 +31,7 @@ internal fun TouringKpiPanel(
 
     Column(
         modifier = modifier
-            .background(Color(0xE610151B))
+            .background(Color(0x7310151B))
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -123,7 +123,7 @@ private fun TouringKpiEntry(
     ) {
         Text(
             text = title,
-            color = Color(0xFF9AA8B6),
+            color = Color.White.copy(alpha = 0.90f),
             fontSize = 10.sp,
             lineHeight = 12.sp,
             fontWeight = FontWeight.SemiBold
@@ -140,7 +140,7 @@ private fun TouringKpiEntry(
         Spacer(Modifier.height(0.dp))
 
         HorizontalDivider(
-            color = Color(0xFF303943),
+            color = Color.White.copy(alpha = 0.35f),
             thickness = 0.5.dp
         )
     }
