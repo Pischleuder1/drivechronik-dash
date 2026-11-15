@@ -871,6 +871,7 @@ var chargingRouteLoading by remember {
 
         selectedChargingStation?.let { station ->
             ChargingStationMenu(
+                compactTouring = touringCamera,
                 station = station,
                 loading = chargingRouteLoading,
                 onClose = {
@@ -1122,220 +1123,175 @@ private fun TrafficEventPopup(
 
 @Composable
 private fun ChargingStationMenu(
+    compactTouring: Boolean,
     station: ChargingStationSelection,
     loading: Boolean,
     onNavigate: () -> Unit,
     onClose: () -> Unit
 ) {
-    val cardColor = Color(0xFF21364B)
-    val scrollState = rememberScrollState()
+    val title = when {
+        station.supercharger -> "Tesla Supercharger"
+        station.fast -> "Schnellladestation"
+        else -> "Ladestation"
+    }
 
-    val streetText = listOfNotNull(
-        station.street?.takeIf { it.isNotBlank() },
-        station.houseNumber?.takeIf { it.isNotBlank() }
-    ).joinToString(" ")
-
-    val cityText = listOfNotNull(
+    val location = listOfNotNull(
         station.postcode?.takeIf { it.isNotBlank() },
         station.city?.takeIf { it.isNotBlank() }
     ).joinToString(" ")
 
-    val powerText = station.maxPowerKw?.let { power ->
-        if (power % 1.0 == 0.0) {
-            "${power.toInt()} kW"
+    val street = listOfNotNull(
+        station.street?.takeIf { it.isNotBlank() },
+        station.houseNumber?.takeIf { it.isNotBlank() }
+    ).joinToString(" ")
+
+    val address = listOf(location, street)
+        .filter { it.isNotBlank() }
+        .joinToString(" · ")
+
+    val power = station.maxPowerKw?.let {
+        if (it % 1.0 == 0.0) {
+            "${it.toInt()} kW"
         } else {
             String.format(
                 java.util.Locale.GERMANY,
                 "%.1f kW",
-                power
+                it
             )
         }
     }
 
-    val typeText = when {
-        station.supercharger -> "Supercharger"
-        station.fast -> "Schnelllader"
-        else -> "Ladestation"
-    }
-
-    val infoItems = buildList {
-        station.operators
-            ?.takeIf { it.isNotBlank() }
-            ?.let {
-                add("Betreiber" to it)
-            }
-
+    val charging = listOfNotNull(
         station.chargingPoints?.let {
-            add("Ladepunkte" to it.toString())
-        }
+            "$it Ladepunkte"
+        },
+        power?.let { "bis $it" }
+    ).joinToString(" · ")
 
-        streetText
-            .takeIf { it.isNotBlank() }
-            ?.let {
-                add("Adresse" to it)
-            }
+    val connectors = station.connectors
+        ?.replace("DC Fahrzeugkupplung Typ Combo 2 (CCS)", "CCS2 (DC)")
+        ?.replace("AC Typ 2 Steckdose", "Typ 2 (AC)")
+        ?.replace(";", " · ")
+        ?.trim()
+        .orEmpty()
 
-        cityText
-            .takeIf { it.isNotBlank() }
-            ?.let {
-                add("Ort" to it)
-            }
-
-        powerText?.let {
-            add("Leistung" to it)
-        }
-
-        station.connectors
-            ?.takeIf { it.isNotBlank() }
-            ?.let {
-                add("Anschlüsse" to it)
-            }
-
-        add("Typ" to typeText)
-    }
-
-    androidx.compose.material3.AlertDialog(
-        modifier = Modifier
-            .fillMaxWidth(0.78f)
-            .widthIn(max = 760.dp),
-
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = {
+            if (!loading) onClose()
+        },
         properties = DialogProperties(
             usePlatformDefaultWidth = false
-        ),
-
-        onDismissRequest = {
-            if (!loading) {
-                onClose()
-            }
-        },
-
-        /*
-         * Kopfbereich:
-         * oben nur der Typ, darunter der konkrete Standort.
-         */
-        title = {
+        )
+    ) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .fillMaxWidth(if (compactTouring) 0.72f else 0.70f)
+                .widthIn(max = 580.dp),
+            shape = androidx.compose.foundation.shape
+                .RoundedCornerShape(18.dp),
+            color = Color(0xFF182634),
+            shadowElevation = 12.dp
+        ) {
             Column(
-                verticalArrangement =
-                    Arrangement.spacedBy(3.dp)
+                modifier = Modifier.padding(
+                    horizontal = 18.dp,
+                    vertical = 14.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
             ) {
                 Text(
-                    text =
-                        if (station.supercharger)
-                            "Tesla Supercharger"
-                        else if (station.fast)
-                            "Schnellladestation"
-                        else
-                            "Ladestation",
-                    fontSize = 24.sp,
+                    text = title,
+                    color = Color.White,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold
                 )
 
-                if (
-                    station.name.isNotBlank() &&
-                    station.name != "Tesla Supercharger"
-                ) {
+                if (station.name.isNotBlank()) {
                     Text(
                         text = station.name,
-                        fontSize = 15.sp,
-                        color = Color(0xFFB7C3CF)
-                    )
-                }
-            }
-        },
-
-        /*
-         * Nur dieser Mittelteil scrollt.
-         * Die beiden Buttons bleiben fest unten.
-         */
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 320.dp)
-                    .verticalScroll(scrollState),
-                verticalArrangement =
-                    Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = "INFORMATIONEN",
-                    color =
-                        androidx.compose.material3.MaterialTheme
-                            .colorScheme.primary,
-                    style =
-                        androidx.compose.material3.MaterialTheme
-                            .typography.labelMedium
-                )
-
-                infoItems.chunked(2).forEach { rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement =
-                            Arrangement.spacedBy(10.dp)
-                    ) {
-                        rowItems.forEach { (label, value) ->
-                            ChargingStationInfoCard(
-                                label = label,
-                                value = value,
-                                color = cardColor,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
-                        /*
-                         * Bei ungerader Anzahl bleibt die
-                         * letzte Karte genau eine halbe
-                         * Dialogbreite breit.
-                         */
-                        if (rowItems.size == 1) {
-                            Spacer(
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
-
-                if (loading) {
-                    Spacer(Modifier.height(2.dp))
-
-                    Text(
-                        text = "Route wird berechnet …",
-                        color =
-                            androidx.compose.material3.MaterialTheme
-                                .colorScheme.primary,
+                        color = Color(0xFFB9D0E2),
                         fontSize = 14.sp
                     )
                 }
-            }
-        },
 
-        confirmButton = {
-            androidx.compose.material3.TextButton(
-                enabled = !loading,
-                onClick = onNavigate
-            ) {
-                Text(
-                    if (loading)
-                        "Route wird berechnet …"
-                    else
-                        "Dorthin navigieren"
+                androidx.compose.material3.HorizontalDivider(
+                    color = Color(0xFF405467)
                 )
-            }
-        },
 
-        dismissButton = {
-            androidx.compose.material3.TextButton(
-                enabled = !loading,
-                onClick = onClose
-            ) {
-                Text("Schließen")
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 160.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement =
+                        Arrangement.spacedBy(7.dp)
+                ) {
+                    if (address.isNotBlank()) {
+                        Text(
+                            text = address,
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    if (charging.isNotBlank()) {
+                        Text(
+                            text = charging,
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    if (connectors.isNotBlank()) {
+                        Text(
+                            text = connectors,
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                androidx.compose.material3.HorizontalDivider(
+                    color = Color(0xFF405467)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.End,
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.TextButton(
+                        enabled = !loading,
+                        onClick = onClose
+                    ) {
+                        Text(
+                            "Schließen",
+                            color = Color.White
+                        )
+                    }
+
+                    androidx.compose.material3.Button(
+                        enabled = !loading,
+                        onClick = onNavigate
+                    ) {
+                        Text(
+                            if (loading)
+                                "Berechnung …"
+                            else
+                                "Dorthin navigieren"
+                        )
+                    }
+                }
             }
         }
-    )
+    }
 }
-
 
 @Composable
 private fun ChargingStationInfoCard(
+    compactTouring: Boolean,
     label: String,
     value: String,
     color: Color,
@@ -1351,28 +1307,32 @@ private fun ChargingStationInfoCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = 14.dp,
-                    vertical = 10.dp
+                    horizontal = if (compactTouring) 9.dp else 14.dp,
+                    vertical = if (compactTouring) 6.dp else 10.dp
                 ),
             verticalArrangement =
-                Arrangement.spacedBy(4.dp)
+                Arrangement.spacedBy(
+                if (compactTouring) 2.dp else 4.dp
+            )
         ) {
             Text(
                 text = label.uppercase(
                     java.util.Locale.GERMANY
                 ),
-                color =
+                color = if (compactTouring)
+                    Color.White.copy(alpha = 0.95f)
+                else
                     androidx.compose.material3.MaterialTheme
                         .colorScheme.primary,
-                fontSize = 11.sp,
+                fontSize = if (compactTouring) 10.sp else 11.sp,
                 fontWeight = FontWeight.Medium
             )
 
             Text(
                 text = value,
                 color = Color.White,
-                fontSize = 15.sp,
-                lineHeight = 19.sp,
+                fontSize = if (compactTouring) 14.sp else 15.sp,
+                lineHeight = if (compactTouring) 17.sp else 19.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 2
             )

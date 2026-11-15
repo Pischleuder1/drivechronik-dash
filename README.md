@@ -2,7 +2,7 @@
 
 Lokales Android-Dashboard und Navigationssystem für Tesla-Fahrzeuge.
 
-**Aktuelle Version: 0.6.1**
+**Aktuelle Version: 0.6.3**
 
 ## Projektbeschreibung
 
@@ -161,6 +161,23 @@ sofern die benötigten Pakete lokal installiert sind.
 - Ladepunkte auf der Karte antippbar
 - Navigation zu ausgewählten Ladestationen
 
+### Ladestations-Popup ab v0.6.3
+
+In allen Cockpit-Layouts wird für Ladestationen
+eine gemeinsame, kompakte Informationsansicht verwendet.
+
+Angezeigt werden, soweit verfügbar:
+
+- Stationsbezeichnung
+- Postleitzahl, Ort, Straße und Hausnummer
+- Anzahl der Ladepunkte und maximale Ladeleistung
+- Anschlussarten und Steckertypen
+- Schaltfläche „Dorthin navigieren“
+
+Die separate Betreiber-Informationszeile entfällt.
+Der Navigationsbutton bleibt unterhalb der
+scrollbaren Stationsinformationen sichtbar.
+
 Die Ladeinfrastruktur ist unabhängig davon nutzbar,
 ob die Online- oder Offline-Basiskarte angezeigt wird.
 
@@ -297,6 +314,9 @@ eine vorhandene Installation, ohne deren App-Daten
 automatisch zu löschen.
 
 ## Versionen
+
+- **0.6.3** – Kompaktes Ladestations-Popup für alle Cockpits, übersichtliche Standort- und Anschlussdaten sowie dauerhaft sichtbare Navigation
+- **0.6.2** – Verbesserungen am Touring-Dashboard und der Navigation
 
 - **0.6.1** – Hotfix: Absturz im CLASSIC-Dashboard bei fehlenden LIVE-Energiewerten behoben
 - **0.6.0** – Drei Dashboard-Layouts CLASSIC, TOURING und TECHNIK sowie verbesserte DEMO-/LIVE-Trennung
