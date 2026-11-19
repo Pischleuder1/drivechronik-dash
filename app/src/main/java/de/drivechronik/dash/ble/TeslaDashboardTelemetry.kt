@@ -34,6 +34,9 @@ data class TeslaDashboardTelemetry(
     val activeRouteTrafficMinutesDelay: Float? = null,
 
     val activeRouteEnergyAtArrival: Float? = null,
+    // TESLA_ROUTE_TELEMETRY_778
+    val activeRouteLatitude: Float? = null,
+    val activeRouteLongitude: Float? = null,
 
     val batteryLevel: Int? = null,
 
@@ -133,6 +136,10 @@ object TeslaDashboardTelemetryMapper {
 
             activeRouteEnergyAtArrival =
                 drive?.activeRouteEnergyAtArrival,
+            activeRouteLatitude =
+                drive?.activeRouteLatitude,
+            activeRouteLongitude =
+                drive?.activeRouteLongitude,
 
             batteryLevel =
                 charge?.batteryLevel,
