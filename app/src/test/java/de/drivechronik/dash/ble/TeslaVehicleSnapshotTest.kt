@@ -275,6 +275,40 @@ class TeslaVehicleSnapshotTest {
     }
 
 
+    @Test
+    fun emptyLocationDoesNotOverwriteValidGps_763() {
+        val store = TeslaVehicleSnapshotStore()
+        val valid = locationData()
+
+        store.updateLocation(valid, 100L)
+
+        val empty = valid.copy(
+            latitude = null,
+            longitude = null,
+            headingDegrees = null,
+            geoLatitude = null,
+            geoLongitude = null,
+            geoHeading = null,
+            nativeLatitude = null,
+            nativeLongitude = null
+        )
+
+        val result = store.updateLocation(empty, 200L)
+
+        assertEquals(valid, result.location)
+        assertEquals(100L, result.locationUpdatedAtNanos)
+
+        // Leere Antwort ohne vorherigen GPS-Fix
+        // darf keinen Standort erzeugen.
+        val freshStore = TeslaVehicleSnapshotStore()
+        val freshResult =
+            freshStore.updateLocation(empty, 300L)
+
+        assertNull(freshResult.location)
+        assertNull(freshResult.locationUpdatedAtNanos)
+    }
+
+
     private fun driveData():
         TeslaDriveStateData {
 

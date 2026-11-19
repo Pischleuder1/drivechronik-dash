@@ -190,6 +190,127 @@ var chargingRouteLoading by remember {
     val (phoneState, _, _) =
         rememberPhoneWeatherLocation(navigation = true)
 
+    // TESLA_AUTO_NAVIGATION_782
+    val teslaRouteSnapshot by
+        de.drivechronik.dash.data.TeslaDashboardRepository
+            .snapshot.collectAsState()
+
+    val teslaRouteGuard = remember {
+        TeslaRouteImportGuard()
+    }
+
+    LaunchedEffect(
+        teslaRouteSnapshot.drive?.activeRouteLatitude,
+        teslaRouteSnapshot.drive?.activeRouteLongitude
+    ) {
+        val drive = teslaRouteSnapshot.drive
+        val latitude = drive?.activeRouteLatitude
+        val longitude = drive?.activeRouteLongitude
+
+        if (latitude == null || longitude == null) {
+            teslaRouteGuard.shouldImport(
+                latitude = null,
+                longitude = null,
+                dashRouteActive = routePoints != null,
+                calculationRunning = routeCalculationRunning,
+                importedPlanActive =
+                    NavigationImportState.activePlan != null
+            )
+            return@LaunchedEffect
+        }
+
+        if (
+            routePoints != null ||
+            routeCalculationRunning ||
+            NavigationImportState.activePlan != null ||
+            NavigationImportState.pendingPlan != null
+        ) {
+            return@LaunchedEffect
+        }
+
+        // GPS darf beim Start der Tesla-Navigation
+        // noch fehlen. Kurz auf einen Positionsfix warten.
+        var origin: RoutePoint? = null
+
+        repeat(15) {
+            if (origin == null) {
+                origin =
+                    currentNavigationFix(
+                        phoneState.value
+                    )?.point
+
+                if (origin == null) {
+                    delay(1000L)
+                }
+            }
+        }
+
+        val start = origin ?: return@LaunchedEffect
+
+        if (
+            !teslaRouteGuard.shouldImport(
+                latitude = latitude,
+                longitude = longitude,
+                dashRouteActive = routePoints != null,
+                calculationRunning = routeCalculationRunning,
+                importedPlanActive =
+                    NavigationImportState.activePlan != null ||
+                    NavigationImportState.pendingPlan != null
+            )
+        ) {
+            return@LaunchedEffect
+        }
+
+        val generationAtStart = manualRouteGeneration
+
+        routeCalculationRunning = true
+
+        try {
+            val result = calculatePreferredRoute(
+                context,
+                start,
+                RoutePoint(
+                    lat = latitude.toDouble(),
+                    lon = longitude.toDouble()
+                )
+            )
+
+            result.onSuccess { route ->
+                // Manuelle oder importierte Navigation
+                // darf niemals überschrieben werden.
+                if (
+                    routePoints == null &&
+                    manualRouteGeneration == generationAtStart &&
+                    NavigationImportState.activePlan == null &&
+                    NavigationImportState.pendingPlan == null
+                ) {
+                    NavigationSimulation.stop()
+                    NavigationHintState.clear()
+
+                    NavigationSummaryState.updateDestination(
+                        drive.activeRouteDestination
+                            ?: "Tesla-Navigationsziel"
+                    )
+
+                    routePoints = route
+
+                    android.util.Log.i(
+                        "DriveChronikTESLAROUTE",
+                        "DASH_ROUTE_IMPORTED success=true"
+                    )
+                }
+            }.onFailure {
+                android.util.Log.w(
+                    "DriveChronikTESLAROUTE",
+                    "DASH_ROUTE_IMPORTED success=false"
+                )
+            }
+        } finally {
+            routeCalculationRunning = false
+        }
+    }
+
+
 
     /*
      * Bei einer bewusst neu gestarteten Route darf jedes

@@ -148,8 +148,14 @@ data class DashboardUiState(
     val powerKw: Float = 15.3f,
     val remainingKwh: Float = 43.7f,
     val usableCapacityKwh: Float = 60f,
+    // LIVE_BATTERY_PERCENT_713
+    val batteryPercent: Int? = null,
     val rangeKm: Int = 308,
         val gear: String = "D",
+    // TESLA_GPS_COCKPIT_739
+    val gpsLatitude: Double? = null,
+    val gpsLongitude: Double? = null,
+    val gpsHeadingDegrees: Float? = null,
     val navigation: TeslaNavigationTelemetry? = null,
 val leftIndicator: Boolean = false,
     val rightIndicator: Boolean = false,
@@ -940,21 +946,79 @@ private fun DriveChronikDashboard(
 
 
                     usableCapacityKwh =
-                        60f,
+                        if (demoEnabled) 60f else Float.NaN,
 
-
+                    batteryPercent =
+                        if (demoEnabled) {
+                            null
+                        } else {
+                            liveTelemetry.batteryLevel
+                                ?.takeIf { it in 0..100 }
+                        },
+                    // LIVE_RANGE_KM_727
                     rangeKm =
                         if (demoEnabled) {
                             demoRangeKm
-                        }
-                        else {
-                            0
+                        } else {
+                            liveTelemetry.batteryRangeRaw
+                                ?.takeIf {
+                                    it.isFinite() && it >= 0f
+                                }
+                                ?.times(1.609344f)
+                                ?.roundToInt()
+                                ?: -1
                         },
 
 
                     gear =
                         displayGear,
 
+
+                    gpsLatitude =
+                        if (!demoEnabled &&
+                            liveTelemetry.locationAgeMillis
+                                ?.let { it in 0L..8_000L } == true
+                        ) {
+                            liveTelemetry.latitude
+                                ?.toDouble()
+                                ?.takeIf {
+                                    it.isFinite() &&
+                                        it in -90.0..90.0
+                                }
+                        } else null,
+
+                    gpsLongitude =
+                        if (!demoEnabled &&
+                            liveTelemetry.locationAgeMillis
+                                ?.let { it in 0L..8_000L } == true
+                        ) {
+                            liveTelemetry.longitude
+                                ?.toDouble()
+                                ?.takeIf {
+                                    it.isFinite() &&
+                                        it in -180.0..180.0
+                                }
+                        } else null,
+
+                    gpsHeadingDegrees =
+                        if (!demoEnabled &&
+                            liveTelemetry.locationAgeMillis
+                                ?.let { it in 0L..8_000L } == true
+                        ) {
+                            (
+                                liveSnapshot.location?.geoHeading
+                                    ?.takeIf {
+                                        it.isFinite() &&
+                                            it in 0f..360f
+                                    }
+                                    ?: liveTelemetry.headingDegrees
+                                        ?.toFloat()
+                                        ?.takeIf {
+                                            it.isFinite() &&
+                                                it in 0f..360f
+                                        }
+                            )
+                        } else null,
 
                     navigation =
                 if (demoEnabled) {
@@ -1090,6 +1154,53 @@ private fun DashboardContent(
 
         DashboardHeader()
 
+        // TESLA_GPS_STATUS_UI_739
+        val gpsValid =
+            state.gpsLatitude != null &&
+            state.gpsLongitude != null
+
+        val gpsStatusText =
+            if (demoMode) {
+                "TESLA GPS · Demo-Modus"
+            } else if (gpsValid) {
+                val lat = state.gpsLatitude!!
+                val lon = state.gpsLongitude!!
+
+                val coords = String.format(
+                    java.util.Locale.GERMANY,
+                    "%.5f° %s · %.5f° %s",
+                    kotlin.math.abs(lat),
+                    if (lat >= 0.0) "N" else "S",
+                    kotlin.math.abs(lon),
+                    if (lon >= 0.0) "E" else "W"
+                )
+
+                val heading =
+                    state.gpsHeadingDegrees
+                        ?.let {
+                            " · ${it.roundToInt()}°"
+                        } ?: ""
+
+                "TESLA GPS · $coords$heading"
+            } else {
+                "TESLA GPS · Keine aktuellen Daten"
+            }
+
+        Text(
+            text = gpsStatusText,
+            color = if (gpsValid && !demoMode) {
+                DashGreen
+            } else {
+                DashMuted
+            },
+            fontSize = 10.sp,
+            maxLines = 1,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp)
+        )
+
+
         Box(
             modifier =
                 Modifier
@@ -1161,6 +1272,7 @@ private fun DashboardContent(
 
                     Speedometer(
                         speed = state.speed,
+                        batteryPercent = if (demoMode) null else state.batteryPercent,
                         speedLimit = state.speedLimit,
                         remainingKwh =
                             if (demoMode) state.remainingKwh else Float.NaN,
@@ -1401,7 +1513,10 @@ NavigationLayoutPlaceholder(
                                 KpiCard(
                                     title = "REICHWEITE",
                                     value =
-                                        if (demoMode) state.rangeKm.toString() else "—",
+                                        if (demoMode || state.rangeKm >= 0)
+                                            state.rangeKm.toString()
+                                        else
+                                            "—",
                                     unit = "km",
                                     modifier =
                                         Modifier.fillMaxSize()
@@ -2007,6 +2122,20 @@ private fun TeslaBleHeaderStatus() {
         }
 
 
+    var pendingEnrollmentRequest by
+        remember {
+            mutableStateOf<
+                com.tesla.generated.universalmessage
+                    .UniversalMessage.RoutableMessage?
+            >(null)
+        }
+
+    // Verhindert doppelte Add-Key-Anfragen.
+    var keyEnrollmentPending by
+        remember {
+            mutableStateOf(false)
+        }
+
     var keyAuthorizationMessage by
         remember {
             mutableStateOf<String?>(
@@ -2026,6 +2155,16 @@ private fun TeslaBleHeaderStatus() {
      *
      * existiert KEIN Session-Controller.
      */
+    // Eigenständige Prüfung eines bereits registrierten Schlüssels.
+    // Keine automatische Freigabe der Fahrzeugfunktionen.
+    var pendingKeyVerification by remember {
+        mutableStateOf<de.drivechronik.dash.ble.TeslaKeyVerificationSession?>(null)
+    }
+
+    var keyVerificationMessage by remember {
+        mutableStateOf<String?>(null)
+    }
+
     val sessionController =
         remember(
             liveProtocolConfig,
@@ -2064,6 +2203,21 @@ private fun TeslaBleHeaderStatus() {
      * Sein Callback muss trotzdem immer den
      * AKTUELLEN Session-Controller sehen.
      */
+    // CHARGE_READ_ONCE_703
+    var pendingChargeReadController by remember {
+        mutableStateOf<TeslaBleSessionController?>(null)
+    }
+
+    // DRIVE_READ_ONCE_723
+    var pendingDriveReadController by remember {
+        mutableStateOf<TeslaBleSessionController?>(null)
+    }
+
+    // DRIVE_POLLING_725
+    var drivePollingController by remember {
+        mutableStateOf<TeslaBleSessionController?>(null)
+    }
+
     val currentSessionController =
         rememberUpdatedState(
             sessionController
@@ -2100,29 +2254,14 @@ private fun TeslaBleHeaderStatus() {
                 context =
                     context.applicationContext,
 
-                expectedLocalNameProvider = {
-
-                    val config =
-                        TeslaLiveProtocolSettings(
-                            context.applicationContext
-                        ).load()
-
-
-                    val vin =
-                        config.normalizedVin
-
-
-                    if (vin.length == 17) {
-
-                        TeslaBleVehicleIdentity
-                            .advertisementLocalName(
-                                vin
-                            )
-                    }
-                    else {
-
-                        null
-                    }
+                expectedVinProvider = {
+                    TeslaLiveProtocolSettings(
+                        context.applicationContext
+                    ).load()
+                        .normalizedVin
+                        .takeIf {
+                            it.length == 17
+                        }
                 }
 
             ) {
@@ -2194,6 +2333,150 @@ private fun TeslaBleHeaderStatus() {
                          * und werden deshalb hier
                          * ausdrücklich übersprungen.
                          */
+                        // Diagnose der VCSEC-Antworten.
+                        // Keine Änderung des Autorisierungsstatus.
+                        if (
+                            fromDomain.toString() ==
+                                "DOMAIN_VEHICLE_SECURITY" &&
+                            payloadBytes > 0
+                        ) {
+                            try {
+                                val vcsecResponse =
+                                    com.tesla.generated.vcsec.Vcsec
+                                        .FromVCSECMessage
+                                        .parseFrom(
+                                            message
+                                                .getProtobufMessageAsBytes()
+                                        )
+
+                                if (vcsecResponse.hasCommandStatus()) {
+                                    val status =
+                                        vcsecResponse.commandStatus
+
+                                    val whitelist =
+                                        if (
+                                            status.hasWhitelistOperationStatus()
+                                        ) {
+                                            status.whitelistOperationStatus
+                                                .whitelistOperationInformation
+                                                .toString()
+                                        } else {
+                                            "none"
+                                        }
+
+                                    Log.d(
+                                        "DriveChronikVCSEC",
+                                        "COMMAND_STATUS " +
+                                            "operation=${status.operationStatus} " +
+                                            "whitelist=$whitelist"
+                                    )
+                                } else {
+                                    Log.d(
+                                        "DriveChronikVCSEC",
+                                        "RX type=${vcsecResponse.subMessageCase}"
+                                    )
+                                }
+                            } catch (
+                                e: com.google.protobuf
+                                    .InvalidProtocolBufferException
+                            ) {
+                                Log.d(
+                                    "DriveChronikVCSEC",
+                                    "RX payload not valid VCSEC"
+                                )
+                            }
+                        }
+
+                        if (
+                            fromDomain.toString() ==
+                                "DOMAIN_VEHICLE_SECURITY"
+                        ) {
+                            Log.d(
+                                "DriveChronikVCSEC",
+                                "ENVELOPE " +
+                                    "payloadCase=${message.payloadCase} " +
+                                    "hasSignature=${message.hasSignatureData()} " +
+                                    "hasSignedStatus=${message.hasSignedMessageStatus()} " +
+                                    "payloadBytes=$payloadBytes"
+                            )
+                        }
+
+                        // Tesla-RoutableMessage-Status auswerten.
+                        // Nur Diagnose, keine automatische Freigabe.
+                        if (
+                            fromDomain.toString() ==
+                                "DOMAIN_VEHICLE_SECURITY" &&
+                            message.hasSignedMessageStatus()
+                        ) {
+                            val status =
+                                message.signedMessageStatus
+
+                            val pendingRequest =
+                                pendingEnrollmentRequest
+
+                            if (pendingRequest != null) {
+                                val matches =
+                                    de.drivechronik.dash.ble
+                                        .TeslaEnrollmentResponseMatcher
+                                        .matches(
+                                            pendingRequest,
+                                            message
+                                        )
+
+                                if (matches) {
+                                    when (status.operationStatus) {
+                                        com.tesla.generated.universalmessage
+                                            .UniversalMessage.OperationStatus_E
+                                            .OPERATIONSTATUS_WAIT -> {
+                                            keyAuthorizationMessage =
+                                                "Tesla hat geantwortet: " +
+                                                "Registrierung wartet auf " +
+                                                "Bestätigung. Noch nicht autorisiert."
+                                        }
+
+                                        com.tesla.generated.universalmessage
+                                            .UniversalMessage.OperationStatus_E
+                                            .OPERATIONSTATUS_ERROR -> {
+                                            keyAuthorizationMessage =
+                                                "Tesla hat die Anfrage abgelehnt: " +
+                                                status.signedMessageFault.toString()
+
+                                            keyEnrollmentPending = false
+                                            pendingEnrollmentRequest = null
+                                        }
+
+                                        com.tesla.generated.universalmessage
+                                            .UniversalMessage.OperationStatus_E
+                                            .OPERATIONSTATUS_OK -> {
+                                            keyAuthorizationMessage =
+                                                "Tesla meldet OK. " +
+                                                "Schlüsselregistrierung muss " +
+                                                "noch unabhängig geprüft werden."
+                                        }
+
+                                        else -> {
+                                            keyAuthorizationMessage =
+                                                "Unbekannter Tesla-Status"
+                                        }
+                                    }
+                                }
+
+                                Log.d(
+                                    "DriveChronikENROLL",
+                                    "RESPONSE_MATCH " +
+                                        "matched=$matches " +
+                                        "operation=${status.operationStatus}"
+                                )
+                            }
+
+                            Log.d(
+                                "DriveChronikVCSEC",
+                                "ROUTABLE_STATUS " +
+                                    "operation=${status.operationStatus} " +
+                                    "fault=${status.signedMessageFault}"
+                            )
+                        }
+
                         val hasSessionInfo =
                             message
                                 .getSessionInfo()
@@ -2201,6 +2484,66 @@ private fun TeslaBleHeaderStatus() {
 
 
                         if (hasSessionInfo) {
+
+                            val verifier = pendingKeyVerification
+
+                            if (verifier != null) {
+                                try {
+                                    val verified = verifier.verify(message)
+
+                                    if (
+                                        verified &&
+                                        keyPresent &&
+                                        liveProtocolConfig.normalizedVin.length == 17 &&
+                                        gattState.status == TeslaGattStatus.READY &&
+                                        scanState.status == TeslaBleScanStatus.FOUND &&
+                                        TeslaBleVehicleIdentity.matches(
+                                            liveProtocolConfig.normalizedVin,
+                                            scanState.name
+                                        )
+                                    ) {
+                                        val verifiedConfig =
+                                            liveProtocolConfig.copy(
+                                                keyEnrollmentConfirmed = true,
+                                                enabled = true
+                                            )
+
+                                        liveProtocolSettings.save(verifiedConfig)
+                                        liveProtocolConfig = verifiedConfig
+
+                                        keyVerificationMessage =
+                                            "Tesla-Schlüssel bestätigt – " +
+                                            "Livedaten für Test freigegeben"
+
+                                        Log.d(
+                                            "DriveChronikKEYVERIFY",
+                                            "LIVE_ENABLED_AFTER_VERIFIED_HANDSHAKE"
+                                        )
+                                    } else {
+                                        keyVerificationMessage =
+                                            "Keine Freigabe: Schlüsselprüfung " +
+                                            "oder Fahrzeugzuordnung ungültig"
+                                    }
+
+                                    Log.d(
+                                        "DriveChronikKEYVERIFY",
+                                        "HANDSHAKE_VERIFIED=$verified"
+                                    )
+                                } catch (e: Exception) {
+                                    keyVerificationMessage =
+                                        "Schlüsselprüfung fehlgeschlagen: " +
+                                            (e.message ?: "Ungültige Antwort")
+
+                                    Log.w(
+                                        "DriveChronikKEYVERIFY",
+                                        "HANDSHAKE_REJECTED: ${e.message}"
+                                    )
+                                } finally {
+                                    verifier.clear()
+                                    pendingKeyVerification = null
+                                }
+                            }
+
 
                             val controller =
                                 currentSessionController
@@ -2228,6 +2571,8 @@ private fun TeslaBleHeaderStatus() {
                                         "Session READY " +
                                             "counter=${state.currentCounter()}"
                                     )
+                                    pendingChargeReadController = controller
+
                                 }
                                 catch (e: Exception) {
 
@@ -2259,6 +2604,181 @@ private fun TeslaBleHeaderStatus() {
                                     .signatureData
                                     .hasAESGCMResponseData()
 
+
+                        // ENCRYPTED_VEHICLE_DATA_701
+                        // Nur authentifizierte verschlüsselte Antworten
+                        // einer bereits bestehenden Live-Sitzung.
+                        if (encryptedResponse) {
+                            val controller =
+                                currentSessionController.value
+
+                            if (
+                                controller != null &&
+                                controller.status() ==
+                                    TeslaProtocolSessionStatus.READY &&
+                                controller.pendingRequestCount() > 0
+                            ) {
+                                try {
+                                    val response =
+                                        controller.processCommandResponse(
+                                            message
+                                        )
+
+                                    if (response.encrypted) {
+                                        if (response.payload.isNotEmpty()) {
+                                            val update =
+                                                TeslaVehicleDataRouter.decode(
+                                                    response.payload
+                                                )
+
+                                            if (update.hasVehicleData) {
+                                                val storedSnapshot =
+                                                    TeslaDashboardRepository.apply(
+                                                        update
+                                                    )
+
+                                                // GPS_SNAPSHOT_DIAGNOSTICS_768
+                                                val storedLocation =
+                                                    storedSnapshot.location
+                                                val storedLat =
+                                                    storedLocation?.latitude
+                                                val storedLon =
+                                                    storedLocation?.longitude
+                                                val storedGpsValid =
+                                                    storedLat != null &&
+                                                        storedLon != null &&
+                                                        storedLat.isFinite() &&
+                                                        storedLon.isFinite() &&
+                                                        storedLat in -90f..90f &&
+                                                        storedLon in -180f..180f &&
+                                                        !(storedLat == 0f && storedLon == 0f)
+
+                                                val storedGpsAgeMs =
+                                                    storedSnapshot.locationUpdatedAtNanos
+                                                        ?.let {
+                                                            ((System.nanoTime() - it) / 1_000_000L)
+                                                                .coerceAtLeast(0L)
+                                                        }
+
+                                                Log.d(
+                                                    "DriveChronikGPSSTORE",
+                                                    "SNAPSHOT " +
+                                                        "gpsValid=$storedGpsValid " +
+                                                        "ageMs=$storedGpsAgeMs " +
+                                                        "driveUpdate=${update.drive != null} " +
+                                                        "locationUpdate=${update.location != null}"
+                                                )
+
+                                                // TESLA_ROUTE_DIAGNOSTICS_775
+                                                update.drive?.let { drive ->
+                                                    val hasDestination =
+                                                        !drive.activeRouteDestination
+                                                            .isNullOrBlank()
+
+                                                    val hasCoordinates =
+                                                        drive.activeRouteLatitude != null &&
+                                                            drive.activeRouteLongitude != null
+
+                                                    Log.d(
+                                                        "DriveChronikTESLAROUTE",
+                                                        "ROUTE_STATUS " +
+                                                            "destination=$hasDestination " +
+                                                            "coordinates=$hasCoordinates"
+                                                    )
+                                                }
+
+                                                // LIVE_DATA_DIAGNOSTICS_751
+                                                update.drive?.let { drive ->
+                                                    val validSpeed =
+                                                        drive.speed
+                                                            ?.let {
+                                                                it in 0L..200L
+                                                            } == true
+
+                                                    Log.d(
+                                                        "DriveChronikLIVE",
+                                                        "DRIVE_VALID " +
+                                                            "speed=$validSpeed " +
+                                                            "speedMph=${drive.speed} " +
+                                                            "gear=${drive.shiftState}"
+                                                    )
+                                                }
+
+                                                update.location?.let { location ->
+                                                    val lat =
+                                                        location.latitude
+
+                                                    val lon =
+                                                        location.longitude
+
+                                                    val validPosition =
+                                                        lat != null &&
+                                                            lon != null &&
+                                                            lat.isFinite() &&
+                                                            lon.isFinite() &&
+                                                            lat in -90f..90f &&
+                                                            lon in -180f..180f &&
+                                                            !(lat == 0f && lon == 0f)
+
+                                                    val validHeading =
+                                                        (
+                                                            location.geoHeading
+                                                                ?.takeIf {
+                                                                    it.isFinite() &&
+                                                                        it in 0f..360f
+                                                                }
+                                                                ?: location.headingDegrees
+                                                                    ?.toFloat()
+                                                                    ?.takeIf {
+                                                                        it in 0f..360f
+                                                                    }
+                                                        ) != null
+
+                                                    Log.d(
+                                                        "DriveChronikLIVE",
+                                                        "GPS_VALID " +
+                                                            // GPS_SOURCE_DIAGNOSTICS_755
+                                                            "baseFields=${location.latitude != null && location.longitude != null} " +
+                                                            "geoFields=${location.geoLatitude != null && location.geoLongitude != null} " +
+                                                            "nativeFields=${location.nativeLatitude != null && location.nativeLongitude != null} " +
+                                                            "baseHeading=${location.headingDegrees != null} " +
+                                                            "geoHeading=${location.geoHeading != null} " +
+                                                            "position=$validPosition " +
+                                                            "heading=$validHeading"
+                                                    )
+                                                }
+
+                                                // DRIVE_POLLING_START_725
+                                                if (update.drive != null) {
+                                                    drivePollingController = controller
+                                                }
+
+                                                // DRIVE_READ_AFTER_CHARGE_723
+                                                if (
+                                                    update.charge != null &&
+                                                    controller.pendingRequestCount() == 0
+                                                ) {
+                                                    pendingDriveReadController = controller
+                                                }
+
+                                                Log.d(
+                                                    "DriveChronikDATA",
+                                                    "ENCRYPTED_VEHICLE_DATA " +
+                                                        "drive=${update.drive != null} " +
+                                                        "charge=${update.charge != null} " +
+                                                        "location=${update.location != null}"
+                                                )
+                                            }
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    Log.w(
+                                        "DriveChronikDATA",
+                                        "Encrypted response rejected: ${e.message}"
+                                    )
+                                }
+                            }
+                        }
 
                         if (
                             !hasSessionInfo &&
@@ -2620,42 +3140,267 @@ private fun TeslaBleHeaderStatus() {
             else ->
                 DashMuted
         }
-    val expectedConfiguredTeslaName =
-        runCatching {
+    LaunchedEffect(gattState.status) {
+        if (gattState.status != TeslaGattStatus.READY) {
+            drivePollingController = null
+            pendingEnrollmentRequest = null
+            keyEnrollmentPending = false
+            pendingKeyVerification?.clear()
+            pendingKeyVerification = null
+        }
+    }
 
-            val vin =
-                liveProtocolConfig
-                    .normalizedVin
+    // CHARGE_READ_SEND_704
+    LaunchedEffect(pendingChargeReadController) {
+        val controller = pendingChargeReadController
 
-            if (vin.length == 17) {
+        if (controller != null) {
+            pendingChargeReadController = null
 
-                TeslaBleVehicleIdentity
-                    .advertisementLocalName(
-                        vin
+            if (
+                gattState.status == TeslaGattStatus.READY &&
+                currentSessionController.value === controller &&
+                controller.status() ==
+                    TeslaProtocolSessionStatus.READY &&
+                controller.pendingRequestCount() == 0
+            ) {
+                try {
+                    val request =
+                        controller.buildEncryptedRequest(
+                            de.drivechronik.dash.ble
+                                .TeslaChargeStateCodec.buildRequest()
+                        )
+
+                    val payload = request.message.toByteArray()
+
+                    val accepted =
+                        gattClient.sendRoutableMessage(payload)
+
+                    if (accepted) {
+                        Log.d(
+                            "DriveChronikDATA",
+                            "CHARGE_REQUEST_QUEUED bytes=${payload.size}"
+                        )
+                    } else {
+                        controller.clear()
+                        Log.w(
+                            "DriveChronikDATA",
+                            "CHARGE_REQUEST_SEND_REJECTED"
+                        )
+                    }
+                } catch (e: Exception) {
+                    controller.clear()
+                    Log.e(
+                        "DriveChronikDATA",
+                        "CHARGE_REQUEST_FAILED",
+                        e
                     )
+                }
             }
-            else {
+        }
+    }
 
-                null
+    // DRIVE_READ_SEND_723
+    LaunchedEffect(pendingDriveReadController) {
+        val controller = pendingDriveReadController
+
+        if (controller != null) {
+            pendingDriveReadController = null
+
+            if (
+                gattState.status == TeslaGattStatus.READY &&
+                currentSessionController.value === controller &&
+                controller.status() ==
+                    TeslaProtocolSessionStatus.READY &&
+                controller.pendingRequestCount() == 0
+            ) {
+                try {
+                    val request =
+                        controller.buildEncryptedRequest(
+                            de.drivechronik.dash.ble
+                                .TeslaDriveStateCodec.buildRequest()
+                        )
+
+                    val payload =
+                        request.message.toByteArray()
+
+                    val accepted =
+                        gattClient.sendRoutableMessage(payload)
+
+                    if (accepted) {
+                        Log.d(
+                            "DriveChronikDATA",
+                            "DRIVE_REQUEST_QUEUED bytes=${payload.size}"
+                        )
+                    } else {
+                        controller.clear()
+                        Log.w(
+                            "DriveChronikDATA",
+                            "DRIVE_REQUEST_SEND_REJECTED"
+                        )
+                    }
+                } catch (e: Exception) {
+                    controller.clear()
+                    Log.e(
+                        "DriveChronikDATA",
+                        "DRIVE_REQUEST_FAILED",
+                        e
+                    )
+                }
             }
+        }
+    }
 
-        }.getOrNull()
+    // DRIVE_POLLING_LOOP_725
+    LaunchedEffect(
+        drivePollingController,
+        gattState.status
+    ) {
+        val controller = drivePollingController
 
+        // GPS_POLLING_735
+        var pollingCycle = 0L
+
+        if (
+            controller != null &&
+            gattState.status == TeslaGattStatus.READY
+        ) {
+            while (
+                currentSessionController.value === controller &&
+                controller.status() ==
+                    TeslaProtocolSessionStatus.READY
+            ) {
+                kotlinx.coroutines.delay(1_500L)
+
+                if (
+                    gattState.status != TeslaGattStatus.READY ||
+                    currentSessionController.value !== controller ||
+                    controller.status() !=
+                        TeslaProtocolSessionStatus.READY
+                ) {
+                    break
+                }
+
+                // Keine parallelen Fahrzeuganfragen.
+                if (controller.pendingRequestCount() != 0) {
+                    continue
+                }
+
+                try {
+                    val request =
+                        controller.buildEncryptedRequest(
+                            if (pollingCycle % 4L == 3L) {
+                                de.drivechronik.dash.ble
+                                    .TeslaLocationStateCodec.buildRequest()
+                            } else {
+                                de.drivechronik.dash.ble
+                                    .TeslaDriveStateCodec.buildRequest()
+                            }
+                        )
+
+                    val payload =
+                        request.message.toByteArray()
+
+                    val accepted =
+                        gattClient.sendRoutableMessage(payload)
+
+                    if (accepted) {
+                        val wasGpsRequest =
+                            pollingCycle % 4L == 3L
+
+                        pollingCycle++
+
+                        Log.d(
+                            "DriveChronikDATA",
+                            if (wasGpsRequest) {
+                                "LOCATION_POLL_QUEUED bytes=${payload.size}"
+                            } else {
+                                "DRIVE_POLL_QUEUED bytes=${payload.size}"
+                            }
+                        )
+                    } else {
+                        Log.w(
+                            "DriveChronikDATA",
+                            "DRIVE_POLL_SEND_REJECTED"
+                        )
+                        controller.clear()
+                        break
+                    }
+                } catch (e: Exception) {
+                    Log.e(
+                        "DriveChronikDATA",
+                        "DRIVE_POLL_FAILED",
+                        e
+                    )
+                    controller.clear()
+                    break
+                }
+            }
+        }
+    }
+
+    // KEY_ENROLLMENT_TIMEOUT_687
+    // Kein Erfolg ohne gesonderten Registrierungsnachweis.
+    // Eine unbeantwortete Anfrage darf die Prüfung
+    // des vorhandenen Schlüssels nicht dauerhaft blockieren.
+    LaunchedEffect(pendingEnrollmentRequest) {
+        val request = pendingEnrollmentRequest
+
+        if (request != null) {
+            kotlinx.coroutines.delay(30_000L)
+
+            if (
+                pendingEnrollmentRequest === request &&
+                keyEnrollmentPending
+            ) {
+                pendingEnrollmentRequest = null
+                keyEnrollmentPending = false
+
+                keyAuthorizationMessage =
+                    "Keine abschließende Registrierungsbestätigung. " +
+                    "Vorhandenen Schlüssel separat prüfen."
+
+                Log.w(
+                    "DriveChronikENROLL",
+                    "ENROLLMENT_TIMEOUT_NOT_CONFIRMED"
+                )
+            }
+        }
+    }
+
+    // KEY_VERIFICATION_TIMEOUT_683
+    // Eine unbeantwortete Prüfung darf nicht dauerhaft hängen bleiben.
+    LaunchedEffect(pendingKeyVerification) {
+        val verifier = pendingKeyVerification
+
+        if (verifier != null) {
+            kotlinx.coroutines.delay(12_000L)
+
+            if (pendingKeyVerification === verifier) {
+                verifier.clear()
+                pendingKeyVerification = null
+                keyVerificationMessage =
+                    "Keine gültige Tesla-Antwort innerhalb von 12 Sekunden"
+
+                Log.w(
+                    "DriveChronikKEYVERIFY",
+                    "HANDSHAKE_TIMEOUT"
+                )
+            }
+        }
+    }
 
     val keyAuthorizationAvailable =
+        pendingKeyVerification == null &&
+        !keyEnrollmentPending &&
         keyPresent &&
-        liveProtocolConfig
-            .normalizedVin
-            .length == 17 &&
-        gattState.status ==
-            TeslaGattStatus.READY &&
-        scanState.status ==
-            TeslaBleScanStatus.FOUND &&
-        scanState.name != null &&
-        scanState.name ==
-            expectedConfiguredTeslaName
-
-
+        liveProtocolConfig.normalizedVin.length == 17 &&
+        gattState.status == TeslaGattStatus.READY &&
+        scanState.status == TeslaBleScanStatus.FOUND &&
+        TeslaBleVehicleIdentity.matches(
+            liveProtocolConfig.normalizedVin,
+            scanState.name
+        )
 
     if (showTeslaSetup) {
 
@@ -2698,6 +3443,11 @@ private fun TeslaBleHeaderStatus() {
 
 
                     if (!sameVehicle) {
+                        pendingEnrollmentRequest = null
+                        keyEnrollmentPending = false
+                        pendingKeyVerification?.clear()
+                        pendingKeyVerification = null
+                        keyVerificationMessage = null
 
                         sessionController
                             ?.clear()
@@ -2747,41 +3497,99 @@ private fun TeslaBleHeaderStatus() {
                 keyAuthorizationAvailable,
 
             authorizationMessage =
-                keyAuthorizationMessage,
+                keyVerificationMessage ?: keyAuthorizationMessage,
 
+            onVerifyKey = {
+                val safeToVerify =
+                    !keyEnrollmentPending &&
+                    pendingKeyVerification == null &&
+                    keyPresent &&
+                    liveProtocolConfig.normalizedVin.length == 17 &&
+                    gattState.status == TeslaGattStatus.READY &&
+                    scanState.status == TeslaBleScanStatus.FOUND &&
+                    TeslaBleVehicleIdentity.matches(
+                        liveProtocolConfig.normalizedVin,
+                        scanState.name
+                    )
+
+                if (!safeToVerify) {
+                    keyVerificationMessage =
+                        "Prüfung nicht möglich: Tesla nicht bereit " +
+                            "oder eine Anfrage läuft bereits"
+                } else {
+                    try {
+                        val verifier =
+                            de.drivechronik.dash.ble
+                                .TeslaKeyVerificationSession(
+                                    vin = liveProtocolConfig.normalizedVin,
+                                    keyPair =
+                                        TeslaKeyStore.getOrCreateKeyPair()
+                                )
+
+                        val request = verifier.begin()
+
+                        // Vor dem Senden zuordnen, damit auch
+                        // eine schnelle Antwort erkannt wird.
+                        pendingKeyVerification = verifier
+                        keyVerificationMessage =
+                            "Tesla-Schlüssel wird geprüft …"
+
+                        val accepted =
+                            gattClient.sendRoutableMessage(
+                                request.toByteArray()
+                            )
+
+                        if (!accepted) {
+                            verifier.clear()
+                            pendingKeyVerification = null
+                            keyVerificationMessage =
+                                "Schlüsselprüfung konnte nicht gesendet werden"
+                        } else {
+                            Log.d(
+                                "DriveChronikKEYVERIFY",
+                                "SESSION_INFO_REQUEST_QUEUED"
+                            )
+                        }
+                    } catch (e: Exception) {
+                        pendingKeyVerification?.clear()
+                        pendingKeyVerification = null
+                        keyVerificationMessage =
+                            "Schlüsselprüfung fehlgeschlagen: " +
+                                (e.message ?: "Unbekannter Fehler")
+
+                        Log.e(
+                            "DriveChronikKEYVERIFY",
+                            "Verification request failed",
+                            e
+                        )
+                    }
+                }
+            },
             onAuthorizeKey = {
 
                 /*
                  * Zweite Sicherheitsprüfung unmittelbar
                  * vor dem tatsächlichen TX.
                  */
-                val expectedName =
-                    runCatching {
-
-                        TeslaBleVehicleIdentity
-                            .advertisementLocalName(
-                                liveProtocolConfig
-                                    .normalizedVin
-                            )
-
-                    }.getOrNull()
-
-
                 val safeToSend =
                     keyPresent &&
-                    liveProtocolConfig
-                        .normalizedVin
-                        .length == 17 &&
-                    gattState.status ==
-                        TeslaGattStatus.READY &&
-                    scanState.status ==
-                        TeslaBleScanStatus.FOUND &&
-                    scanState.name != null &&
-                    scanState.name ==
-                        expectedName
+                    liveProtocolConfig.normalizedVin.length == 17 &&
+                    gattState.status == TeslaGattStatus.READY &&
+                    scanState.status == TeslaBleScanStatus.FOUND &&
+                    TeslaBleVehicleIdentity.matches(
+                        liveProtocolConfig.normalizedVin,
+                        scanState.name
+                    )
 
 
-                if (!safeToSend) {
+                if (
+                    keyEnrollmentPending ||
+                    pendingKeyVerification != null
+                ) {
+                    keyAuthorizationMessage =
+                        "Schlüsselregistrierung oder -prüfung läuft bereits"
+                }
+                else if (!safeToSend) {
 
                     keyAuthorizationMessage =
                         "Autorisierung nicht möglich: " +
@@ -2819,20 +3627,28 @@ private fun TeslaBleHeaderStatus() {
 
                         val enrollmentMessage =
                             TeslaKeyEnrollmentRequest
-                                .build(
+                                .buildRoutable(
                                     TeslaKeyStore
                                         .encodedPublicKey()
                                 )
 
 
+                        val enrollmentRequest =
+                            TeslaRoutableMessageCodec.decode(
+                                enrollmentMessage
+                            )
+
                         val accepted =
                             gattClient
-                                .sendVcsecMessage(
+                                .sendRoutableMessage(
                                     enrollmentMessage
                                 )
 
 
                         if (accepted) {
+                            pendingEnrollmentRequest =
+                                enrollmentRequest
+                            keyEnrollmentPending = true
 
                             keyAuthorizationMessage =
                                 "Anfrage gesendet – " +
@@ -2847,6 +3663,8 @@ private fun TeslaBleHeaderStatus() {
                             )
                         }
                         else {
+                            pendingEnrollmentRequest = null
+                            keyEnrollmentPending = false
 
                             keyAuthorizationMessage =
                                 "Autorisierungsanfrage konnte " +
@@ -2854,6 +3672,8 @@ private fun TeslaBleHeaderStatus() {
                         }
                     }
                     catch (e: Exception) {
+                        pendingEnrollmentRequest = null
+                        keyEnrollmentPending = false
 
                         keyAuthorizationMessage =
                             e.message
@@ -2894,6 +3714,13 @@ private fun TeslaBleHeaderStatus() {
             },
 
             onDeleteVin = {
+                // Alte Add-Key-Antworten nicht mehr zuordnen.
+                pendingEnrollmentRequest = null
+                keyEnrollmentPending = false
+                pendingKeyVerification?.clear()
+                pendingKeyVerification = null
+                keyVerificationMessage = null
+
 
                 keyAuthorizationMessage =
                     null
@@ -2922,6 +3749,13 @@ private fun TeslaBleHeaderStatus() {
 
 
             onDeleteKey = {
+                // Alte Add-Key-Antworten nicht mehr zuordnen.
+                pendingEnrollmentRequest = null
+                keyEnrollmentPending = false
+                pendingKeyVerification?.clear()
+                pendingKeyVerification = null
+                keyVerificationMessage = null
+
 
                 keyAuthorizationMessage =
                     null
@@ -3825,28 +4659,28 @@ private fun Speedometer(
     lowBeam: Boolean,
     highBeam: Boolean,
     gear: String = "D",
+    // LIVE_BATTERY_DISPLAY_714
+    batteryPercent: Int? = null,
     modifier: Modifier = Modifier
 ) {
 
 
-    val energyFraction =
-        if (
+    // LIVE_BATTERY_FRACTION_715
+    // Tesla-Prozent direkt verwenden.
+    // Demo weiterhin aus kWh berechnen.
+    val energyFraction: Float =
+        if (batteryPercent != null) {
+            batteryPercent.coerceIn(0, 100) / 100f
+        } else if (
             remainingKwh.isFinite() &&
             usableCapacityKwh.isFinite() &&
             usableCapacityKwh > 0f
         ) {
-            (
-                remainingKwh /
-                    usableCapacityKwh
-            ).coerceIn(
-                0f,
-                1f
-            )
-        }
-        else {
+            (remainingKwh / usableCapacityKwh)
+                .coerceIn(0f, 1f)
+        } else {
             0f
         }
-
 
     val energyPercent =
         (
@@ -3855,8 +4689,13 @@ private fun Speedometer(
         ).roundToInt()
 
 
-    val energyLabel =
-        if (remainingKwh.isFinite() &&
+    // LIVE_BATTERY_LABEL_715
+    // Keine unbekannte Batteriekapazität schätzen.
+    val energyLabel: String =
+        if (batteryPercent != null) {
+            "${batteryPercent.coerceIn(0, 100)} %"
+        } else if (
+            remainingKwh.isFinite() &&
             usableCapacityKwh.isFinite() &&
             usableCapacityKwh > 0f
         ) {
@@ -3867,9 +4706,8 @@ private fun Speedometer(
                 energyPercent
             )
         } else {
-            "— kWh · — %"
+            "— %"
         }
-
 
     val isNightMode =
         rememberAutomaticSolarNightMode()
@@ -5492,6 +6330,9 @@ private fun TeslaBleSetupDialog(
     onSaveVin:
         (String) -> Unit,
 
+    onVerifyKey:
+        () -> Unit,
+
     onAuthorizeKey:
         () -> Unit,
 
@@ -6412,9 +7253,7 @@ private fun TeslaBleSetupDialog(
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
-                                            .height(
-                                                130.dp
-                                            )
+                                            .height(185.dp)
                                 ) {
 
                                     /*
@@ -6490,7 +7329,9 @@ private fun TeslaBleSetupDialog(
                                         )
 
 
-                                        if (
+
+
+if (
                                             authorizationMessage != null
                                         ) {
 
@@ -6512,6 +7353,27 @@ private fun TeslaBleSetupDialog(
                                      * Autorisieren-Button
                                      * mittig rechts
                                      */
+
+                                    // Vorhandenen Schlüssel separat prüfen.
+                                    Button(
+                                        onClick = onVerifyKey,
+                                        enabled = authorizationAvailable,
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .width(220.dp)
+                                            .height(48.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF285578),
+                                            contentColor = Color.White
+                                        )
+                                    ) {
+                                        Text(
+                                            text = "Vorhandenen Schlüssel prüfen",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
                                     Button(
                                         onClick =
                                             onAuthorizeKey,
@@ -6522,7 +7384,7 @@ private fun TeslaBleSetupDialog(
                                         modifier =
                                             Modifier
                                                 .align(
-                                                    Alignment.CenterEnd
+                                                    Alignment.BottomEnd
                                                 )
                                                 .width(
                                                     220.dp

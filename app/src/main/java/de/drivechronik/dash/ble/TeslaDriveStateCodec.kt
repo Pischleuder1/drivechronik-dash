@@ -23,6 +23,9 @@ data class TeslaDriveStateData(
     val activeRouteTrafficMinutesDelay: Float? = null,
 
     val activeRouteEnergyAtArrival: Float? = null,
+    // TESLA_ROUTE_COORDINATES_774
+    val activeRouteLatitude: Float? = null,
+    val activeRouteLongitude: Float? = null,
 
     /*
      * Diagnose-Rohdaten.
@@ -234,6 +237,28 @@ object TeslaDriveStateCodec {
             }
 
 
+        // TESLA_ROUTE_COORDINATES_DECODE_774
+        val routeCoordinates =
+            drive.activeRouteCoordinates
+                .takeIf {
+                    drive.hasActiveRouteCoordinates()
+                }
+
+        val routeLat =
+            routeCoordinates?.latitude
+
+        val routeLon =
+            routeCoordinates?.longitude
+
+        val validRouteCoordinates =
+            routeLat != null &&
+                routeLon != null &&
+                routeLat.isFinite() &&
+                routeLon.isFinite() &&
+                routeLat in -90f..90f &&
+                routeLon in -180f..180f &&
+                !(routeLat == 0f && routeLon == 0f)
+
         return TeslaDriveStateData(
             speedFloat = speedFloat,
             speed = speed,
@@ -256,6 +281,10 @@ object TeslaDriveStateCodec {
 
             activeRouteEnergyAtArrival =
                 activeRouteEnergyAtArrival,
+            activeRouteLatitude =
+                if (validRouteCoordinates) routeLat else null,
+            activeRouteLongitude =
+                if (validRouteCoordinates) routeLon else null,
 
             rawResponseBytes =
                 bytes.copyOf(),

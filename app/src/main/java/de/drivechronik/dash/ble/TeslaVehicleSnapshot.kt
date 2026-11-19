@@ -87,6 +87,26 @@ class TeslaVehicleSnapshotStore(
             System.nanoTime()
     ): TeslaVehicleSnapshot {
 
+        // GPS_VALIDITY_GUARD_763
+        // Leere LocationStates aus DriveState-Antworten
+        // dürfen die letzte gültige GPS-Position und
+        // deren ursprünglichen Zeitstempel nicht ersetzen.
+        val lat = data.latitude
+        val lon = data.longitude
+
+        val validCoordinates =
+            lat != null &&
+                lon != null &&
+                lat.isFinite() &&
+                lon.isFinite() &&
+                lat in -90f..90f &&
+                lon in -180f..180f &&
+                !(lat == 0f && lon == 0f)
+
+        if (!validCoordinates) {
+            return snapshot
+        }
+
         snapshot =
             snapshot.copy(
                 location = data,
