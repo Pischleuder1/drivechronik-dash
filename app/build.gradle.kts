@@ -37,8 +37,8 @@ android {
         applicationId = "de.drivechronik.dash"
         minSdk = 31
         targetSdk = 36
-        versionCode = 20
-        versionName = "0.6.3"
+        versionCode = 22
+        versionName = "0.6.5"
     }
 
     signingConfigs {
