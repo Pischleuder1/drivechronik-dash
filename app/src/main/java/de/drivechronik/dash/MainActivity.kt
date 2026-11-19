@@ -932,7 +932,12 @@ private fun DriveChronikDashboard(
                             demoPowerKw
                         }
                         else {
-                            0f
+                            if (driveFresh) {
+                                liveTelemetry.powerRaw?.toFloat()
+                                    ?: Float.NaN
+                            } else {
+                                Float.NaN
+                            }
                         },
 
 
@@ -1154,53 +1159,6 @@ private fun DashboardContent(
 
         DashboardHeader()
 
-        // TESLA_GPS_STATUS_UI_739
-        val gpsValid =
-            state.gpsLatitude != null &&
-            state.gpsLongitude != null
-
-        val gpsStatusText =
-            if (demoMode) {
-                "TESLA GPS · Demo-Modus"
-            } else if (gpsValid) {
-                val lat = state.gpsLatitude!!
-                val lon = state.gpsLongitude!!
-
-                val coords = String.format(
-                    java.util.Locale.GERMANY,
-                    "%.5f° %s · %.5f° %s",
-                    kotlin.math.abs(lat),
-                    if (lat >= 0.0) "N" else "S",
-                    kotlin.math.abs(lon),
-                    if (lon >= 0.0) "E" else "W"
-                )
-
-                val heading =
-                    state.gpsHeadingDegrees
-                        ?.let {
-                            " · ${it.roundToInt()}°"
-                        } ?: ""
-
-                "TESLA GPS · $coords$heading"
-            } else {
-                "TESLA GPS · Keine aktuellen Daten"
-            }
-
-        Text(
-            text = gpsStatusText,
-            color = if (gpsValid && !demoMode) {
-                DashGreen
-            } else {
-                DashMuted
-            },
-            fontSize = 10.sp,
-            maxLines = 1,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 2.dp)
-        )
-
-
         Box(
             modifier =
                 Modifier
@@ -1363,7 +1321,7 @@ modifier =
                     }
 
                     PowerRing(
-                        powerKw = if (demoMode) state.powerKw else Float.NaN,
+                        powerKw = state.powerKw,
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(
@@ -2700,7 +2658,8 @@ private fun TeslaBleHeaderStatus() {
                                                         "DRIVE_VALID " +
                                                             "speed=$validSpeed " +
                                                             "speedMph=${drive.speed} " +
-                                                            "gear=${drive.shiftState}"
+                                                            "gear=${drive.shiftState} " +
+                                                            "powerRaw=${drive.power}"
                                                     )
                                                 }
 
@@ -4521,8 +4480,17 @@ private fun PowerRing(
             )
 
             val zeroAngle = 337.5f
+            // Kleine reale Leistungen sichtbar darstellen.
+            // Nur die Darstellung, nicht den Messwert anheben.
             val sweep =
-                kotlin.math.abs(power) / 60f * 67.5f
+                if (power == 0f) {
+                    0f
+                } else {
+                    maxOf(
+                        4f,
+                        kotlin.math.abs(power) / 60f * 67.5f
+                    )
+                }
 
             if (sweep > 0f) {
                 drawArc(
