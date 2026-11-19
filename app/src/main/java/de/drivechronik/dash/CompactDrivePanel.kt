@@ -165,9 +165,40 @@ internal fun CompactDrivePanel(
             Spacer(Modifier.height(5.dp))
 
             Text(
-                text = if (demoMode) "$percent %" else "— %",
+                // LIVE_BATTERY_TOURING_720
+                text = if (demoMode) {
+                    "$percent %"
+                } else {
+                    state.batteryPercent
+                        ?.takeIf { it in 0..100 }
+                        ?.let { "$it %" }
+                        ?: "— %"
+                },
                 color = Color.White,
                 fontSize = 27.sp,
+                fontWeight = FontWeight.Medium
+            )
+
+            // LIVE_RANGE_TOURING_728
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                text = "REICHWEITE",
+                color = Color.White.copy(alpha = 0.90f),
+                fontSize = 11.sp,
+                letterSpacing = 1.sp
+            )
+
+            Spacer(Modifier.height(3.dp))
+
+            Text(
+                text = if (demoMode || state.rangeKm >= 0) {
+                    "${state.rangeKm} km"
+                } else {
+                    "— km"
+                },
+                color = Color.White,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Medium
             )
         }

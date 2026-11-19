@@ -121,7 +121,15 @@ internal fun TechnikDashboard(
                 }
 
                 Text(
-                    if (demoMode) "$percent %" else "— %",
+                    // LIVE_BATTERY_TECHNIK_720
+                    if (demoMode) {
+                        "$percent %"
+                    } else {
+                        state.batteryPercent
+                            ?.takeIf { it in 0..100 }
+                            ?.let { "$it %" }
+                            ?: "— %"
+                    },
                     color = TechnikBlue,
                     fontSize = 36.sp,
                     lineHeight = 40.sp
@@ -129,7 +137,14 @@ internal fun TechnikDashboard(
 
                 Spacer(Modifier.height(5.dp))
                 TechnikProgressBar(
-                    if (demoMode) percent / 100f else 0f,
+                    if (demoMode) {
+                        percent / 100f
+                    } else {
+                        state.batteryPercent
+                            ?.takeIf { it in 0..100 }
+                            ?.div(100f)
+                            ?: 0f
+                    },
                     TechnikBlue
                 )
                 Spacer(Modifier.weight(1f))
@@ -152,7 +167,11 @@ internal fun TechnikDashboard(
                     Column(horizontalAlignment = Alignment.End) {
                         Text("REICHWEITE", color = TechnikMuted, fontSize = 10.sp)
                         Text(
-                            if (demoMode) "${state.rangeKm} km" else "— km",
+                            // LIVE_RANGE_TECHNIK_727
+                            if (demoMode || state.rangeKm >= 0)
+                                "${state.rangeKm} km"
+                            else
+                                "— km",
                             color = Color.White,
                             fontSize = 15.sp
                         )
