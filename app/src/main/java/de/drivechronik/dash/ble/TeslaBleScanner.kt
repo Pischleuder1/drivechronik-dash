@@ -55,7 +55,7 @@ class TeslaBleScanner(
 
     private val context: Context,
 
-    private val expectedLocalNameProvider:
+    private val expectedVinProvider:
         () -> String? = {
             null
         },
@@ -72,6 +72,9 @@ class TeslaBleScanner(
 
     private var scanning = false
     private var foundTesla = false
+
+    private val diagnosticAddresses =
+        mutableSetOf<String>()
 
     private val seenAddresses =
         mutableSetOf<String>()
@@ -215,6 +218,7 @@ class TeslaBleScanner(
         }
 
         seenAddresses.clear()
+        diagnosticAddresses.clear()
         foundTesla = false
         scanning = true
 
@@ -321,6 +325,35 @@ class TeslaBleScanner(
             "BLE name=${name ?: "<ohne Name>"} address=$address rssi=${result.rssi}"
         )
 
+        if (seenAddresses.size > 0) {
+            val diagnosticIndex =
+                seenAddresses.indexOf(address) + 1
+
+            if (diagnosticIndex > 0 &&
+                diagnosticAddresses.add(address)
+            ) {
+                val manufacturerIds =
+                    record?.manufacturerSpecificData?.let { data ->
+                        (0 until data.size()).joinToString(",") { index ->
+                            "0x%04X".format(data.keyAt(index))
+                        }
+                    } ?: ""
+
+                Log.d(
+                    "DriveChronikBLE",
+                    "RECORD device=$diagnosticIndex " +
+                        "rssi=${result.rssi} " +
+                        "named=${!name.isNullOrBlank()} " +
+                        "bytes=${record?.bytes?.size ?: 0} " +
+                        "manufacturers=${record?.manufacturerSpecificData?.size() ?: 0} " +
+                        "manufacturerIds=$manufacturerIds " +
+                        "serviceData=${record?.serviceData?.size ?: 0} " +
+                        "services=${record?.serviceUuids?.size ?: 0} " +
+                        "connectable=${result.isConnectable}"
+                )
+            }
+        }
+
         val matchesName =
             name
                 ?.matches(
@@ -339,38 +372,45 @@ class TeslaBleScanner(
                 ?: false
 
 
-        val expectedLocalName =
+        val expectedVin =
             runCatching {
-                expectedLocalNameProvider()
+                expectedVinProvider()
             }
                 .getOrNull()
                 ?.takeIf {
-                    it.isNotBlank()
+                    it.length == 17
                 }
 
-
-        /*
-         * Ohne gespeicherte VIN:
-         * normale Tesla-Erkennung.
-         *
-         * Mit gespeicherter VIN:
-         * nur exakt dieses Fahrzeug.
-         */
         val matchesExpectedVehicle =
-            if (expectedLocalName != null) {
-
-                name ==
-                    expectedLocalName
-            }
-            else {
-
-                matchesName ||
-                    matchesService
+            if (expectedVin != null) {
+                TeslaBleVehicleIdentity.matches(
+                    expectedVin,
+                    name
+                )
+            } else {
+                matchesName || matchesService
             }
 
 
         if (
-            expectedLocalName != null &&
+            result.rssi >= -80 ||
+            matchesName ||
+            matchesService
+        ) {
+            Log.d(
+                "DriveChronikBLE",
+                "DIAG rssi=${result.rssi} " +
+                    "named=${!name.isNullOrBlank()} " +
+                    "teslaName=$matchesName " +
+                    "teslaService=$matchesService " +
+                    "vinConfigured=${expectedVin != null} " +
+                    "expectedMatch=$matchesExpectedVehicle " +
+                    "serviceCount=${record?.serviceUuids?.size ?: 0}"
+            )
+        }
+
+        if (
+            expectedVin != null &&
             (matchesName || matchesService) &&
             !matchesExpectedVehicle
         ) {
@@ -379,7 +419,7 @@ class TeslaBleScanner(
                 "DriveChronikBLE",
                 "Tesla candidate ignored: " +
                     "name=${name ?: "<ohne Name>"} " +
-                    "expected=$expectedLocalName"
+                    "vinConfigured=true"
             )
         }
 

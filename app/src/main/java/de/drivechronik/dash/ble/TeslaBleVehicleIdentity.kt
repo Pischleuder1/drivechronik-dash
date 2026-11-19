@@ -66,24 +66,29 @@ object TeslaBleVehicleIdentity {
     }
 
 
+    fun modernAdvertisementLocalName(
+        vin: String
+    ): String {
+        val normalizedVin = normalizeVin(vin)
+
+        require(normalizedVin.length == 17) {
+            "Tesla VIN must contain exactly 17 characters"
+        }
+
+        return "Tesla " + normalizedVin.takeLast(6)
+    }
+
     fun matches(
         vin: String,
         localName: String?
     ): Boolean {
-
         if (localName == null) {
             return false
         }
 
-
         return runCatching {
-
-            advertisementLocalName(
-                vin
-            ) == localName
-
-        }.getOrDefault(
-            false
-        )
+            localName == advertisementLocalName(vin) ||
+                localName == modernAdvertisementLocalName(vin)
+        }.getOrDefault(false)
     }
 }

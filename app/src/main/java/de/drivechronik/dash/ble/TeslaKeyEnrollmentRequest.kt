@@ -20,6 +20,58 @@ import com.tesla.generated.vcsec.Vcsec
  */
 object TeslaKeyEnrollmentRequest {
 
+    /*
+     * Neuer Nachrichtenrahmen für VCSEC über BLE.
+     * Wird zunächst ausschließlich lokal getestet.
+     */
+    fun buildRoutable(
+        publicKey: ByteArray
+    ): ByteArray {
+        val oldMessage =
+            Vcsec.ToVCSECMessage.parseFrom(
+                build(publicKey)
+            )
+
+        val unsigned =
+            oldMessage.signedMessage
+                .protobufMessageAsBytes
+
+        val random = java.security.SecureRandom()
+        val routingAddress = ByteArray(16)
+        val uuid = ByteArray(16)
+
+        random.nextBytes(routingAddress)
+        random.nextBytes(uuid)
+
+        return com.tesla.generated.universalmessage.UniversalMessage.RoutableMessage
+            .newBuilder()
+            .setToDestination(
+                com.tesla.generated.universalmessage.UniversalMessage.Destination
+                    .newBuilder()
+                    .setDomain(
+                        com.tesla.generated.universalmessage.UniversalMessage.Domain
+                            .DOMAIN_VEHICLE_SECURITY
+                    )
+            )
+            .setFromDestination(
+                com.tesla.generated.universalmessage.UniversalMessage.Destination
+                    .newBuilder()
+                    .setRoutingAddress(
+                        ByteString.copyFrom(
+                            routingAddress
+                        )
+                    )
+            )
+            .setProtobufMessageAsBytes(
+                unsigned
+            )
+            .setUuid(
+                ByteString.copyFrom(uuid)
+            )
+            .build()
+            .toByteArray()
+    }
+
     fun build(
         publicKey: ByteArray
     ): ByteArray {

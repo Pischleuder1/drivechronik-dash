@@ -68,11 +68,23 @@ internal fun currentNavigationFix(
             lat in -90.0..90.0 &&
             lon in -180.0..180.0
         ) {
+            // TESLA_GPS_HEADING_737
+            val teslaHeading =
+                location.geoHeading
+                    ?.takeIf {
+                        it.isFinite() && it in 0f..360f
+                    }
+                    ?: location.headingDegrees
+                        ?.toFloat()
+                        ?.takeIf {
+                            it.isFinite() && it in 0f..360f
+                        }
+
             teslaFix = NavigationGpsFix(
                 RoutePoint(lat, lon),
                 timestamp,
                 "tesla",
-                null
+                teslaHeading
             )
         }
     }
