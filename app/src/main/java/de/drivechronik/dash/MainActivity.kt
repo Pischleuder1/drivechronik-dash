@@ -1424,7 +1424,7 @@ NavigationLayoutPlaceholder(
                         modifier = Modifier
                             .weight(
                                 if (layoutMode == DashboardLayoutMode.TOURING)
-                                    2.75f
+                                    2.50f
                                 else
                                     1.15f
                             )
@@ -1451,7 +1451,7 @@ NavigationLayoutPlaceholder(
                             demoMode = demoMode,
                             offlineSummary = NavigationSummaryState.text,
                             modifier = Modifier
-                                .weight(1.18f)
+                                .weight(1.43f)
                                 .fillMaxHeight()
                         )
                     } else {
@@ -3008,6 +3008,67 @@ private fun TeslaBleHeaderStatus() {
         }
     }
 
+    // TESLA_AUTO_RECONNECT_1022
+    // Nur bei fehlender Verbindung erneut scannen.
+    // Bestehende READY-Verbindungen bleiben unangetastet.
+    LaunchedEffect(
+        permissionGranted,
+        gattState.status,
+        scanState.status
+    ) {
+        if (!permissionGranted) {
+            return@LaunchedEffect
+        }
+
+        val reconnectNeeded =
+            gattState.status == TeslaGattStatus.DISCONNECTED ||
+            gattState.status == TeslaGattStatus.ERROR ||
+            (
+                gattState.status == TeslaGattStatus.IDLE &&
+                scanState.status == TeslaBleScanStatus.NOT_FOUND
+            ) ||
+            (
+                gattState.status == TeslaGattStatus.IDLE &&
+                scanState.status == TeslaBleScanStatus.ERROR
+            )
+
+        if (!reconnectNeeded) {
+            return@LaunchedEffect
+        }
+
+        if (scanState.status == TeslaBleScanStatus.SCANNING) {
+            return@LaunchedEffect
+        }
+
+        kotlinx.coroutines.delay(5_000L)
+
+        if (
+            gattState.status == TeslaGattStatus.READY ||
+            gattState.status == TeslaGattStatus.CONNECTING ||
+            gattState.status == TeslaGattStatus.CONNECTED ||
+            gattState.status == TeslaGattStatus.DISCOVERING_SERVICES ||
+            gattState.status == TeslaGattStatus.SERVICE_READY ||
+            gattState.status == TeslaGattStatus.SUBSCRIBING ||
+            scanState.status == TeslaBleScanStatus.SCANNING
+        ) {
+            return@LaunchedEffect
+        }
+
+        if (
+            gattState.status == TeslaGattStatus.DISCONNECTED ||
+            gattState.status == TeslaGattStatus.ERROR
+        ) {
+            gattClient.close()
+        }
+
+        Log.i(
+            "DriveChronikBLE",
+            "AUTO_RECONNECT scan starting"
+        )
+
+        scanner.startScan(durationMs = 12_000L)
+    }
+
     /*
      * Sobald der Scanner einen Tesla erkennt,
      * beginnt die GATT-Verbindung.
@@ -3268,9 +3329,10 @@ private fun TeslaBleHeaderStatus() {
                 controller.status() ==
                     TeslaProtocolSessionStatus.READY
             ) {
-                // TESLA_LIVE_500MS_935
+                // TESLA_LIVE_250MS_1025
                 // Maximal ein Request gleichzeitig.
-                kotlinx.coroutines.delay(500L)
+                // Zentraler Polling-Takt fuer alle Cockpits.
+                kotlinx.coroutines.delay(250L)
 
                 if (
                     gattState.status != TeslaGattStatus.READY ||

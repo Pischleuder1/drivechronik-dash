@@ -158,7 +158,7 @@ internal fun CompactDrivePanel(
                 }
 
             Text(
-                text = "RESTENERGIE",
+                text = "RESTENERGIE / REICHWEITE",
                 color = Color.White.copy(alpha = 0.90f),
                 fontSize = 11.sp,
                 letterSpacing = 1.sp
@@ -168,17 +168,26 @@ internal fun CompactDrivePanel(
 
             Text(
                 // LIVE_BATTERY_TOURING_720
-                text = if (demoMode) {
-                    "$percent %"
-                } else {
-                    state.batteryPercent
-                        ?.takeIf { it in 0..100 }
-                        ?.let { "$it %" }
-                        ?: "— %"
-                },
+                text = (
+                    if (demoMode) {
+                        "$percent %"
+                    } else {
+                        state.batteryPercent
+                            ?.takeIf { it in 0..100 }
+                            ?.let { "$it %" }
+                            ?: "— %"
+                    }
+                ) + " / " + (
+                    if (state.rangeKm >= 0) {
+                        "${state.rangeKm} km"
+                    } else {
+                        "— km"
+                    }
+                ),
                 color = Color.White,
-                fontSize = 27.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1
             )
 
 
