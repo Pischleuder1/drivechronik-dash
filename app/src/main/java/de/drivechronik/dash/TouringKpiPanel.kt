@@ -38,7 +38,11 @@ internal fun TouringKpiPanel(
     ) {
         TouringKpiEntry(
             title = "REICHWEITE",
-            value = if (demoMode) "${state.rangeKm} km" else "— km"
+            value = if (state.rangeKm >= 0) {
+                "${state.rangeKm} km"
+            } else {
+                "— km"
+            }
         )
 
         if (offlineSummary != null) {

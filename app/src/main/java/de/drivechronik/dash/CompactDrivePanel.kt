@@ -138,6 +138,8 @@ internal fun CompactDrivePanel(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // Touring: Abstand zur MapLibre-Quellenangabe.
+                .offset(y = (-48).dp)
                 .background(
                     Color(0x73151C25),
                     RoundedCornerShape(10.dp)
@@ -179,28 +181,7 @@ internal fun CompactDrivePanel(
                 fontWeight = FontWeight.Medium
             )
 
-            // LIVE_RANGE_TOURING_728
-            Spacer(Modifier.height(6.dp))
 
-            Text(
-                text = "REICHWEITE",
-                color = Color.White.copy(alpha = 0.90f),
-                fontSize = 11.sp,
-                letterSpacing = 1.sp
-            )
-
-            Spacer(Modifier.height(3.dp))
-
-            Text(
-                text = if (demoMode || state.rangeKm >= 0) {
-                    "${state.rangeKm} km"
-                } else {
-                    "— km"
-                },
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium
-            )
         }
     }
 }
