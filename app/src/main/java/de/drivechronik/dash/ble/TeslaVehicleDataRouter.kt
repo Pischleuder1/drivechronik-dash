@@ -74,6 +74,29 @@ object TeslaVehicleDataRouter {
         }
 
 
+
+        // TESLA_BATTERY_DIAGNOSTICS_966
+        if (vehicleData.hasChargeState()) {
+            val charge = vehicleData.chargeState
+
+            // TESLA_BATTERY_LOG_SAFE_967
+            // Android-Logging darf den Decoder nicht beeinflussen.
+            runCatching {
+                Log.d(
+                "DriveChronikCHARGE",
+                "BATTERY_FIELDS " +
+                    "batteryLevel=" +
+                    (if (charge.hasBatteryLevel())
+                        charge.batteryLevel.toString()
+                    else "absent") +
+                    " usableBatteryLevel=" +
+                    (if (charge.hasUsableBatteryLevel())
+                        charge.usableBatteryLevel.toString()
+                    else "absent")
+                )
+            }
+        }
+
         return TeslaVehicleDataUpdate(
 
             lights = lights,

@@ -899,6 +899,32 @@ private fun DriveChronikDashboard(
                 liveTelemetry
             )
 
+        // TESLA_HAZARD_BLINK_958
+        // Synchroner Warnblinker: 500 ms EIN / 500 ms AUS.
+        // Nur aktiv bei gültigem Tesla-Warnblinkersignal.
+        var liveHazardBlinkOn by remember {
+            mutableStateOf(false)
+        }
+
+        val liveHazardsActive =
+            !demoEnabled &&
+                liveLightsFresh &&
+                liveTelemetry.hazardsOn == true
+
+        LaunchedEffect(liveHazardsActive) {
+            if (!liveHazardsActive) {
+                liveHazardBlinkOn = false
+                return@LaunchedEffect
+            }
+
+            liveHazardBlinkOn = true
+
+            while (true) {
+                delay(500L)
+                liveHazardBlinkOn = !liveHazardBlinkOn
+            }
+        }
+
         DashboardContent(
             layoutMode = dashboardLayoutMode,
             demoMode = demoEnabled,
@@ -965,8 +991,14 @@ private fun DriveChronikDashboard(
                         if (demoEnabled) {
                             null
                         } else {
-                            liveTelemetry.batteryLevel
-                                ?.takeIf { it in 0..100 }
+                            // TESLA_USABLE_SOC_969
+                            // Bevorzugt den nutzbaren Akkustand.
+                            (
+                                liveTelemetry.usableBatteryLevel
+                                    ?.takeIf { it in 0..100 }
+                                    ?: liveTelemetry.batteryLevel
+                                        ?.takeIf { it in 0..100 }
+                            )
                         },
                     // LIVE_RANGE_KM_727
                     rangeKm =
@@ -1053,8 +1085,8 @@ private fun DriveChronikDashboard(
                             demoTick % 120 in 10..34 &&
                                 demoTick % 4 < 2
                         } else {
-                            liveLightsFresh &&
-                                liveTelemetry.hazardsOn == true
+                            liveHazardsActive &&
+                                liveHazardBlinkOn
                         },
 
                     rightIndicator =
@@ -1062,8 +1094,8 @@ private fun DriveChronikDashboard(
                             demoTick % 120 in 72..96 &&
                                 demoTick % 4 < 2
                         } else {
-                            liveLightsFresh &&
-                                liveTelemetry.hazardsOn == true
+                            liveHazardsActive &&
+                                liveHazardBlinkOn
                         },
 
                     lowBeam =
@@ -3257,12 +3289,15 @@ private fun TeslaBleHeaderStatus() {
                 try {
                     // TESLA_SEPARATE_REQUEST_950
                     // Maximal eine offene Tesla-Anfrage.
-                    // DRIVE zweimal, GPS einmal, LICHT einmal.
+                    // DRIVE dreimal, GPS/LIGHT/CHARGE je einmal.
+                    // TESLA_CHARGE_POLL_961
+                    // DRIVE / GPS / DRIVE / LIGHT / DRIVE / CHARGE
                     val requestType =
-                        when (pollingCycle % 4) {
-                            0, 2 -> "DRIVE"
+                        when (pollingCycle % 6) {
+                            0, 2, 4 -> "DRIVE"
                             1 -> "GPS"
-                            else -> "LIGHT"
+                            3 -> "LIGHT"
+                            else -> "CHARGE"
                         }
 
                     val requestBytes =
@@ -3275,9 +3310,13 @@ private fun TeslaBleHeaderStatus() {
                                 de.drivechronik.dash.ble
                                     .TeslaLocationStateCodec.buildRequest()
 
-                            else ->
+                            "LIGHT" ->
                                 de.drivechronik.dash.ble
                                     .TeslaVehicleStateCodec.buildRequest()
+
+                            else ->
+                                de.drivechronik.dash.ble
+                                    .TeslaChargeStateCodec.buildRequest()
                         }
 
                     val request =
@@ -3300,7 +3339,7 @@ private fun TeslaBleHeaderStatus() {
                         )
 
                         pollingCycle =
-                            (pollingCycle + 1) % 4
+                            (pollingCycle + 1) % 6
                     } else {
                         Log.w(
                             "DriveChronikDATA",

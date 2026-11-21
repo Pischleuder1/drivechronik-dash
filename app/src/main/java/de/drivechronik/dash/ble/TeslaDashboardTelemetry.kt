@@ -360,13 +360,10 @@ object TeslaDashboardTelemetryMapper {
          * existiert für das Dashboard keine
          * aktive Tesla-Navigation.
          */
-        if (
-            destination == null &&
-            minutes == null &&
-            miles == null &&
-            traffic == null &&
-            energy == null
-        ) {
+        // TESLA_ROUTE_END_961
+        // Ohne aktives Navigationsziel keine Route anzeigen.
+        // Restwerte allein dürfen eine Route nicht aktiv halten.
+        if (destination == null) {
             return null
         }
 
