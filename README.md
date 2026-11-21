@@ -2,7 +2,7 @@
 
 Lokales Android-Dashboard und Navigationssystem für Tesla-Fahrzeuge.
 
-**Aktuelle Version: 0.6.3**
+**Aktuelle Version: 0.6.6**
 
 ## Projektbeschreibung
 
@@ -39,7 +39,9 @@ Für eine kartenorientierte Darstellung:
 - Fahrstufenanzeige
 - Fahrspuransicht mit Tesla-Symbol
 - Vergrößerte Kartenfläche
-- Schmale vertikale KPI-Spalte
+- Verbreiterte vertikale KPI-Spalte ohne Scrollen
+- Kombinierte Anzeige für Akkustand und Reichweite
+- Kompakte Ziel-, Fahrzeit- und Ankunftsinformationen
 
 ### TECHNIK
 
@@ -105,6 +107,25 @@ fahrzeugseitigen Verifizierung.
 
 Die privaten Fahrzeugschlüssel werden über den
 Android KeyStore verwaltet und nicht im Git-Repository gespeichert.
+
+### Tesla-BLE-Livedaten ab v0.6.6
+
+- Live-Geschwindigkeit für alle drei Cockpit-Layouts
+- Leistungsanzeige für POWER und Rekuperation
+- Live-Akkustand und Reichweite
+- Tesla-Navigationsinformationen einschließlich Ankunftsprognose
+- Fahrzeugbeleuchtung und Warnblinker
+- Automatische BLE-Wiederverbindung nach Verbindungsabbruch
+- Zentraler BLE-Abfragetakt von 250 ms
+- Keine parallelen Fahrzeuganfragen
+- Verschlüsselte Tesla-Kommunikation
+
+Die tatsächliche Aktualisierungsgeschwindigkeit hängt von
+der Antwortzeit des Fahrzeugs und der BLE-Verbindung ab.
+
+Die automatische Wiederverbindung und der schnellere
+Polling-Takt müssen noch abschließend im Fahrbetrieb
+überprüft werden.
 
 ## Navigation
 
@@ -314,6 +335,14 @@ eine vorhandene Installation, ohne deren App-Daten
 automatisch zu löschen.
 
 ## Versionen
+
+- **0.6.6** – Automatische Tesla-BLE-Wiederverbindung,
+  schnellerer zentraler Tacho-Abfragetakt für alle Cockpits,
+  Live-Power und Rekuperation, Tesla-Navigationsdaten,
+  überarbeitetes TOURING-Cockpit
+- **0.6.5** – Erweiterungen der Tesla-BLE-Anbindung
+  und Fahrzeugtelemetrie
+
 
 - **0.6.3** – Kompaktes Ladestations-Popup für alle Cockpits, übersichtliche Standort- und Anschlussdaten sowie dauerhaft sichtbare Navigation
 - **0.6.2** – Verbesserungen am Touring-Dashboard und der Navigation
