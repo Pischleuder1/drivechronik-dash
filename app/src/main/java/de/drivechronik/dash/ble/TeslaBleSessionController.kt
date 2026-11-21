@@ -209,9 +209,28 @@ class TeslaBleSessionController(
     }
 
 
+    // PENDING_REQUEST_TIMEOUT_945
+    // Entfernt veraltete Anfragen aus der Warteliste.
+    // Ungültige Antworten werden weiterhin abgewiesen.
     @Synchronized
     fun pendingRequestCount():
         Int {
+        val now = nowNanos()
+
+        val iterator = pendingCommands
+            .entries
+            .iterator()
+
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+
+            val age = now -
+                entry.value.createdAtNanos
+
+            if (age >= 5_000_000_000L) {
+                iterator.remove()
+            }
+        }
 
         return pendingCommands.size
     }

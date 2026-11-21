@@ -138,6 +138,8 @@ internal fun CompactDrivePanel(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // Touring: Abstand zur MapLibre-Quellenangabe.
+                .offset(y = (-48).dp)
                 .background(
                     Color(0x73151C25),
                     RoundedCornerShape(10.dp)
@@ -156,7 +158,7 @@ internal fun CompactDrivePanel(
                 }
 
             Text(
-                text = "RESTENERGIE",
+                text = "RESTENERGIE / REICHWEITE",
                 color = Color.White.copy(alpha = 0.90f),
                 fontSize = 11.sp,
                 letterSpacing = 1.sp
@@ -166,41 +168,29 @@ internal fun CompactDrivePanel(
 
             Text(
                 // LIVE_BATTERY_TOURING_720
-                text = if (demoMode) {
-                    "$percent %"
-                } else {
-                    state.batteryPercent
-                        ?.takeIf { it in 0..100 }
-                        ?.let { "$it %" }
-                        ?: "— %"
-                },
+                text = (
+                    if (demoMode) {
+                        "$percent %"
+                    } else {
+                        state.batteryPercent
+                            ?.takeIf { it in 0..100 }
+                            ?.let { "$it %" }
+                            ?: "— %"
+                    }
+                ) + " / " + (
+                    if (state.rangeKm >= 0) {
+                        "${state.rangeKm} km"
+                    } else {
+                        "— km"
+                    }
+                ),
                 color = Color.White,
-                fontSize = 27.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1
             )
 
-            // LIVE_RANGE_TOURING_728
-            Spacer(Modifier.height(6.dp))
 
-            Text(
-                text = "REICHWEITE",
-                color = Color.White.copy(alpha = 0.90f),
-                fontSize = 11.sp,
-                letterSpacing = 1.sp
-            )
-
-            Spacer(Modifier.height(3.dp))
-
-            Text(
-                text = if (demoMode || state.rangeKm >= 0) {
-                    "${state.rangeKm} km"
-                } else {
-                    "— km"
-                },
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium
-            )
         }
     }
 }

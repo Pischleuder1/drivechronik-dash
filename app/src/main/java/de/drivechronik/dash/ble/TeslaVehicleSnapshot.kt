@@ -19,6 +19,13 @@ data class TeslaVehicleSnapshot(
         Long? = null,
 
     val locationUpdatedAtNanos:
+        Long? = null,
+
+    // TESLA_LIGHT_SNAPSHOT_900
+    val lights:
+        TeslaVehicleLightData? = null,
+
+    val lightsUpdatedAtNanos:
         Long? = null
 
 )
@@ -112,6 +119,39 @@ class TeslaVehicleSnapshotStore(
                 location = data,
                 locationUpdatedAtNanos =
                     receivedAtNanos
+            )
+
+        return snapshot
+    }
+
+
+    // TESLA_LIGHT_STORE_900
+    @Synchronized
+    fun updateLights(
+        data: TeslaVehicleLightData,
+        receivedAtNanos: Long =
+            System.nanoTime()
+    ): TeslaVehicleSnapshot {
+
+        snapshot =
+            snapshot.copy(
+                lights = data,
+                lightsUpdatedAtNanos =
+                    receivedAtNanos
+            )
+
+        return snapshot
+    }
+
+
+    // TESLA_LIGHT_CLEAR_910
+    @Synchronized
+    fun clearLights(): TeslaVehicleSnapshot {
+
+        snapshot =
+            snapshot.copy(
+                lights = null,
+                lightsUpdatedAtNanos = null
             )
 
         return snapshot

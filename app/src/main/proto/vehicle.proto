@@ -15,6 +15,7 @@ message VehicleData {
     ChargeState charge_state = 3;
     ClimateState climate_state = 4;
     DriveState drive_state = 5;
+    CurrentVehicleState vehicle_state = 18;
     LocationState location_state = 8;
     ClosuresState closures_state = 9;
     ChargeScheduleState charge_schedule_state = 15;
@@ -520,6 +521,21 @@ message LocationState {
     oneof optional_estimated_to_raw_distance  { float estimated_to_raw_distance  = 120; } // the distance between the estimated and raw coordinates in meters
 } // LocationState
 
+
+// TESLA_LIGHT_DIAGNOSTICS_879
+// Felder aus Teslemetry CurrentVehicleState.
+// Live-Verfügbarkeit am eigenen Fahrzeug noch ungeprüft.
+message CurrentVehicleState {
+    oneof optional_headlights_on {
+        bool headlights_on = 36;
+    }
+    oneof optional_highbeamlights_on {
+        bool highbeamlights_on = 37;
+    }
+    oneof optional_hazards_on {
+        bool hazards_on = 68;
+    }
+}
 
 message VehicleState {
     message GuestMode {

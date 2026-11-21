@@ -65,7 +65,13 @@ data class TeslaDashboardTelemetry(
 
     val chargeAgeMillis: Long? = null,
 
-    val locationAgeMillis: Long? = null
+    val locationAgeMillis: Long? = null,
+
+    // TESLA_LIGHT_TELEMETRY_902
+    val headlightsOn: Boolean? = null,
+    val highBeamOn: Boolean? = null,
+    val hazardsOn: Boolean? = null,
+    val lightsAgeMillis: Long? = null
 
 )
 
@@ -101,6 +107,10 @@ object TeslaDashboardTelemetryMapper {
 
         val location =
             snapshot.location
+
+        // TESLA_LIGHT_MAPPING_902
+        val lights =
+            snapshot.lights
 
 
         val speed =
@@ -184,6 +194,21 @@ object TeslaDashboardTelemetryMapper {
                     snapshot
                         .locationUpdatedAtNanos,
                     nowNanos
+                ),
+
+            headlightsOn =
+                lights?.headlightsOn,
+
+            highBeamOn =
+                lights?.highBeamOn,
+
+            hazardsOn =
+                lights?.hazardsOn,
+
+            lightsAgeMillis =
+                ageMillis(
+                    snapshot.lightsUpdatedAtNanos,
+                    nowNanos
                 )
         )
     }
@@ -193,6 +218,23 @@ object TeslaDashboardTelemetryMapper {
      * Drive-Daten sollen im Fahrerdisplay nicht
      * unbegrenzt weiter angezeigt werden.
      */
+    // TESLA_LIGHT_FRESHNESS_903
+    // Lichtabfrage derzeit ungefähr alle 24 Sekunden.
+    // Fehlende oder veraltete Werte niemals als aktuell behandeln.
+    fun isLightsFresh(
+        telemetry: TeslaDashboardTelemetry,
+        maxAgeMillis: Long = 40_000L
+    ): Boolean {
+
+        val age =
+            telemetry.lightsAgeMillis
+                ?: return false
+
+        return age >= 0L &&
+            age <= maxAgeMillis
+    }
+
+
     fun isDriveFresh(
         telemetry: TeslaDashboardTelemetry,
         maxAgeMillis: Long = 3_000L
@@ -318,13 +360,10 @@ object TeslaDashboardTelemetryMapper {
          * existiert für das Dashboard keine
          * aktive Tesla-Navigation.
          */
-        if (
-            destination == null &&
-            minutes == null &&
-            miles == null &&
-            traffic == null &&
-            energy == null
-        ) {
+        // TESLA_ROUTE_END_961
+        // Ohne aktives Navigationsziel keine Route anzeigen.
+        // Restwerte allein dürfen eine Route nicht aktiv halten.
+        if (destination == null) {
             return null
         }
 

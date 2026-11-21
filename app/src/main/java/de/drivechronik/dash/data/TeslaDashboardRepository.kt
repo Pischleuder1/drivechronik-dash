@@ -69,9 +69,32 @@ object TeslaDashboardRepository {
         }
 
 
+        // TESLA_LIGHT_REPOSITORY_901
+        update.lights?.let {
+            result =
+                store.updateLights(
+                    data = it,
+                    receivedAtNanos = receivedAtNanos
+                )
+        }
+
         mutableSnapshot.value =
             result
 
+
+        return result
+    }
+
+
+    // TESLA_LIGHT_CLEAR_910
+    @Synchronized
+    fun clearLights(): TeslaVehicleSnapshot {
+
+        val result =
+            store.clearLights()
+
+        mutableSnapshot.value =
+            result
 
         return result
     }

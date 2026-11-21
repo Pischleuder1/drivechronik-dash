@@ -199,13 +199,125 @@ var chargingRouteLoading by remember {
         TeslaRouteImportGuard()
     }
 
+    // TESLA_ROUTE_OWNERSHIP_973
+    // Nur automatisch übernommene Tesla-Routen
+    // dürfen später automatisch ersetzt oder entfernt werden.
+    var teslaImportedTarget by remember {
+        mutableStateOf<Pair<Float, Float>?>(null)
+    }
+
+    var teslaImportedDestination by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var teslaImportedGeneration by remember {
+        mutableIntStateOf(-1)
+    }
+
     LaunchedEffect(
         teslaRouteSnapshot.drive?.activeRouteLatitude,
-        teslaRouteSnapshot.drive?.activeRouteLongitude
+        teslaRouteSnapshot.drive?.activeRouteLongitude,
+        teslaRouteSnapshot.drive?.activeRouteDestination
     ) {
         val drive = teslaRouteSnapshot.drive
         val latitude = drive?.activeRouteLatitude
         val longitude = drive?.activeRouteLongitude
+
+        // TESLA_ROUTE_END_CLEANUP_974
+        // Tesla meldet kein aktives Navigationsziel mehr.
+        // Verbleibende Koordinaten sind kein Routennachweis.
+        if (drive?.activeRouteDestination.isNullOrBlank()) {
+
+            val ownedTeslaRoute =
+                teslaImportedTarget != null &&
+                    teslaImportedGeneration ==
+                        manualRouteGeneration
+
+            if (ownedTeslaRoute) {
+                NavigationSimulation.stop()
+                NavigationHintState.clear()
+                NavigationSummaryState.clearDestination()
+                routePoints = null
+
+                android.util.Log.i(
+                    "DriveChronikTESLAROUTE",
+                    "TESLA_ROUTE_ENDED cleared=true"
+                )
+            }
+
+            teslaImportedTarget = null
+            teslaImportedDestination = null
+            teslaImportedGeneration = -1
+
+            // Importsperre zurücksetzen, auch wenn
+            // alte Tesla-Zielkoordinaten noch existieren.
+            teslaRouteGuard.shouldImport(
+                latitude = null,
+                longitude = null,
+                dashRouteActive = routePoints != null,
+                calculationRunning = routeCalculationRunning,
+                importedPlanActive =
+                    NavigationImportState.activePlan != null ||
+                        NavigationImportState.pendingPlan != null
+            )
+
+            return@LaunchedEffect
+        }
+
+        // TESLA_ROUTE_TARGET_CHANGE_975
+        // Ein anderes Tesla-Ziel ersetzt ausschließlich
+        // eine zuvor automatisch importierte Tesla-Route.
+        val currentTeslaDestination =
+            drive?.activeRouteDestination
+                ?.trim()
+                .orEmpty()
+
+        val currentTeslaTarget =
+            if (latitude != null && longitude != null) {
+                latitude to longitude
+            } else {
+                null
+            }
+
+        val ownsCurrentRoute =
+            teslaImportedTarget != null &&
+                teslaImportedGeneration == manualRouteGeneration &&
+                NavigationImportState.activePlan == null &&
+                NavigationImportState.pendingPlan == null
+
+        val teslaTargetChanged =
+            ownsCurrentRoute &&
+                (
+                    teslaImportedTarget != currentTeslaTarget ||
+                        teslaImportedDestination != currentTeslaDestination
+                )
+
+        if (teslaTargetChanged) {
+            // Nur die eigene Tesla-Route aufheben.
+            NavigationSimulation.stop()
+            NavigationHintState.clear()
+            NavigationSummaryState.clearDestination()
+            routePoints = null
+
+            teslaImportedTarget = null
+            teslaImportedDestination = null
+            teslaImportedGeneration = -1
+
+            // Auch bei gleichen Koordinaten, aber geändertem
+            // Zielnamen einen neuen Import zulassen.
+            teslaRouteGuard.shouldImport(
+                latitude = null,
+                longitude = null,
+                dashRouteActive = false,
+                calculationRunning = false,
+                importedPlanActive = false
+            )
+
+            android.util.Log.i(
+                "DriveChronikTESLAROUTE",
+                "TESLA_ROUTE_TARGET_CHANGED"
+            )
+        }
 
         if (latitude == null || longitude == null) {
             teslaRouteGuard.shouldImport(
@@ -293,6 +405,12 @@ var chargingRouteLoading by remember {
                     )
 
                     routePoints = route
+
+                    // TESLA_ROUTE_OWNERSHIP_SUCCESS_973
+                    teslaImportedTarget = latitude to longitude
+                    teslaImportedDestination =
+                        drive.activeRouteDestination
+                    teslaImportedGeneration = generationAtStart
 
                     android.util.Log.i(
                         "DriveChronikTESLAROUTE",

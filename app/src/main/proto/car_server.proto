@@ -99,6 +99,7 @@ message GetVehicleData {
     GetMediaState getMediaState = 15;
     GetMediaDetailState getMediaDetailState = 16;
     GetSoftwareUpdateState getSoftwareUpdateState = 17;
+    GetVehicleState getVehicleState = 18;
     GetParentalControlsState getParentalControlsState = 19;
 }
 
@@ -112,6 +113,9 @@ message GetMediaDetailState {
 }
 
 message GetSoftwareUpdateState {
+}
+
+message GetVehicleState {
 }
 
 message GetChargeState {

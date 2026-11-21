@@ -891,6 +891,40 @@ private fun DriveChronikDashboard(
             Modifier.fillMaxSize()
     ) {
 
+        // TESLA_LIVE_LIGHT_FRESHNESS_935
+        // Bei BLE-Trennung wird der Lichtstatus
+        // bereits separat im Repository gelöscht.
+        val liveLightsFresh =
+            TeslaDashboardTelemetryMapper.isLightsFresh(
+                liveTelemetry
+            )
+
+        // TESLA_HAZARD_BLINK_958
+        // Synchroner Warnblinker: 500 ms EIN / 500 ms AUS.
+        // Nur aktiv bei gültigem Tesla-Warnblinkersignal.
+        var liveHazardBlinkOn by remember {
+            mutableStateOf(false)
+        }
+
+        val liveHazardsActive =
+            !demoEnabled &&
+                liveLightsFresh &&
+                liveTelemetry.hazardsOn == true
+
+        LaunchedEffect(liveHazardsActive) {
+            if (!liveHazardsActive) {
+                liveHazardBlinkOn = false
+                return@LaunchedEffect
+            }
+
+            liveHazardBlinkOn = true
+
+            while (true) {
+                delay(500L)
+                liveHazardBlinkOn = !liveHazardBlinkOn
+            }
+        }
+
         DashboardContent(
             layoutMode = dashboardLayoutMode,
             demoMode = demoEnabled,
@@ -932,7 +966,12 @@ private fun DriveChronikDashboard(
                             demoPowerKw
                         }
                         else {
-                            0f
+                            if (driveFresh) {
+                                liveTelemetry.powerRaw?.toFloat()
+                                    ?: Float.NaN
+                            } else {
+                                Float.NaN
+                            }
                         },
 
 
@@ -952,8 +991,14 @@ private fun DriveChronikDashboard(
                         if (demoEnabled) {
                             null
                         } else {
-                            liveTelemetry.batteryLevel
-                                ?.takeIf { it in 0..100 }
+                            // TESLA_USABLE_SOC_969
+                            // Bevorzugt den nutzbaren Akkustand.
+                            (
+                                liveTelemetry.usableBatteryLevel
+                                    ?.takeIf { it in 0..100 }
+                                    ?: liveTelemetry.batteryLevel
+                                        ?.takeIf { it in 0..100 }
+                            )
                         },
                     // LIVE_RANGE_KM_727
                     rangeKm =
@@ -1034,55 +1079,40 @@ private fun DriveChronikDashboard(
                 },
 
 
-                    /*
-                     * Blinker/Licht bleiben im Normalbetrieb
-                     * bewusst inaktiv, bis die Live-Signale
-                     * verifiziert und angeschlossen sind.
-                     */
+                    // TESLA_LIVE_LIGHT_UI_935
                     leftIndicator =
-                        demoEnabled &&
-                            (
-                                demoTick %
-                                    120 in
-                                    10..34
-                                ) &&
-                            (
-                                demoTick %
-                                    4 <
-                                    2
-                                ),
-
+                        if (demoEnabled) {
+                            demoTick % 120 in 10..34 &&
+                                demoTick % 4 < 2
+                        } else {
+                            liveHazardsActive &&
+                                liveHazardBlinkOn
+                        },
 
                     rightIndicator =
-                        demoEnabled &&
-                            (
-                                demoTick %
-                                    120 in
-                                    72..96
-                                ) &&
-                            (
-                                demoTick %
-                                    4 <
-                                    2
-                                ),
-
+                        if (demoEnabled) {
+                            demoTick % 120 in 72..96 &&
+                                demoTick % 4 < 2
+                        } else {
+                            liveHazardsActive &&
+                                liveHazardBlinkOn
+                        },
 
                     lowBeam =
-                        demoEnabled &&
-                            (
-                                demoTick %
-                                    120 !in
-                                    48..62
-                                ),
-
+                        if (demoEnabled) {
+                            demoTick % 120 !in 48..62
+                        } else {
+                            liveLightsFresh &&
+                                liveTelemetry.headlightsOn == true
+                        },
 
                     highBeam =
-                        demoEnabled &&
-                            (
-                                demoTick %
-                                    120 in
-                                    48..62
-                                )
+                        if (demoEnabled) {
+                            demoTick % 120 in 48..62
+                        } else {
+                            liveLightsFresh &&
+                                liveTelemetry.highBeamOn == true
+                        }
                 )
         )
 
@@ -1153,53 +1183,6 @@ private fun DashboardContent(
     ) {
 
         DashboardHeader()
-
-        // TESLA_GPS_STATUS_UI_739
-        val gpsValid =
-            state.gpsLatitude != null &&
-            state.gpsLongitude != null
-
-        val gpsStatusText =
-            if (demoMode) {
-                "TESLA GPS · Demo-Modus"
-            } else if (gpsValid) {
-                val lat = state.gpsLatitude!!
-                val lon = state.gpsLongitude!!
-
-                val coords = String.format(
-                    java.util.Locale.GERMANY,
-                    "%.5f° %s · %.5f° %s",
-                    kotlin.math.abs(lat),
-                    if (lat >= 0.0) "N" else "S",
-                    kotlin.math.abs(lon),
-                    if (lon >= 0.0) "E" else "W"
-                )
-
-                val heading =
-                    state.gpsHeadingDegrees
-                        ?.let {
-                            " · ${it.roundToInt()}°"
-                        } ?: ""
-
-                "TESLA GPS · $coords$heading"
-            } else {
-                "TESLA GPS · Keine aktuellen Daten"
-            }
-
-        Text(
-            text = gpsStatusText,
-            color = if (gpsValid && !demoMode) {
-                DashGreen
-            } else {
-                DashMuted
-            },
-            fontSize = 10.sp,
-            maxLines = 1,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 2.dp)
-        )
-
 
         Box(
             modifier =
@@ -1363,7 +1346,7 @@ modifier =
                     }
 
                     PowerRing(
-                        powerKw = if (demoMode) state.powerKw else Float.NaN,
+                        powerKw = state.powerKw,
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(
@@ -1441,7 +1424,7 @@ NavigationLayoutPlaceholder(
                         modifier = Modifier
                             .weight(
                                 if (layoutMode == DashboardLayoutMode.TOURING)
-                                    2.75f
+                                    2.50f
                                 else
                                     1.15f
                             )
@@ -1468,7 +1451,7 @@ NavigationLayoutPlaceholder(
                             demoMode = demoMode,
                             offlineSummary = NavigationSummaryState.text,
                             modifier = Modifier
-                                .weight(1.18f)
+                                .weight(1.43f)
                                 .fillMaxHeight()
                         )
                     } else {
@@ -2609,6 +2592,25 @@ private fun TeslaBleHeaderStatus() {
                         // Nur authentifizierte verschlüsselte Antworten
                         // einer bereits bestehenden Live-Sitzung.
                         if (encryptedResponse) {
+                            // TESLA_RESPONSE_DIAGNOSTICS_946
+                            // Nur Protokollstatus, keine geheimen Daten.
+                            val responseStatus =
+                                message.signedMessageStatus
+
+                            val aesResponse =
+                                message.signatureData.aesgcmResponseData
+
+                            Log.d(
+                                "DriveChronikTESLARESPONSE",
+                                "AES_RESPONSE " +
+                                    "operation=${responseStatus.operationStatus} " +
+                                    "fault=${responseStatus.signedMessageFault} " +
+                                    "faultValue=${responseStatus.signedMessageFaultValue} " +
+                                    "payloadBytes=${message.protobufMessageAsBytes.size()} " +
+                                    "counter=${aesResponse.counter} " +
+                                    "hasRequestUuid=${!message.requestUuid.isEmpty}"
+                            )
+
                             val controller =
                                 currentSessionController.value
 
@@ -2700,7 +2702,8 @@ private fun TeslaBleHeaderStatus() {
                                                         "DRIVE_VALID " +
                                                             "speed=$validSpeed " +
                                                             "speedMph=${drive.speed} " +
-                                                            "gear=${drive.shiftState}"
+                                                            "gear=${drive.shiftState} " +
+                                                            "powerRaw=${drive.power}"
                                                     )
                                                 }
 
@@ -2862,112 +2865,103 @@ private fun TeslaBleHeaderStatus() {
      * Solange sessionController == null,
      * passiert hier absolut nichts.
      */
+    // TESLA_SESSION_RETRY_933
+    // Maximal drei Handshake-Versuche pro BLE-Verbindung.
+    // Keine Änderung an Schlüssel oder Autorisierung.
     LaunchedEffect(
         gattState.status,
         sessionController
     ) {
-
-        val controller =
-            sessionController
-
+        val controller = sessionController
 
         if (
-            gattState.status ==
-                TeslaGattStatus.READY &&
-            controller != null &&
-            controller.status() ==
-                TeslaProtocolSessionStatus.IDLE
+            gattState.status == TeslaGattStatus.READY &&
+            controller != null
         ) {
+            repeat(3) { attempt ->
 
-            try {
+                if (
+                    gattState.status != TeslaGattStatus.READY ||
+                    currentSessionController.value !== controller ||
+                    controller.status() !=
+                        TeslaProtocolSessionStatus.IDLE
+                ) {
+                    return@LaunchedEffect
+                }
 
-                val handshake =
-                    controller
-                        .beginHandshake()
+                try {
+                    val handshake = controller.beginHandshake()
 
-
-                val payload =
-                    TeslaRoutableMessageCodec
-                        .encode(
+                    val payload =
+                        TeslaRoutableMessageCodec.encode(
                             handshake.message
                         )
 
+                    val accepted =
+                        gattClient.sendRoutableMessage(payload)
 
-                val accepted =
-                    gattClient
-                        .sendRoutableMessage(
-                            payload
+                    if (!accepted) {
+                        controller.clear()
+                        Log.e(
+                            "DriveChronikSESSION",
+                            "SessionInfo TX rejected by GATT"
                         )
-
-
-                if (accepted) {
+                        return@LaunchedEffect
+                    }
 
                     Log.d(
                         "DriveChronikSESSION",
-                        "SessionInfo TX queued " +
-                            "bytes=${payload.size}"
+                        "SessionInfo TX queued attempt=${attempt + 1}"
                     )
 
-
-                    /*
-                     * Lokaler Timeout.
-                     * Eine erfolgreiche Antwort setzt
-                     * den Controller vorher auf READY.
-                     */
-                    kotlinx.coroutines
-                        .delay(
-                            11_000L
-                        )
-
+                    kotlinx.coroutines.delay(11_000L)
 
                     if (
                         controller.status() ==
-                        TeslaProtocolSessionStatus
-                            .HANDSHAKE_PENDING
+                            TeslaProtocolSessionStatus.READY
                     ) {
+                        return@LaunchedEffect
+                    }
 
+                    if (
+                        controller.status() ==
+                            TeslaProtocolSessionStatus.HANDSHAKE_PENDING
+                    ) {
                         controller.clear()
-
 
                         Log.w(
                             "DriveChronikSESSION",
-                            "SessionInfo timeout"
+                            "SessionInfo timeout attempt=${attempt + 1}"
                         )
                     }
-                }
-                else {
 
+                } catch (e: Exception) {
                     controller.clear()
-
 
                     Log.e(
                         "DriveChronikSESSION",
-                        "SessionInfo TX rejected by GATT"
+                        "SessionInfo startup failed",
+                        e
                     )
+
+                    return@LaunchedEffect
+                }
+
+                if (attempt < 2) {
+                    kotlinx.coroutines.delay(2_000L)
                 }
             }
-            catch (e: Exception) {
 
-                controller.clear()
-
-
-                Log.e(
-                    "DriveChronikSESSION",
-                    "SessionInfo startup failed: " +
-                        "${e.message}",
-                    e
-                )
-            }
+            Log.w(
+                "DriveChronikSESSION",
+                "SessionInfo retry limit reached"
+            )
         }
 
-
         if (
-            gattState.status ==
-                TeslaGattStatus.DISCONNECTED ||
-            gattState.status ==
-                TeslaGattStatus.ERROR
+            gattState.status == TeslaGattStatus.DISCONNECTED ||
+            gattState.status == TeslaGattStatus.ERROR
         ) {
-
             controller?.clear()
         }
     }
@@ -3012,6 +3006,67 @@ private fun TeslaBleHeaderStatus() {
                     12_000L
             )
         }
+    }
+
+    // TESLA_AUTO_RECONNECT_1022
+    // Nur bei fehlender Verbindung erneut scannen.
+    // Bestehende READY-Verbindungen bleiben unangetastet.
+    LaunchedEffect(
+        permissionGranted,
+        gattState.status,
+        scanState.status
+    ) {
+        if (!permissionGranted) {
+            return@LaunchedEffect
+        }
+
+        val reconnectNeeded =
+            gattState.status == TeslaGattStatus.DISCONNECTED ||
+            gattState.status == TeslaGattStatus.ERROR ||
+            (
+                gattState.status == TeslaGattStatus.IDLE &&
+                scanState.status == TeslaBleScanStatus.NOT_FOUND
+            ) ||
+            (
+                gattState.status == TeslaGattStatus.IDLE &&
+                scanState.status == TeslaBleScanStatus.ERROR
+            )
+
+        if (!reconnectNeeded) {
+            return@LaunchedEffect
+        }
+
+        if (scanState.status == TeslaBleScanStatus.SCANNING) {
+            return@LaunchedEffect
+        }
+
+        kotlinx.coroutines.delay(5_000L)
+
+        if (
+            gattState.status == TeslaGattStatus.READY ||
+            gattState.status == TeslaGattStatus.CONNECTING ||
+            gattState.status == TeslaGattStatus.CONNECTED ||
+            gattState.status == TeslaGattStatus.DISCOVERING_SERVICES ||
+            gattState.status == TeslaGattStatus.SERVICE_READY ||
+            gattState.status == TeslaGattStatus.SUBSCRIBING ||
+            scanState.status == TeslaBleScanStatus.SCANNING
+        ) {
+            return@LaunchedEffect
+        }
+
+        if (
+            gattState.status == TeslaGattStatus.DISCONNECTED ||
+            gattState.status == TeslaGattStatus.ERROR
+        ) {
+            gattClient.close()
+        }
+
+        Log.i(
+            "DriveChronikBLE",
+            "AUTO_RECONNECT scan starting"
+        )
+
+        scanner.startScan(durationMs = 12_000L)
     }
 
     /*
@@ -3142,6 +3197,10 @@ private fun TeslaBleHeaderStatus() {
         }
     LaunchedEffect(gattState.status) {
         if (gattState.status != TeslaGattStatus.READY) {
+            // TESLA_LIGHT_DISCONNECT_911
+            // Bei BLE-Trennung ausschließlich Lichtdaten löschen.
+            TeslaDashboardRepository.clearLights()
+
             drivePollingController = null
             pendingEnrollmentRequest = null
             keyEnrollmentPending = false
@@ -3258,19 +3317,22 @@ private fun TeslaBleHeaderStatus() {
     ) {
         val controller = drivePollingController
 
-        // GPS_POLLING_735
-        var pollingCycle = 0L
-
         if (
             controller != null &&
             gattState.status == TeslaGattStatus.READY
         ) {
+            // TESLA_SEPARATE_POLL_950
+            var pollingCycle = 0
+
             while (
                 currentSessionController.value === controller &&
                 controller.status() ==
                     TeslaProtocolSessionStatus.READY
             ) {
-                kotlinx.coroutines.delay(1_500L)
+                // TESLA_LIVE_250MS_1025
+                // Maximal ein Request gleichzeitig.
+                // Zentraler Polling-Takt fuer alle Cockpits.
+                kotlinx.coroutines.delay(250L)
 
                 if (
                     gattState.status != TeslaGattStatus.READY ||
@@ -3287,15 +3349,41 @@ private fun TeslaBleHeaderStatus() {
                 }
 
                 try {
-                    val request =
-                        controller.buildEncryptedRequest(
-                            if (pollingCycle % 4L == 3L) {
-                                de.drivechronik.dash.ble
-                                    .TeslaLocationStateCodec.buildRequest()
-                            } else {
+                    // TESLA_SEPARATE_REQUEST_950
+                    // Maximal eine offene Tesla-Anfrage.
+                    // DRIVE dreimal, GPS/LIGHT/CHARGE je einmal.
+                    // TESLA_CHARGE_POLL_961
+                    // DRIVE / GPS / DRIVE / LIGHT / DRIVE / CHARGE
+                    val requestType =
+                        when (pollingCycle % 6) {
+                            0, 2, 4 -> "DRIVE"
+                            1 -> "GPS"
+                            3 -> "LIGHT"
+                            else -> "CHARGE"
+                        }
+
+                    val requestBytes =
+                        when (requestType) {
+                            "DRIVE" ->
                                 de.drivechronik.dash.ble
                                     .TeslaDriveStateCodec.buildRequest()
-                            }
+
+                            "GPS" ->
+                                de.drivechronik.dash.ble
+                                    .TeslaLocationStateCodec.buildRequest()
+
+                            "LIGHT" ->
+                                de.drivechronik.dash.ble
+                                    .TeslaVehicleStateCodec.buildRequest()
+
+                            else ->
+                                de.drivechronik.dash.ble
+                                    .TeslaChargeStateCodec.buildRequest()
+                        }
+
+                    val request =
+                        controller.buildEncryptedRequest(
+                            requestBytes
                         )
 
                     val payload =
@@ -3305,19 +3393,15 @@ private fun TeslaBleHeaderStatus() {
                         gattClient.sendRoutableMessage(payload)
 
                     if (accepted) {
-                        val wasGpsRequest =
-                            pollingCycle % 4L == 3L
-
-                        pollingCycle++
-
                         Log.d(
                             "DriveChronikDATA",
-                            if (wasGpsRequest) {
-                                "LOCATION_POLL_QUEUED bytes=${payload.size}"
-                            } else {
-                                "DRIVE_POLL_QUEUED bytes=${payload.size}"
-                            }
+                            "SEPARATE_POLL_QUEUED " +
+                                "type=$requestType " +
+                                "bytes=${payload.size}"
                         )
+
+                        pollingCycle =
+                            (pollingCycle + 1) % 6
                     } else {
                         Log.w(
                             "DriveChronikDATA",
@@ -4521,8 +4605,17 @@ private fun PowerRing(
             )
 
             val zeroAngle = 337.5f
+            // Kleine reale Leistungen sichtbar darstellen.
+            // Nur die Darstellung, nicht den Messwert anheben.
             val sweep =
-                kotlin.math.abs(power) / 60f * 67.5f
+                if (power == 0f) {
+                    0f
+                } else {
+                    maxOf(
+                        4f,
+                        kotlin.math.abs(power) / 60f * 67.5f
+                    )
+                }
 
             if (sweep > 0f) {
                 drawArc(
