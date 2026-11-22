@@ -2,7 +2,7 @@
 
 Lokales Android-Dashboard und Navigationssystem für Tesla-Fahrzeuge.
 
-**Aktuelle Version: 0.6.6**
+**Aktuelle Version: 0.6.7**
 
 ## Projektbeschreibung
 
@@ -108,7 +108,7 @@ fahrzeugseitigen Verifizierung.
 Die privaten Fahrzeugschlüssel werden über den
 Android KeyStore verwaltet und nicht im Git-Repository gespeichert.
 
-### Tesla-BLE-Livedaten ab v0.6.6
+### Tesla-BLE-Livedaten ab v0.6.7
 
 - Live-Geschwindigkeit für alle drei Cockpit-Layouts
 - Leistungsanzeige für POWER und Rekuperation
@@ -336,7 +336,7 @@ automatisch zu löschen.
 
 ## Versionen
 
-- **0.6.6** – Automatische Tesla-BLE-Wiederverbindung,
+- **0.6.7** – Automatische Tesla-BLE-Wiederverbindung,
   schnellerer zentraler Tacho-Abfragetakt für alle Cockpits,
   Live-Power und Rekuperation, Tesla-Navigationsdaten,
   überarbeitetes TOURING-Cockpit
