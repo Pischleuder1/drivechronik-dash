@@ -158,7 +158,7 @@ internal fun CompactDrivePanel(
                 }
 
             Text(
-                text = "RESTENERGIE / REICHWEITE",
+                text = "ENERGIE",
                 color = Color.White.copy(alpha = 0.90f),
                 fontSize = 11.sp,
                 letterSpacing = 1.sp

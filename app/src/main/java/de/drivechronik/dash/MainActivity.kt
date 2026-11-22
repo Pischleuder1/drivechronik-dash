@@ -1,5 +1,10 @@
 package de.drivechronik.dash
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import de.drivechronik.dash.routing.OfflineSpeedLimit
+import de.drivechronik.dash.routing.SpeedLimitGpsTrace
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -530,6 +535,89 @@ private fun DriveChronikDashboard(
             )
 
 
+    // LIVE_SPEED_LIMIT_1054
+    // Tempolimit aus lokalen Valhalla-Straßendaten.
+    // Läuft unabhängig von Tesla-BLE und Navigation.
+    var liveRoadSpeedLimit by remember {
+        mutableIntStateOf(0)
+    }
+
+    val speedLimitGps by rememberUpdatedState(
+        if (
+            !demoEnabled &&
+            liveTelemetry.locationAgeMillis
+                ?.let { it in 0L..8_000L } == true
+        ) {
+            val lat = liveTelemetry.latitude?.toDouble()
+            val lon = liveTelemetry.longitude?.toDouble()
+
+            if (
+                lat != null && lon != null &&
+                lat.isFinite() && lon.isFinite() &&
+                lat in -90.0..90.0 &&
+                lon in -180.0..180.0
+            ) {
+                lat to lon
+            } else null
+        } else null
+    )
+
+    LaunchedEffect(demoEnabled, layoutContext) {
+        val trace = SpeedLimitGpsTrace()
+        var lastQueryMs = -10_000L
+        var lastResultMs = 0L
+
+        liveRoadSpeedLimit = 0
+
+        if (!demoEnabled) {
+            while (true) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                val gps = speedLimitGps
+
+                if (gps == null) {
+                    trace.reset()
+                    liveRoadSpeedLimit = 0
+                    lastResultMs = 0L
+                } else {
+                    trace.add(
+                        lat = gps.first,
+                        lon = gps.second,
+                        timeMs = now
+                    )
+
+                    val coordinates = trace.coordinates()
+
+                    if (
+                        coordinates.isNotEmpty() &&
+                        now - lastQueryMs >= 10_000L
+                    ) {
+                        lastQueryMs = now
+
+                        val result = OfflineSpeedLimit.lookup(
+                            context = layoutContext,
+                            coordinates = coordinates
+                        )
+
+                        liveRoadSpeedLimit = result ?: 0
+                        lastResultMs =
+                            if (result != null) now else 0L
+                    }
+
+                    // Keine unbegrenzt alten Kartenwerte anzeigen.
+                    if (
+                        lastResultMs > 0L &&
+                        now - lastResultMs > 20_000L
+                    ) {
+                        liveRoadSpeedLimit = 0
+                    }
+                }
+
+                delay(2_000L)
+            }
+        }
+    }
+
+
     /*
      * Lokales Diagnoseprotokoll.
      *
@@ -952,7 +1040,7 @@ private fun DriveChronikDashboard(
                             demoSpeedLimit
                         }
                         else {
-                            0
+                            liveRoadSpeedLimit
                         },
 
 
@@ -1302,6 +1390,9 @@ modifier =
 
                         maxKwh =
                             state.usableCapacityKwh,
+
+                        batteryPercent =
+                            if (demoMode) null else state.batteryPercent,
 
                         modifier =
                             Modifier
@@ -1716,6 +1807,7 @@ private fun DiagnosticsControlOverlay(
             text = {
 
                 Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement =
                         Arrangement.spacedBy(
                             10.dp
@@ -1843,6 +1935,39 @@ private fun DiagnosticsControlOverlay(
                                     DashLine
                                 )
                     )
+
+
+
+                    // BATTERY_CAPACITY_SERVICE_1080
+
+
+                    Box(
+
+
+                        modifier = Modifier
+
+
+                            .fillMaxWidth()
+
+
+                            .height(1.dp)
+
+
+                            .background(DashLine)
+
+
+                    )
+
+
+
+                    BatteryCapacityControl(
+
+
+                        modifier = Modifier.fillMaxWidth()
+
+
+                    )
+
 
 
                     Text(
@@ -4287,11 +4412,15 @@ private fun rememberAutomaticSolarNightMode(): Boolean {
 private fun EnergyRing(
     remainingKwh: Float,
     maxKwh: Float,
+    batteryPercent: Int? = null,
     modifier: Modifier = Modifier
 ) {
 
     val percent =
-        if (
+        if (batteryPercent != null) {
+            batteryPercent.coerceIn(0, 100).toFloat()
+        }
+        else if (
             maxKwh > 0.1f &&
                 remainingKwh.isFinite()
         ) {

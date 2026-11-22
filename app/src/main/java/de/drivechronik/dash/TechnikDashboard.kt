@@ -30,200 +30,134 @@ internal fun TechnikDashboard(
     demoMode: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Row(
         modifier = modifier
             .fillMaxSize()
             .background(TechnikBackground)
             .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().weight(0.38f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        // TECHNIK_SPEED_FULL_HEIGHT_1069
+        TechnikPanelBox(
+            modifier = Modifier
+                .weight(1.05f)
+                .fillMaxHeight()
         ) {
-            TechnikPanelBox(
-                modifier = Modifier.weight(1.05f).fillMaxHeight()
+            Text(
+                "GESCHWINDIGKEIT",
+                color = TechnikMuted,
+                fontSize = 12.sp
+            )
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                Text("GESCHWINDIGKEIT", color = TechnikMuted, fontSize = 12.sp)
-
-                Box(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            state.speed.roundToInt().toString(),
-                            color = Color.White,
-                            fontSize = 48.sp,
-                            lineHeight = 52.sp,
-                            fontWeight = FontWeight.Light
-                        )
-                        Text(
-                            "km/h",
-                            color = TechnikMuted,
-                            fontSize = 13.sp,
-                            lineHeight = 16.sp
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "FAHRSTUFE ${state.gear}",
-                        color = TechnikBlue,
-                        fontSize = 12.sp
+                        text = state.speed
+                            .roundToInt()
+                            .toString(),
+                        color = Color.White,
+                        fontSize = 64.sp,
+                        lineHeight = 70.sp,
+                        fontWeight = FontWeight.Light,
+                        maxLines = 1
                     )
 
+                    Text(
+                        "km/h",
+                        color = TechnikMuted,
+                        fontSize = 17.sp
+                    )
                 }
             }
 
-            TechnikPanelBox(
-                modifier = Modifier.weight(1.95f).fillMaxHeight()
+            // TECHNIK_SETTINGS_GEAR_1087
+            // Bestehendes Navigations-Einstellungsmenü
+            // auch ohne Navigationskarte erreichbar machen.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("ANTRIEBSLEISTUNG", color = TechnikMuted, fontSize = 12.sp)
-                Spacer(Modifier.weight(1f))
-
-                val power = state.powerKw
-                    .takeIf { it.isFinite() } ?: 0f
-
-                TechnikBidirectionalPowerBar(
-                    powerKw = power,
-                    available = demoMode
+                Text(
+                    "FAHRSTUFE ${state.gear}",
+                    color = TechnikBlue,
+                    fontSize = 13.sp
                 )
 
+                NavigationSimulationControls(
+                    route = null,
+                    onStop = {}
+                )
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth().weight(0.62f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .weight(1.95f)
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             TechnikPanelBox(
-                modifier = Modifier.weight(1.05f).fillMaxHeight()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.30f)
             ) {
-                Text("BATTERIE / ENERGIE", color = TechnikMuted, fontSize = 12.sp)
-                Spacer(Modifier.weight(1f))
-
-                val capacity = state.usableCapacityKwh
-                val remaining = state.remainingKwh
-                val valid = capacity.isFinite() &&
-                    remaining.isFinite() && capacity > 0f
-
-                val percent = if (valid) {
-                    (remaining / capacity * 100f)
-                        .coerceIn(0f, 100f)
-                        .roundToInt()
-                } else {
-                    0
-                }
-
                 Text(
-                    // LIVE_BATTERY_TECHNIK_720
-                    if (demoMode) {
-                        "$percent %"
-                    } else {
-                        state.batteryPercent
-                            ?.takeIf { it in 0..100 }
-                            ?.let { "$it %" }
-                            ?: "— %"
-                    },
-                    color = TechnikBlue,
-                    fontSize = 36.sp,
-                    lineHeight = 40.sp
+                    "ANTRIEBSLEISTUNG",
+                    color = TechnikMuted,
+                    fontSize = 12.sp
                 )
 
-                Spacer(Modifier.height(5.dp))
-                TechnikProgressBar(
-                    if (demoMode) {
-                        percent / 100f
-                    } else {
-                        state.batteryPercent
-                            ?.takeIf { it in 0..100 }
-                            ?.div(100f)
-                            ?: 0f
-                    },
-                    TechnikBlue
-                )
                 Spacer(Modifier.weight(1f))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text("RESTENERGIE", color = TechnikMuted, fontSize = 10.sp)
-                        Text(
-                            if (demoMode)
-                                String.format(Locale.GERMANY, "%.1f kWh", remaining)
-                            else
-                                "— kWh",
-                            color = Color.White,
-                            fontSize = 15.sp
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("REICHWEITE", color = TechnikMuted, fontSize = 10.sp)
-                        Text(
-                            // LIVE_RANGE_TECHNIK_727
-                            if (demoMode || state.rangeKm >= 0)
-                                "${state.rangeKm} km"
-                            else
-                                "— km",
-                            color = Color.White,
-                            fontSize = 15.sp
-                        )
-                    }
-                }
+                TechnikBidirectionalPowerBar(
+                    powerKw = state.powerKw,
+                    available = state.powerKw.isFinite()
+                )
             }
 
             Box(
                 modifier = Modifier
-                    .weight(1.95f)
-                    .fillMaxHeight()
-                    .background(TechnikPanel, RoundedCornerShape(12.dp))
+                    .fillMaxWidth()
+                    .weight(0.70f)
+                    .background(
+                        TechnikPanel,
+                        RoundedCornerShape(12.dp)
+                    )
             ) {
-                NavigationLayoutPlaceholder(
-                    nightMode = nightMode,
-                    curvedEdge = false,
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                if (state.speedLimit > 0) {
-                    TechnikSpeedLimitSign(
-                        limit = state.speedLimit,
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(4.dp),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+                    TechnikEnergyMonitor(
+                        state = state,
+                        demoMode = demoMode,
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 14.dp, end = 14.dp)
+                            .weight(1.15f)
+                            .fillMaxHeight()
+                    )
+
+                    TechnikPowerHistory(
+                        powerKw = state.powerKw,
+                        demoMode = demoMode,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
                     )
                 }
             }
         }
-    }
-}
-
-
-@Composable
-private fun TechnikSpeedLimitSign(
-    limit: Int,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(49.dp)
-            .background(Color.White, CircleShape)
-            .border(5.dp, Color(0xFFD62828), CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = limit.toString(),
-            color = Color.Black,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1
-        )
     }
 }
 
@@ -232,8 +166,11 @@ private fun TechnikBidirectionalPowerBar(
     powerKw: Float,
     available: Boolean
 ) {
-    val power = powerKw.coerceAtLeast(0f)
-    val regen = abs(powerKw.coerceAtMost(0f))
+    val safePower =
+        if (available && powerKw.isFinite()) powerKw else 0f
+
+    val power = safePower.coerceAtLeast(0f)
+    val regen = abs(safePower.coerceAtMost(0f))
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -252,7 +189,7 @@ private fun TechnikBidirectionalPowerBar(
             )
 
             Text(
-                if (available) "${abs(powerKw).roundToInt()} kW" else "— kW",
+                if (available) "${abs(safePower).roundToInt()} kW" else "— kW",
                 color = Color.White,
                 fontSize = 19.sp
             )
